@@ -110,12 +110,6 @@ const BLOCKS = {
       return sum / arr.data.length;
     }
   },
-  relu: {
-    title: 'ReLU', kind: 'function', inputs: ['x'],
-    description: '0보다 작으면 0, 크면 입력값을 그대로 돌려주는 함수.',
-    formula: () => 'max(0, x)',
-    compute: (node, [x]) => elementwiseUnary(x, v => Math.max(0, v))
-  },
   display: {
     title: '값 보기', kind: 'sink', inputs: ['x'],
     description: '연결된 블록의 계산 결과를 그대로 보여준다.',
@@ -196,7 +190,7 @@ function renderNode(node) {
 }
 
 function kindLabel(kind) {
-  return ({ source: '입력', transform: '변환', operation: '연산', function: '함수', sink: '확인' })[kind] || kind;
+  return ({ source: '입력', transform: '변환', operation: '연산', sink: '확인' })[kind] || kind;
 }
 
 function installNodeEvents(el, node) {
