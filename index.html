@@ -14,8 +14,11 @@
       <p class="subtitle">수학 블록을 직접 연결하고, 묶고, 미분하며 구조를 만들어 갑니다.</p>
     </div>
     <div class="top-actions">
+      <button id="importProjectBtn">불러오기</button>
+      <button id="exportProjectBtn">내보내기</button>
       <button id="resetWorkspaceBtn">작업공간 초기화</button>
       <button id="evaluateBtn" class="primary">계산</button>
+      <input id="importProjectInput" type="file" accept=".mmlab,application/json" hidden />
     </div>
   </header>
 
@@ -139,5 +142,6 @@
   <script src="app-training-runtime.js"></script>
   <script src="app-boot.js"></script>
   <script src="dataset.js"></script>
+  <script src="app-project-io.js"></script>
 </body>
 </html>
