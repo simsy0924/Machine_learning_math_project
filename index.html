@@ -21,21 +21,16 @@
 
   <main class="app-shell">
     <aside class="sidebar palette-panel">
-      <div class="section-head">
-        <h2>수학 블록</h2>
-        <span class="pill">클릭해서 추가</span>
-      </div>
+      <div class="section-head"><h2>수학 블록</h2><span class="pill">클릭해서 추가</span></div>
       <p class="muted">특정 AI 구조는 미리 들어 있지 않습니다.</p>
 
-      <section class="palette-group">
-        <h3>입력</h3>
+      <section class="palette-group"><h3>입력</h3>
         <button class="palette-block source" data-block="number">숫자</button>
         <button class="palette-block source" data-block="variable">변수</button>
         <button class="palette-block source" data-block="drawing">그림 입력</button>
       </section>
 
-      <section class="palette-group">
-        <h3>데이터</h3>
+      <section class="palette-group"><h3>데이터</h3>
         <button class="palette-block data" data-block="dataset">불러온 데이터</button>
         <button class="palette-block data" data-block="chooseClass">종류 고르기</button>
         <button class="palette-block data" data-block="chooseSample">샘플 고르기</button>
@@ -44,20 +39,17 @@
         <button class="palette-block data" data-block="sampleOneHot">종류 벡터</button>
       </section>
 
-      <section class="palette-group">
-        <h3>생성</h3>
+      <section class="palette-group"><h3>생성</h3>
         <button class="palette-block generator" data-block="constantVector">같은 값 벡터</button>
         <button class="palette-block generator" data-block="randomVector">무작위 벡터</button>
       </section>
 
-      <section class="palette-group">
-        <h3>변환</h3>
+      <section class="palette-group"><h3>변환</h3>
         <button class="palette-block transform" data-block="resize28">28×28 변환</button>
         <button class="palette-block transform" data-block="flatten">펼치기</button>
       </section>
 
-      <section class="palette-group">
-        <h3>연산</h3>
+      <section class="palette-group"><h3>연산</h3>
         <div class="palette-two-col">
           <button class="palette-block operation" data-block="add">더하기</button>
           <button class="palette-block operation" data-block="subtract">빼기</button>
@@ -74,37 +66,21 @@
         </div>
       </section>
 
-      <section class="palette-group">
-        <h3>미분</h3>
-        <button class="palette-block calculus" data-block="derivative">미분</button>
-      </section>
-
-      <section class="palette-group">
-        <h3>확인</h3>
-        <button class="palette-block sink" data-block="display">값 보기</button>
-      </section>
+      <section class="palette-group"><h3>미분</h3><button class="palette-block calculus" data-block="derivative">미분</button></section>
+      <section class="palette-group"><h3>확인</h3><button class="palette-block sink" data-block="display">값 보기</button></section>
 
       <section class="palette-group my-blocks-group">
-        <div class="section-head mini-head">
-          <h3>내 블록</h3>
-          <span class="pill">기기에 저장</span>
-        </div>
+        <div class="section-head mini-head"><h3>내 블록</h3><span class="pill">기기에 저장</span></div>
         <p id="myBlocksEmpty" class="muted">블록 묶기로 직접 만든 블록이 여기에 생깁니다.</p>
         <div id="myBlocksPalette"></div>
       </section>
 
-      <div class="help-card">
-        <strong>조작 방법</strong>
-        <p>블록 전체를 잡고 이동할 수 있습니다. 연결은 오른쪽 ● → 다른 블록 왼쪽 ○ 순서입니다.</p>
-      </div>
+      <div class="help-card"><strong>조작 방법</strong><p>블록 전체를 잡고 이동할 수 있습니다. 연결은 오른쪽 ● → 다른 블록 왼쪽 ○ 순서입니다.</p></div>
     </aside>
 
     <section class="workspace-panel">
       <div class="workspace-head">
-        <div>
-          <h2>작업공간</h2>
-          <p id="connectionHint" class="muted">블록을 놓고 수학식을 직접 만드세요.</p>
-        </div>
+        <div><h2>작업공간</h2><p id="connectionHint" class="muted">블록을 놓고 수학식을 직접 만드세요.</p></div>
         <div class="workspace-tools">
           <button id="groupSelectBtn" class="ghost">블록 묶기</button>
           <button id="createGroupBtn" class="primary" hidden disabled>새 블록 만들기 (0)</button>
@@ -113,42 +89,26 @@
         </div>
       </div>
       <div id="workspace" class="workspace" aria-label="수학 블록 작업공간">
-        <svg id="wires" class="wires" aria-hidden="true"></svg>
-        <div id="nodes" class="nodes"></div>
-        <div id="emptyState" class="empty-state">
-          <div class="empty-symbol">f(x)</div>
-          <strong>아직 아무 함수도 만들지 않았습니다.</strong>
-          <span>왼쪽에서 블록을 추가해 시작하세요.</span>
-        </div>
+        <svg id="wires" class="wires" aria-hidden="true"></svg><div id="nodes" class="nodes"></div>
+        <div id="emptyState" class="empty-state"><div class="empty-symbol">f(x)</div><strong>아직 아무 함수도 만들지 않았습니다.</strong><span>왼쪽에서 블록을 추가해 시작하세요.</span></div>
       </div>
     </section>
 
     <aside class="sidebar inspector-panel">
       <section class="inspector-card">
-        <div class="section-head">
-          <h2>선택한 블록</h2>
-          <button id="deleteNodeBtn" class="danger ghost" disabled>삭제</button>
-        </div>
+        <div class="section-head"><h2>선택한 블록</h2><button id="deleteNodeBtn" class="danger ghost" disabled>삭제</button></div>
         <div id="inspectorEmpty" class="muted">작업공간의 블록을 선택하세요.</div>
         <div id="inspectorContent" hidden>
-          <h3 id="inspectorTitle"></h3>
-          <p id="inspectorDescription" class="muted"></p>
-          <div id="inspectorControls"></div>
+          <h3 id="inspectorTitle"></h3><p id="inspectorDescription" class="muted"></p><div id="inspectorControls"></div>
           <div class="formula-box"><span>수학식</span><code id="inspectorFormula">-</code></div>
           <div class="value-box"><span>현재 값</span><pre id="inspectorValue">계산 전</pre></div>
         </div>
       </section>
 
       <section class="draw-card">
-        <div class="section-head">
-          <h2>그림 입력</h2>
-          <button id="clearDrawBtn" class="ghost">지우기</button>
-        </div>
+        <div class="section-head"><h2>그림 입력</h2><button id="clearDrawBtn" class="ghost">지우기</button></div>
         <canvas id="drawCanvas" width="320" height="320"></canvas>
-        <div class="draw-row">
-          <canvas id="previewCanvas" width="140" height="140"></canvas>
-          <div><strong>28×28 미리보기</strong><p class="muted">‘28×28 변환’ 블록을 연결한 뒤 계산하면 갱신됩니다.</p></div>
-        </div>
+        <div class="draw-row"><canvas id="previewCanvas" width="140" height="140"></canvas><div><strong>28×28 미리보기</strong><p class="muted">‘28×28 변환’ 블록을 연결한 뒤 계산하면 갱신됩니다.</p></div></div>
       </section>
 
       <section class="dataset-card">
@@ -171,7 +131,11 @@
     <a href="https://github.com/googlecreativelab/quickdraw-dataset" target="_blank" rel="noopener noreferrer">Dataset documentation</a>
   </footer>
 
-  <script src="app.js"></script>
+  <script src="app-core.js"></script>
+  <script src="app-blocks.js"></script>
+  <script src="app-engine.js"></script>
+  <script src="app-groups.js"></script>
+  <script src="app-boot.js"></script>
   <script src="dataset.js"></script>
 </body>
 </html>
