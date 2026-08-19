@@ -93,7 +93,6 @@ button:disabled { opacity: .4; cursor: default; }
 .palette-block.source { border-left-color: #3478c9; }
 .palette-block.transform { border-left-color: #7a54bf; }
 .palette-block.operation { border-left-color: #d28a25; }
-.palette-block.function { border-left-color: #2d9a73; }
 .palette-block.sink { border-left-color: #555b66; }
 
 .help-card {
@@ -146,43 +145,56 @@ button:disabled { opacity: .4; cursor: default; }
   background: #fff;
   box-shadow: 0 6px 18px rgba(30, 33, 40, .11);
   user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
 }
 .node.selected { outline: 3px solid rgba(30, 98, 190, .18); border-color: #4d82c8; }
 .node-head {
-  padding: 9px 11px;
+  padding: 11px 12px;
+  min-height: 42px;
   border-bottom: 1px solid #eceef0;
   font-weight: 800;
   font-size: 13px;
   cursor: grab;
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
+  touch-action: none;
 }
-.node-head:active { cursor: grabbing; }
+.node-head::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  cursor: grab;
+}
+.node-head:active::after { cursor: grabbing; }
 .node-kind { color: #888e97; font-size: 10px; font-weight: 700; }
 .node-body { padding: 9px 12px 10px; min-height: 40px; color: #656a73; font-size: 11px; line-height: 1.4; }
 .node-preview { margin-top: 5px; color: #20242a; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .node.source .node-head { border-top: 4px solid #3478c9; border-radius: 11px 11px 0 0; }
 .node.transform .node-head { border-top: 4px solid #7a54bf; border-radius: 11px 11px 0 0; }
 .node.operation .node-head { border-top: 4px solid #d28a25; border-radius: 11px 11px 0 0; }
-.node.function .node-head { border-top: 4px solid #2d9a73; border-radius: 11px 11px 0 0; }
 .node.sink .node-head { border-top: 4px solid #555b66; border-radius: 11px 11px 0 0; }
 
-.port-row { position: relative; min-height: 18px; margin: 3px 0; }
+.port-row { position: relative; min-height: 22px; margin: 4px 0; }
 .port-label { color: #858a92; font-size: 10px; }
 .port {
   position: absolute;
+  z-index: 4;
   top: 50%;
-  width: 13px;
-  height: 13px;
+  width: 18px;
+  height: 18px;
   transform: translateY(-50%);
   border: 2px solid #555b65;
   border-radius: 50%;
   background: #fff;
   cursor: crosshair;
+  touch-action: none;
 }
-.port.input { left: -19px; }
-.port.output { right: -19px; background: #555b65; }
+.port.input { left: -22px; }
+.port.output { right: -22px; background: #555b65; }
 .port.hot { box-shadow: 0 0 0 5px rgba(77, 130, 200, .17); border-color: #2d72ca; }
 
 .inspector-panel { display: flex; flex-direction: column; gap: 12px; background: transparent; border: 0; box-shadow: none; padding: 0; }
