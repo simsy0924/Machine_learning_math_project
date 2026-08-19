@@ -114,9 +114,34 @@
           </div>
         </div>
       </section>
+
+      <section class="dataset-card">
+        <div class="section-head">
+          <h2>Quick Draw 데이터</h2>
+          <span id="datasetCount" class="pill">0개 로드</span>
+        </div>
+        <p class="muted">15종 중 발표에서 사용할 종류만 선택하세요. 선택한 파일만 메모리에 불러옵니다.</p>
+
+        <div class="dataset-actions compact-actions">
+          <button id="selectAllClassesBtn" class="ghost">전체 선택</button>
+          <button id="clearClassSelectionBtn" class="ghost">선택 해제</button>
+        </div>
+
+        <div id="classPicker" class="class-picker"></div>
+
+        <button id="loadDatasetBtn" class="primary dataset-load-btn">선택한 데이터 불러오기</button>
+        <div id="datasetStatus" class="dataset-status">아직 불러온 데이터가 없습니다.</div>
+
+        <div class="section-head sample-head">
+          <h3>실제 데이터 샘플</h3>
+          <button id="randomizeSamplesBtn" class="ghost" disabled>다른 샘플</button>
+        </div>
+        <div id="datasetSamples" class="sample-grid"></div>
+      </section>
     </aside>
   </main>
 
   <script src="app.js"></script>
+  <script src="dataset.js"></script>
 </body>
 </html>
