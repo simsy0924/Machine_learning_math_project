@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>함수로 그림을 구별하기</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <div>
+      <h1>함수로 그림을 구별하기</h1>
+      <p>그림 → 28×28 → 784개의 숫자</p>
+    </div>
+    <div class="status" id="status">준비</div>
+  </header>
+
+  <main class="layout">
+    <aside class="panel blocks-panel">
+      <h2>수학 블록</h2>
+      <p class="muted">지금은 입력 변환만 연결되어 있습니다.</p>
+      <div class="block input">그림 입력</div>
+      <div class="arrow">↓</div>
+      <div class="block transform">28 × 28로 변환</div>
+      <div class="arrow">↓</div>
+      <div class="block transform">0~1로 정규화</div>
+      <div class="arrow">↓</div>
+      <div class="block output">784차원 벡터</div>
+      <div class="arrow disabled">↓</div>
+      <div class="block disabled">신경망 (다음 단계)</div>
+    </aside>
+
+    <section class="panel draw-panel">
+      <div class="panel-title-row">
+        <h2>1. 직접 그리기</h2>
+        <div class="toolbar">
+          <button id="clearBtn">지우기</button>
+          <button id="processBtn" class="primary">28×28 변환</button>
+        </div>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="drawCanvas" width="420" height="420"></canvas>
+      </div>
+      <p class="hint">마우스나 터치로 그리세요. 선은 굵게 그릴수록 안정적입니다.</p>
+    </section>
+
+    <section class="panel preview-panel">
+      <h2>2. 컴퓨터가 보는 그림</h2>
+      <canvas id="previewCanvas" width="280" height="280"></canvas>
+      <div class="stats">
+        <div><span>입력 차원</span><strong>784</strong></div>
+        <div><span>최솟값</span><strong id="minVal">0.000</strong></div>
+        <div><span>최댓값</span><strong id="maxVal">0.000</strong></div>
+        <div><span>평균</span><strong id="meanVal">0.000</strong></div>
+      </div>
+    </section>
+
+    <section class="panel vector-panel">
+      <div class="panel-title-row">
+        <h2>3. 실제 784개 숫자</h2>
+        <button id="copyBtn">벡터 복사</button>
+      </div>
+      <textarea id="vectorOutput" readonly spellcheck="false"></textarea>
+      <div class="formula">
+        <span>그림 한 장</span>
+        <strong>→</strong>
+        <code>(x₁, x₂, …, x₇₈₄)</code>
+        <strong>∈</strong>
+        <code>ℝ⁷⁸⁴</code>
+      </div>
+    </section>
+  </main>
+
+  <script src="nn.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
