@@ -223,7 +223,16 @@ function renderInspector() {
     let input;
     if (control.type === 'select') { input = document.createElement('select'); for (const option of control.options || []) { const el = document.createElement('option'); el.value = option.value; el.textContent = option.label; input.appendChild(el); } input.value = node.params[control.key]; }
     else { input = document.createElement('input'); input.type = control.type || 'text'; if (control.step) input.step = control.step; input.value = node.params[control.key]; }
-    input.addEventListener('input', () => { node.params[control.key] = input.value; inspectorFormula.textContent = def.formula(node); invalidatePreviews(); });
+    input.addEventListener('input', () => {
+      node.params[control.key] = input.value;
+      inspectorFormula.textContent = def.formula(node);
+      for (const graphNode of graph.nodes.values()) {
+        graphNode.lastValue = undefined;
+        graphNode.lastError = null;
+        updateNodePreview(graphNode);
+      }
+      inspectorValue.textContent = '계산 전';
+    });
     row.append(label, input); inspectorControls.appendChild(row);
   }
 }
