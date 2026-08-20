@@ -1,3 +1,118 @@
+(function installRuntimePerformanceOptimizations() {
+  // Math values are immutable by convention: every block operation creates a new
+  // Float32Array instead of mutating its inputs. Runtime variables and gradients
+  // can therefore share those arrays safely instead of cloning large matrices on
+  // every read/write and every cached derivative lookup.
+  readRuntimeVariable = function(node) {
+    const name = String(node.params.name || 'x');
+    const signature = variableSignature(node);
+    const stored = RUNTIME_VARIABLES.get(name);
+    if (!stored || stored.signature !== signature) {
+      const value = initialVariableValue(node);
+      RUNTIME_VARIABLES.set(name, { value, signature });
+      return value;
+    }
+    return stored.value;
+  };
+
+  writeRuntimeVariable = function(name, value, immediate = false) {
+    const variableNode = findVariableNode(name);
+    if (!variableNode) throw new Error(`'${name}'이라는 변수 블록을 찾지 못했습니다.`);
+    const entry = { value, signature: variableSignature(variableNode) };
+    if (pendingVariableUpdates && !immediate) pendingVariableUpdates.set(String(name), entry);
+    else RUNTIME_VARIABLES.set(String(name), entry);
+    return value;
+  };
+
+  accumulateGrad = function(map, key, grad) {
+    if (grad == null) return;
+    map.set(key, map.has(key) ? addValues(map.get(key), grad) : grad);
+  };
+
+  differentiateGraph = function(outputId, variableName) {
+    const requestedName = String(variableName);
+    const contextBefore = currentTrainingAutodiffContextKey();
+
+    if (contextBefore != null) {
+      if (sharedAutodiffContextKey !== contextBefore) {
+        sharedAutodiffContextKey = contextBefore;
+        sharedAutodiffByOutput = new Map();
+      }
+      const cached = sharedAutodiffByOutput.get(outputId);
+      if (cached) {
+        if (!cached.has(requestedName)) throw new Error(`'${requestedName}'이라는 변수를 식에서 찾지 못했습니다.`);
+        return cached.get(requestedName);
+      }
+    }
+
+    const gradients = computeAllGraphGradients(outputId);
+    if (!gradients.has(requestedName)) throw new Error(`'${requestedName}'이라는 변수를 식에서 찾지 못했습니다.`);
+
+    if (contextBefore != null) {
+      const contextAfter = currentTrainingAutodiffContextKey();
+      sharedAutodiffContextKey = contextAfter;
+      sharedAutodiffByOutput = new Map([[outputId, gradients]]);
+    }
+
+    return gradients.get(requestedName);
+  };
+
+  function updateStepRate(progress, now, force = false) {
+    if (progress.rateSampleTime == null) {
+      progress.rateSampleTime = now;
+      progress.rateSampleCompleted = progress.completed;
+      progress.stepsPerSecond = null;
+      return;
+    }
+
+    const elapsedMs = now - progress.rateSampleTime;
+    if (!force && elapsedMs < 400) return;
+
+    const completedDelta = progress.completed - progress.rateSampleCompleted;
+    if (elapsedMs > 0 && completedDelta > 0) {
+      const currentRate = completedDelta * 1000 / elapsedMs;
+      progress.stepsPerSecond = progress.stepsPerSecond == null
+        ? currentRate
+        : progress.stepsPerSecond * 0.65 + currentRate * 0.35;
+    }
+
+    progress.rateSampleTime = now;
+    progress.rateSampleCompleted = progress.completed;
+  }
+
+  formatProgressStatus = function(progress) {
+    const done = Math.min(progress.completed, progress.total);
+    const percent = progress.total > 0 ? (done / progress.total) * 100 : 100;
+    const parts = [
+      `반복 ${done.toLocaleString('ko-KR')} / ${progress.total.toLocaleString('ko-KR')}`,
+      `${percent.toFixed(1)}%`
+    ];
+
+    if (Number.isFinite(progress.stepsPerSecond)) {
+      const rate = progress.stepsPerSecond;
+      parts.push(`속도 ${rate >= 100 ? Math.round(rate).toLocaleString('ko-KR') : rate.toFixed(1)} step/s`);
+    }
+
+    if (progress.stack.length) {
+      const path = progress.stack
+        .map(frame => `${frame.name} ${frame.index + 1}/${frame.count}`)
+        .join(' · ');
+      parts.push(path);
+    }
+    return parts.join(' · ');
+  };
+
+  maybeYieldProgress = async function(progress, force = false) {
+    if (!progress.total) return;
+    const now = performance.now();
+    updateStepRate(progress, now, force);
+    if (!force && now - progress.lastYield < 80) return;
+    workspaceStatus.textContent = formatProgressStatus(progress);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    progress.lastYield = performance.now();
+  };
+})();
+
 function resetDrawCanvas() { drawCtx.fillStyle = '#fff'; drawCtx.fillRect(0, 0, drawCanvas.width, drawCanvas.height); drawCtx.lineCap = 'round'; drawCtx.lineJoin = 'round'; drawCtx.lineWidth = 18; drawCtx.strokeStyle = '#111'; resetPreview(); }
 function resetPreview() { previewCtx.fillStyle = '#000'; previewCtx.fillRect(0, 0, previewCanvas.width, previewCanvas.height); }
 function pointerOnDraw(event) { const rect = drawCanvas.getBoundingClientRect(); return { x: (event.clientX - rect.left) * drawCanvas.width / rect.width, y: (event.clientY - rect.top) * drawCanvas.height / rect.height }; }
