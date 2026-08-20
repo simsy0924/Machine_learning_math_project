@@ -1,6 +1,6 @@
-// Runtime guard for stateful branches used inside repeat blocks.
-// A state-changing branch must execute only from its repeat block, not once earlier
-// when the global Calculate button walks through every visible node.
+// Runtime guard and execution context for stateful repeat blocks.
+// Repeats must own their loop indices and pending variable updates so nested loops
+// cannot overwrite one another or leak stale values into dataset calculations.
 
 collectStateNodesUnderRepeat = function() {
   const skip = new Set();
@@ -33,11 +33,29 @@ collectStateNodesUnderRepeat = function() {
 };
 
 // Keep the UI permissive for large experiments while still having a finite safety cap.
-// The original training evaluator capped repeat at 10,000; this runtime layer extends
-// that limit to 1,000,000 without changing dataset sample wrapping (10,000/class).
 const MAX_REPEAT_COUNT = 1_000_000;
 const repeatCountControl = BLOCKS.repeat?.controls?.find(control => control.key === 'count');
 if (repeatCountControl) repeatCountControl.max = MAX_REPEAT_COUNT;
+
+// Loop indices are execution-local values, not trainable/runtime variables.
+// A stack lets an inner repeat use `i` while an outer repeat still exposes `epoch`.
+const LOOP_CONTEXT_STACK = [];
+
+function activeLoopValue(name) {
+  const key = String(name);
+  for (let i = LOOP_CONTEXT_STACK.length - 1; i >= 0; i--) {
+    const frame = LOOP_CONTEXT_STACK[i];
+    if (frame.has(key)) return { found: true, value: frame.get(key) };
+  }
+  return { found: false, value: undefined };
+}
+
+const variableComputeBeforeLoopContext = BLOCKS.variable.compute;
+BLOCKS.variable.compute = function(node, inputs) {
+  const loopValue = activeLoopValue(node.params.name || 'x');
+  if (loopValue.found) return loopValue.value;
+  return variableComputeBeforeLoopContext(node, inputs);
+};
 
 const evaluateNodeBeforeExtendedRepeat = evaluateNode;
 evaluateNode = function(nodeId, memo = new Map(), visiting = new Set()) {
@@ -50,25 +68,48 @@ evaluateNode = function(nodeId, memo = new Map(), visiting = new Set()) {
     return evaluateNodeBeforeExtendedRepeat(nodeId, memo, visiting);
   }
 
+  if (visiting.has(nodeId)) throw new Error('순환 연결은 계산할 수 없습니다.');
+  visiting.add(nodeId);
+
   const connection = graph.connections.find(c => c.to === nodeId && c.inputIndex === 0);
-  if (!connection) throw new Error("입력 '실행할 식'이 연결되지 않았습니다.");
+  if (!connection) {
+    visiting.delete(nodeId);
+    throw new Error("입력 '실행할 식'이 연결되지 않았습니다.");
+  }
 
   const count = Math.max(0, Math.min(MAX_REPEAT_COUNT, Math.floor(Number(node.params.count) || 0)));
   const indexName = String(node.params.indexVariable || 'i');
   let last = 0;
+  let lastIndex = null;
 
-  for (let i = 0; i < count; i++) {
-    const indexNode = findVariableNode(indexName);
-    if (indexNode) writeRuntimeVariable(indexName, i, true);
-    pendingVariableUpdates = new Map();
-    try {
-      last = evaluateNode(connection.from, new Map(), new Set());
-      commitPendingVariableUpdates();
-    } finally {
-      pendingVariableUpdates = null;
+  try {
+    for (let i = 0; i < count; i++) {
+      lastIndex = i;
+      const frame = new Map([[indexName, i]]);
+      const parentPendingUpdates = pendingVariableUpdates;
+
+      LOOP_CONTEXT_STACK.push(frame);
+      pendingVariableUpdates = new Map();
+      try {
+        // Every iteration gets a fresh memo so the loop index and dataset sample
+        // are recomputed instead of reusing values from the previous iteration.
+        last = evaluateNode(connection.from, new Map(), new Set());
+        commitPendingVariableUpdates();
+      } finally {
+        pendingVariableUpdates = parentPendingUpdates;
+        LOOP_CONTEXT_STACK.pop();
+      }
     }
-  }
 
-  memo.set(nodeId, last);
-  return last;
+    // Preserve the final index only for inspection after the repeat ends.
+    // It is not used while the repeat is running; loop-context values above are.
+    if (lastIndex != null && findVariableNode(indexName)) {
+      writeRuntimeVariable(indexName, lastIndex, true);
+    }
+
+    memo.set(nodeId, last);
+    return last;
+  } finally {
+    visiting.delete(nodeId);
+  }
 };
