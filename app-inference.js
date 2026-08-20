@@ -93,8 +93,8 @@ function classifyCurrentDrawing() {
       if (!node) continue;
       const def = getBlockDef(node.type);
       if (node.type === 'sampleImage') hasSampleImage = true;
-      if (def.special === 'repeat' || def.special === 'setVariable') {
-        throw new Error('학습/값 변경 블록이 포함된 출력입니다. 순수한 예측 점수 출력 블록을 선택하세요.');
+      if (def.special === 'repeat' || def.special === 'setVariable' || def.special === 'derivative') {
+        throw new Error('학습·값 변경·미분 블록이 포함된 출력입니다. 순수한 예측 점수 출력 블록을 선택하세요.');
       }
     }
     if (!hasSampleImage) {
