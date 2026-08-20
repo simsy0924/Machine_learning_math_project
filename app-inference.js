@@ -1,10 +1,12 @@
-// Generic inference helpers: argmax/equality blocks and classify the current drawing
-// through a selected pure model-output node without changing the trained weights.
+// Generic evaluation helpers and drawing classification tools.
+// The UI may internally choose the largest score, but argmax is intentionally
+// not exposed as a math block. Higher-level AI operations should be assembled
+// from ordinary mathematical blocks whenever possible.
 
 function argmaxValue(value) {
   const array = asArrayValue(value);
-  if (array.shape.length !== 1) throw new Error('최댓값 위치에는 벡터가 필요합니다.');
-  if (!array.data.length) throw new Error('빈 벡터에서는 최댓값 위치를 구할 수 없습니다.');
+  if (array.shape.length !== 1) throw new Error('분류 점수는 벡터여야 합니다.');
+  if (!array.data.length) throw new Error('빈 벡터에서는 가장 큰 점수를 찾을 수 없습니다.');
   let bestIndex = 0;
   let bestValue = array.data[0];
   for (let i = 1; i < array.data.length; i++) {
@@ -16,20 +18,28 @@ function argmaxValue(value) {
   return bestIndex;
 }
 
-BLOCKS.argmax = {
-  title: '최댓값 위치',
+function arrayMaximumValue(value) {
+  const array = asArrayValue(value);
+  if (!array.data.length) throw new Error('빈 배열에서는 최댓값을 구할 수 없습니다.');
+  let maximum = array.data[0];
+  for (let i = 1; i < array.data.length; i++) maximum = Math.max(maximum, array.data[i]);
+  return maximum;
+}
+
+BLOCKS.arrayMax = {
+  title: '배열 최댓값',
   kind: 'operation',
-  inputs: ['벡터'],
-  description: '벡터에서 가장 큰 원소의 위치를 0부터 시작하는 번호로 반환한다. 분류 결과를 종류 번호로 바꿀 때 사용할 수 있다.',
-  formula: () => 'argmax(x)',
-  compute: (node, [value]) => argmaxValue(value)
+  inputs: ['배열'],
+  description: '배열의 모든 원소 중 가장 큰 값 하나를 반환한다. 안정화된 지수 계산이나 Softmax 같은 수식을 직접 만들 때 사용할 수 있다.',
+  formula: () => 'maxᵢ xᵢ',
+  compute: (node, [value]) => arrayMaximumValue(value)
 };
 
 BLOCKS.equal = {
   title: '같음?',
   kind: 'operation',
   inputs: ['a', 'b'],
-  description: '두 숫자가 같으면 1, 다르면 0을 반환한다. 예측 종류와 정답 종류를 비교해 정확도를 계산할 때 사용할 수 있다.',
+  description: '두 숫자가 같으면 1, 다르면 0을 반환한다.',
   formula: () => '[a = b]',
   compute: (node, [a, b]) => {
     if (typeof a !== 'number' || typeof b !== 'number') throw new Error('같음? 블록에는 숫자 두 개가 필요합니다.');
@@ -39,9 +49,22 @@ BLOCKS.equal = {
 
 const primitiveVJPBeforeInference = primitiveVJP;
 primitiveVJP = function(type, inputs, output, upstream) {
-  // argmax/equality are evaluation metrics, not useful training-loss operations.
-  // Their derivative is treated as zero almost everywhere.
-  if (type === 'argmax') return [zerosLike(inputs[0])];
+  if (type === 'arrayMax') {
+    const input = asArrayValue(inputs[0]);
+    const maximum = Number(output);
+    let tieCount = 0;
+    for (const value of input.data) if (value === maximum) tieCount++;
+    if (!tieCount) return [zerosLike(input)];
+
+    const upstreamScalar = typeof upstream === 'number' ? upstream : sumArray(asArrayValue(upstream));
+    const share = upstreamScalar / tieCount;
+    const grad = new Float32Array(input.data.length);
+    for (let i = 0; i < input.data.length; i++) {
+      if (input.data[i] === maximum) grad[i] = share;
+    }
+    return [arrayValue(grad, input.shape)];
+  }
+  // Equality is a discrete comparison; use zero derivative almost everywhere.
   if (type === 'equal') return [zerosLike(inputs[0]), zerosLike(inputs[1])];
   return primitiveVJPBeforeInference(type, inputs, output, upstream);
 };
