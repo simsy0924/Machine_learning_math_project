@@ -16,9 +16,12 @@
     <div class="top-actions">
       <button id="importProjectBtn">불러오기</button>
       <button id="exportProjectBtn">내보내기</button>
+      <button id="importWeightsBtn">가중치 불러오기</button>
+      <button id="exportWeightsBtn">가중치 저장</button>
       <button id="resetWorkspaceBtn">작업공간 초기화</button>
       <button id="evaluateBtn" class="primary">계산</button>
       <input id="importProjectInput" type="file" accept=".mmlab,application/json" hidden />
+      <input id="importWeightsInput" type="file" accept=".mmlweights,application/json" hidden />
     </div>
   </header>
 
@@ -90,6 +93,7 @@
           <button id="groupSelectBtn" class="ghost">블록 묶기</button>
           <button id="createGroupBtn" class="primary" hidden disabled>새 블록 만들기 (0)</button>
           <button id="cancelGroupBtn" class="ghost" hidden>취소</button>
+          <button id="evaluateSelectedBtn" class="ghost">선택 계산</button>
           <span id="workspaceStatus" class="status">0개 블록</span>
         </div>
       </div>
@@ -114,8 +118,8 @@
         <div class="section-head"><h2>그림 입력</h2><button id="clearDrawBtn" class="ghost">지우기</button></div>
         <canvas id="drawCanvas" width="320" height="320"></canvas>
         <div class="draw-row"><canvas id="previewCanvas" width="140" height="140"></canvas><div><strong>28×28 미리보기</strong><p class="muted">‘28×28 변환’ 블록을 연결한 뒤 계산하면 갱신됩니다.</p></div></div>
-        <button id="classifyDrawingBtn" class="primary dataset-load-btn">선택한 출력으로 현재 그림 분류</button>
-        <div id="drawingClassificationResult" class="dataset-status">학습된 모델의 최종 점수 출력 블록을 선택한 뒤 버튼을 누르세요.</div>
+        <button id="classifyDrawingBtn" class="primary dataset-load-btn">선택한 출력으로 손그림 테스트</button>
+        <div id="drawingClassificationResult" class="dataset-status">학습된 모델의 최종 확률/점수 출력 블록을 선택한 뒤 손그림 테스트를 누르세요.</div>
       </section>
 
       <section class="dataset-card">
@@ -145,10 +149,12 @@
   <script src="app-training.js"></script>
   <script src="app-training-runtime.js"></script>
   <script src="app-inference.js"></script>
+  <script src="app-selected-eval.js"></script>
   <script src="app-viewport.js"></script>
   <script src="app-boot.js"></script>
   <script src="dataset.js"></script>
   <script src="app-project-io.js"></script>
+  <script src="app-weight-io.js"></script>
   <script src="app-viewport-io.js"></script>
 </body>
 </html>
