@@ -27,6 +27,12 @@ BLOCKS.repeat.formula = node => {
   return `repeat ${count} times (${node.params.indexVariable || 'i'}=${start}…${end})`;
 };
 
+// Equality follows the same scalar/array broadcasting rule as the ordinary
+// arithmetic blocks. This lets max(p) be compared with every element of p
+// without adding an AI-specific argmax block.
+BLOCKS.equal.description = '숫자나 배열을 원소별로 비교한다. 같으면 1, 다르면 0을 반환한다.';
+BLOCKS.equal.compute = (node, [a, b]) => elementwiseBinary(a, b, (x, y) => x === y ? 1 : 0);
+
 BLOCKS.outerProduct = {
   title: '외적',
   kind: 'operation',
