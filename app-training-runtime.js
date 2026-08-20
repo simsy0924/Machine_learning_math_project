@@ -2,7 +2,7 @@
 // Repeats must own their loop indices and pending variable updates so nested loops
 // cannot overwrite one another or leak stale values into dataset calculations.
 
-collectStateNodesUnderRepeat = function() {
+collectStateNodesUnderRepeat = function(structureCache = ensureGraphStructureCache()) {
   const skip = new Set();
   const memo = new Map();
 
@@ -14,7 +14,7 @@ collectStateNodesUnderRepeat = function() {
     let contains = def.special === 'setVariable';
 
     for (let inputIndex = 0; inputIndex < def.inputs.length; inputIndex++) {
-      const connection = graph.connections.find(c => c.to === id && c.inputIndex === inputIndex);
+      const connection = cachedGraphInput(structureCache, id, inputIndex);
       if (connection && containsStateChange(connection.from)) contains = true;
     }
 
@@ -25,7 +25,7 @@ collectStateNodesUnderRepeat = function() {
 
   for (const node of graph.nodes.values()) {
     if (getBlockDef(node.type).special !== 'repeat') continue;
-    const connection = graph.connections.find(c => c.to === node.id && c.inputIndex === 0);
+    const connection = cachedGraphInput(structureCache, node.id, 0);
     if (connection) containsStateChange(connection.from);
   }
 
@@ -71,7 +71,8 @@ evaluateNode = function(nodeId, memo = new Map(), visiting = new Set()) {
   if (visiting.has(nodeId)) throw new Error('순환 연결은 계산할 수 없습니다.');
   visiting.add(nodeId);
 
-  const connection = graph.connections.find(c => c.to === nodeId && c.inputIndex === 0);
+  const structureCache = ensureGraphStructureCache();
+  const connection = cachedGraphInput(structureCache, nodeId, 0);
   if (!connection) {
     visiting.delete(nodeId);
     throw new Error("입력 '실행할 식'이 연결되지 않았습니다.");
@@ -123,7 +124,7 @@ function repeatCount(node) {
   return Math.max(0, Math.min(MAX_REPEAT_COUNT, Math.floor(Number(node?.params?.count) || 0)));
 }
 
-function branchContainsRepeat(nodeId, seen = new Set()) {
+function branchContainsRepeat(nodeId, seen = new Set(), structureCache = ensureGraphStructureCache()) {
   if (seen.has(nodeId)) return false;
   seen.add(nodeId);
   const node = graph.nodes.get(nodeId);
@@ -131,13 +132,13 @@ function branchContainsRepeat(nodeId, seen = new Set()) {
   const def = getBlockDef(node.type);
   if (def.special === 'repeat') return true;
   for (let inputIndex = 0; inputIndex < def.inputs.length; inputIndex++) {
-    const connection = graph.connections.find(c => c.to === nodeId && c.inputIndex === inputIndex);
-    if (connection && branchContainsRepeat(connection.from, seen)) return true;
+    const connection = cachedGraphInput(structureCache, nodeId, inputIndex);
+    if (connection && branchContainsRepeat(connection.from, seen, structureCache)) return true;
   }
   return false;
 }
 
-function repeatLeafWork(nodeId, seen = new Set()) {
+function repeatLeafWork(nodeId, seen = new Set(), structureCache = ensureGraphStructureCache()) {
   if (seen.has(nodeId)) return 0;
   seen.add(nodeId);
   const node = graph.nodes.get(nodeId);
@@ -145,20 +146,20 @@ function repeatLeafWork(nodeId, seen = new Set()) {
   const def = getBlockDef(node.type);
 
   if (def.special === 'repeat') {
-    const connection = graph.connections.find(c => c.to === nodeId && c.inputIndex === 0);
-    const nested = connection ? repeatLeafWork(connection.from, new Set(seen)) : 0;
+    const connection = cachedGraphInput(structureCache, nodeId, 0);
+    const nested = connection ? repeatLeafWork(connection.from, new Set(seen), structureCache) : 0;
     return repeatCount(node) * Math.max(1, nested);
   }
 
   let total = 0;
   for (let inputIndex = 0; inputIndex < def.inputs.length; inputIndex++) {
-    const connection = graph.connections.find(c => c.to === nodeId && c.inputIndex === inputIndex);
-    if (connection) total += repeatLeafWork(connection.from, new Set(seen));
+    const connection = cachedGraphInput(structureCache, nodeId, inputIndex);
+    if (connection) total += repeatLeafWork(connection.from, new Set(seen), structureCache);
   }
   return total;
 }
 
-function estimateTotalRepeatWork() {
+function estimateTotalRepeatWork(structureCache = ensureGraphStructureCache()) {
   const repeatIds = [];
   for (const node of graph.nodes.values()) {
     if (getBlockDef(node.type).special === 'repeat') repeatIds.push(node.id);
@@ -174,19 +175,19 @@ function estimateTotalRepeatWork() {
     const def = getBlockDef(node.type);
     if (def.special === 'repeat') nestedRepeatIds.add(nodeId);
     for (let inputIndex = 0; inputIndex < def.inputs.length; inputIndex++) {
-      const connection = graph.connections.find(c => c.to === nodeId && c.inputIndex === inputIndex);
+      const connection = cachedGraphInput(structureCache, nodeId, inputIndex);
       if (connection) markNestedRepeats(connection.from, seen);
     }
   };
 
   for (const repeatId of repeatIds) {
-    const connection = graph.connections.find(c => c.to === repeatId && c.inputIndex === 0);
+    const connection = cachedGraphInput(structureCache, repeatId, 0);
     if (connection) markNestedRepeats(connection.from);
   }
 
   let total = 0;
   for (const repeatId of repeatIds) {
-    if (!nestedRepeatIds.has(repeatId)) total += repeatLeafWork(repeatId);
+    if (!nestedRepeatIds.has(repeatId)) total += repeatLeafWork(repeatId, new Set(), structureCache);
   }
   return total;
 }
@@ -223,13 +224,14 @@ async function evaluateRepeatProgressive(nodeId, memo, visiting, progress) {
 
   const node = graph.nodes.get(nodeId);
   if (!node) throw new Error('존재하지 않는 블록입니다.');
-  const connection = graph.connections.find(c => c.to === nodeId && c.inputIndex === 0);
+  const structureCache = progress.graphCache || ensureGraphStructureCache();
+  const connection = cachedGraphInput(structureCache, nodeId, 0);
   if (!connection) throw new Error("입력 '실행할 식'이 연결되지 않았습니다.");
 
   visiting.add(nodeId);
   const count = repeatCount(node);
   const indexName = String(node.params.indexVariable || 'i');
-  const isLeafRepeat = !branchContainsRepeat(connection.from);
+  const isLeafRepeat = !branchContainsRepeat(connection.from, new Set(), structureCache);
   let last = 0;
   let lastIndex = null;
 
@@ -273,6 +275,7 @@ async function evaluateNodeProgressive(nodeId, memo = new Map(), visiting = new 
   const node = graph.nodes.get(nodeId);
   if (!node) throw new Error('존재하지 않는 블록입니다.');
   const def = getBlockDef(node.type);
+  const structureCache = progress.graphCache || ensureGraphStructureCache();
 
   if (def.special === 'repeat') {
     return evaluateRepeatProgressive(nodeId, memo, visiting, progress);
@@ -283,7 +286,7 @@ async function evaluateNodeProgressive(nodeId, memo = new Map(), visiting = new 
 
   try {
     if (def.special === 'derivative') {
-      const connection = graph.connections.find(c => c.to === nodeId && c.inputIndex === 0);
+      const connection = cachedGraphInput(structureCache, nodeId, 0);
       if (!connection) throw new Error("입력 '식'이 연결되지 않았습니다.");
       const value = differentiateGraph(connection.from, String(node.params.variable || 'x'));
       memo.set(nodeId, value);
@@ -291,7 +294,7 @@ async function evaluateNodeProgressive(nodeId, memo = new Map(), visiting = new 
     }
 
     if (def.special === 'setVariable') {
-      const connection = graph.connections.find(c => c.to === nodeId && c.inputIndex === 0);
+      const connection = cachedGraphInput(structureCache, nodeId, 0);
       if (!connection) throw new Error("입력 '새 값'이 연결되지 않았습니다.");
       const value = await evaluateNodeProgressive(connection.from, memo, visiting, progress);
       const result = writeRuntimeVariable(String(node.params.variable || 'w'), value);
@@ -301,7 +304,7 @@ async function evaluateNodeProgressive(nodeId, memo = new Map(), visiting = new 
 
     const inputs = [];
     for (let inputIndex = 0; inputIndex < def.inputs.length; inputIndex++) {
-      const connection = graph.connections.find(c => c.to === nodeId && c.inputIndex === inputIndex);
+      const connection = cachedGraphInput(structureCache, nodeId, inputIndex);
       if (!connection) throw new Error(`입력 '${def.inputs[inputIndex]}'이 연결되지 않았습니다.`);
       inputs.push(await evaluateNodeProgressive(connection.from, memo, visiting, progress));
     }
@@ -322,25 +325,31 @@ evaluateGraph = async function() {
   const oldButtonText = evaluateBtn.textContent;
   evaluateBtn.disabled = true;
   evaluateBtn.textContent = '계산 중…';
-
-  const memo = new Map();
-  const visiting = new Set();
-  const skippedStateNodes = collectStateNodesUnderRepeat();
-  const progress = {
-    total: estimateTotalRepeatWork(),
-    completed: 0,
-    stack: [],
-    lastYield: performance.now()
-  };
-  let successCount = 0;
-  let errorCount = 0;
-
-  for (const node of graph.nodes.values()) {
-    node.lastValue = undefined;
-    node.lastError = null;
-  }
+  let graphCache = null;
 
   try {
+    // Freeze one structural execution plan for this calculation. Runtime values
+    // and loop indices still change normally; only nodes/connections are reused.
+    graphCache = beginGraphStructureRun();
+
+    const memo = new Map();
+    const visiting = new Set();
+    const skippedStateNodes = collectStateNodesUnderRepeat(graphCache);
+    const progress = {
+      total: estimateTotalRepeatWork(graphCache),
+      completed: 0,
+      stack: [],
+      lastYield: performance.now(),
+      graphCache
+    };
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const node of graph.nodes.values()) {
+      node.lastValue = undefined;
+      node.lastError = null;
+    }
+
     if (progress.total) {
       workspaceStatus.textContent = formatProgressStatus(progress);
       await new Promise(resolve => setTimeout(resolve, 0));
@@ -374,6 +383,7 @@ evaluateGraph = async function() {
         : `${successCount}/${graph.nodes.size} 계산`;
     }
   } finally {
+    if (graphCache) endGraphStructureRun();
     evaluateBtn.disabled = false;
     evaluateBtn.textContent = oldButtonText;
   }
