@@ -1,6 +1,6 @@
-// Export and import only variables that are actually updated by setVariable blocks.
-// This keeps trained parameters separate from the full .mmlab project and avoids
-// saving loop counters or test indices as model weights.
+// Export and import only variables that are actually trained by derivative-based
+// setVariable updates. Runtime counters and evaluation accumulators can also use
+// setVariable, but they are experiment state rather than model weights.
 
 const WEIGHTS_FORMAT = 'machine-learning-math-weights';
 const WEIGHTS_VERSION = 1;
@@ -10,11 +10,36 @@ const exportWeightsBtn = document.getElementById('exportWeightsBtn');
 const importWeightsBtn = document.getElementById('importWeightsBtn');
 const importWeightsInput = document.getElementById('importWeightsInput');
 
+function updateBranchContainsDerivative(nodeId, structureCache, seen = new Set()) {
+  if (seen.has(nodeId)) return false;
+  seen.add(nodeId);
+  const node = graph.nodes.get(nodeId);
+  if (!node) return false;
+  const def = getBlockDef(node.type);
+  if (def.special === 'derivative') return true;
+
+  for (let inputIndex = 0; inputIndex < def.inputs.length; inputIndex++) {
+    const connection = structureCache
+      ? cachedGraphInput(structureCache, nodeId, inputIndex)
+      : graph.connections.find(c => c.to === nodeId && c.inputIndex === inputIndex);
+    if (connection && updateBranchContainsDerivative(connection.from, structureCache, seen)) return true;
+  }
+  return false;
+}
+
 function collectTrainableVariableNames() {
   const names = new Set();
+  const structureCache = typeof ensureGraphStructureCache === 'function' ? ensureGraphStructureCache() : null;
+
   for (const node of graph.nodes.values()) {
     const def = getBlockDef(node.type);
     if (def.special !== 'setVariable') continue;
+
+    const input = structureCache
+      ? cachedGraphInput(structureCache, node.id, 0)
+      : graph.connections.find(c => c.to === node.id && c.inputIndex === 0);
+    if (!input || !updateBranchContainsDerivative(input.from, structureCache)) continue;
+
     const name = String(node.params.variable || '').trim();
     if (name) names.add(name);
   }
@@ -23,7 +48,7 @@ function collectTrainableVariableNames() {
 
 function buildWeightsSnapshot() {
   const names = collectTrainableVariableNames();
-  if (!names.length) throw new Error("'값 바꾸기' 블록으로 학습되는 변수가 없습니다.");
+  if (!names.length) throw new Error("미분을 이용해 '값 바꾸기'로 학습되는 변수가 없습니다.");
 
   const variables = names.map(name => {
     const variableNode = findVariableNode(name);
