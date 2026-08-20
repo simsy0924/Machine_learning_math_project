@@ -28,10 +28,53 @@ function collectTopo(outputId) {
   visit(outputId); return order;
 }
 
-function differentiateGraph(outputId, variableName) {
+// Reverse-mode autodiff naturally produces gradients for every variable in one
+// backward pass. Derivative blocks that point at the same scalar loss therefore
+// share one pass while the training state (weights + loop indices) is unchanged.
+const AUTODIFF_ENTRY_IDS = new WeakMap();
+let nextAutodiffEntryId = 1;
+let sharedAutodiffContextKey = null;
+let sharedAutodiffByOutput = new Map();
+
+function autodiffEntryId(entry) {
+  if (!entry || (typeof entry !== 'object' && typeof entry !== 'function')) return String(entry);
+  let id = AUTODIFF_ENTRY_IDS.get(entry);
+  if (id == null) {
+    id = nextAutodiffEntryId++;
+    AUTODIFF_ENTRY_IDS.set(entry, id);
+  }
+  return id;
+}
+
+function currentTrainingAutodiffContextKey() {
+  // Sharing is intentionally limited to active repeat execution. Outside a
+  // repeat, inputs can change from UI edits without an execution-state version.
+  if (typeof LOOP_CONTEXT_STACK === 'undefined' || !LOOP_CONTEXT_STACK.length) return null;
+
+  const loopParts = [];
+  for (const frame of LOOP_CONTEXT_STACK) {
+    const entries = Array.from(frame.entries())
+      .map(([name, value]) => `${String(name)}=${Number(value)}`)
+      .sort();
+    loopParts.push(entries.join(','));
+  }
+
+  const runtimeParts = [];
+  if (typeof RUNTIME_VARIABLES !== 'undefined') {
+    for (const [name, entry] of RUNTIME_VARIABLES.entries()) {
+      runtimeParts.push(`${String(name)}#${autodiffEntryId(entry)}`);
+    }
+    runtimeParts.sort();
+  }
+
+  return `${loopParts.join('/')};${runtimeParts.join('|')}`;
+}
+
+function computeAllGraphGradients(outputId) {
   const topo = collectTopo(outputId), values = new Map(), memo = new Map();
   for (const id of topo) values.set(id, evaluateNode(id, memo, new Set()));
   const output = values.get(outputId); if (typeof output !== 'number') throw new Error('미분 블록의 식 출력은 숫자 하나여야 합니다.');
+
   const adjoints = new Map([[outputId, 1]]);
   for (let k = topo.length - 1; k >= 0; k--) {
     const id = topo[k], upstream = adjoints.get(id); if (upstream == null) continue;
@@ -41,12 +84,47 @@ function differentiateGraph(outputId, variableName) {
     const grads = node.type.startsWith('custom:') ? userBlockVJP(USER_BLOCKS.get(node.type.slice(7)), inputs, upstream) : primitiveVJP(node.type, inputs, values.get(id), upstream);
     grads.forEach((g, i) => accumulateGrad(adjoints, inputIds[i], g));
   }
-  let result = null;
+
+  const gradients = new Map();
   for (const id of topo) {
-    const node = graph.nodes.get(id); if (node?.type === 'variable' && String(node.params.name) === variableName) { const g = adjoints.get(id) ?? zerosLike(values.get(id)); result = result == null ? g : addValues(result, g); }
+    const node = graph.nodes.get(id);
+    if (node?.type !== 'variable') continue;
+    const name = String(node.params.name || 'x');
+    const gradient = adjoints.get(id) ?? zerosLike(values.get(id));
+    const previous = gradients.get(name);
+    gradients.set(name, previous == null ? copyValue(gradient) : addValues(previous, gradient));
   }
-  if (result == null) throw new Error(`'${variableName}'이라는 변수를 식에서 찾지 못했습니다.`);
-  return result;
+  return gradients;
+}
+
+function differentiateGraph(outputId, variableName) {
+  const requestedName = String(variableName);
+  const contextBefore = currentTrainingAutodiffContextKey();
+
+  if (contextBefore != null) {
+    if (sharedAutodiffContextKey !== contextBefore) {
+      sharedAutodiffContextKey = contextBefore;
+      sharedAutodiffByOutput = new Map();
+    }
+    const cached = sharedAutodiffByOutput.get(outputId);
+    if (cached) {
+      if (!cached.has(requestedName)) throw new Error(`'${requestedName}'이라는 변수를 식에서 찾지 못했습니다.`);
+      return copyValue(cached.get(requestedName));
+    }
+  }
+
+  const gradients = computeAllGraphGradients(outputId);
+  if (!gradients.has(requestedName)) throw new Error(`'${requestedName}'이라는 변수를 식에서 찾지 못했습니다.`);
+
+  if (contextBefore != null) {
+    // Some variables are lazily initialized during the first forward pass, so
+    // cache under the post-forward state identity rather than the pre-pass key.
+    const contextAfter = currentTrainingAutodiffContextKey();
+    sharedAutodiffContextKey = contextAfter;
+    sharedAutodiffByOutput = new Map([[outputId, gradients]]);
+  }
+
+  return copyValue(gradients.get(requestedName));
 }
 
 function primitiveVJP(type, inputs, output, upstream) {
