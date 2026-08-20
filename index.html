@@ -61,6 +61,8 @@
           <button class="palette-block operation" data-block="square">제곱</button>
           <button class="palette-block operation" data-block="abs">절댓값</button>
           <button class="palette-block operation" data-block="maximum">최댓값</button>
+          <button class="palette-block operation" data-block="argmax">최댓값 위치</button>
+          <button class="palette-block operation" data-block="equal">같음?</button>
           <button class="palette-block operation" data-block="sum">합</button>
           <button class="palette-block operation" data-block="mean">평균</button>
           <button class="palette-block operation" data-block="dot">내적</button>
@@ -112,6 +114,8 @@
         <div class="section-head"><h2>그림 입력</h2><button id="clearDrawBtn" class="ghost">지우기</button></div>
         <canvas id="drawCanvas" width="320" height="320"></canvas>
         <div class="draw-row"><canvas id="previewCanvas" width="140" height="140"></canvas><div><strong>28×28 미리보기</strong><p class="muted">‘28×28 변환’ 블록을 연결한 뒤 계산하면 갱신됩니다.</p></div></div>
+        <button id="classifyDrawingBtn" class="primary dataset-load-btn">선택한 출력으로 현재 그림 분류</button>
+        <div id="drawingClassificationResult" class="dataset-status">학습된 모델의 최종 점수 출력 블록을 선택한 뒤 버튼을 누르세요.</div>
       </section>
 
       <section class="dataset-card">
@@ -140,6 +144,7 @@
   <script src="app-groups.js"></script>
   <script src="app-training.js"></script>
   <script src="app-training-runtime.js"></script>
+  <script src="app-inference.js"></script>
   <script src="app-viewport.js"></script>
   <script src="app-boot.js"></script>
   <script src="dataset.js"></script>
