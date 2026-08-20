@@ -8,7 +8,8 @@ const GRAPH_STRUCTURE_CACHE = {
   hashA: 0,
   hashB: 0,
   inputsByNode: new Map(),
-  topoByOutput: new Map()
+  topoByOutput: new Map(),
+  pinDepth: 0
 };
 
 function mixGraphHash(hash, value, prime) {
@@ -54,18 +55,7 @@ function graphStructureFingerprint() {
   };
 }
 
-function ensureGraphStructureCache() {
-  const fingerprint = graphStructureFingerprint();
-  const cache = GRAPH_STRUCTURE_CACHE;
-  if (
-    cache.nodeCount === fingerprint.nodeCount &&
-    cache.connectionCount === fingerprint.connectionCount &&
-    cache.hashA === fingerprint.hashA &&
-    cache.hashB === fingerprint.hashB
-  ) {
-    return cache;
-  }
-
+function rebuildGraphStructureCache(cache, fingerprint) {
   const inputsByNode = new Map();
   for (const connection of graph.connections) {
     let inputs = inputsByNode.get(connection.to);
@@ -85,8 +75,44 @@ function ensureGraphStructureCache() {
   return cache;
 }
 
+function ensureGraphStructureCache() {
+  const cache = GRAPH_STRUCTURE_CACHE;
+
+  // During one Calculate run the evaluator treats the graph structure as an
+  // immutable execution plan. This avoids re-hashing every node/connection for
+  // every SGD step. After the run is unpinned, the next access fingerprints the
+  // graph again and rebuilds if the user edited it.
+  if (cache.pinDepth > 0 && cache.nodeCount >= 0) return cache;
+
+  const fingerprint = graphStructureFingerprint();
+  if (
+    cache.nodeCount === fingerprint.nodeCount &&
+    cache.connectionCount === fingerprint.connectionCount &&
+    cache.hashA === fingerprint.hashA &&
+    cache.hashB === fingerprint.hashB
+  ) {
+    return cache;
+  }
+
+  return rebuildGraphStructureCache(cache, fingerprint);
+}
+
+function beginGraphStructureRun() {
+  const cache = ensureGraphStructureCache();
+  cache.pinDepth++;
+  return cache;
+}
+
+function endGraphStructureRun() {
+  if (GRAPH_STRUCTURE_CACHE.pinDepth > 0) GRAPH_STRUCTURE_CACHE.pinDepth--;
+}
+
 function cachedGraphInput(cache, nodeId, inputIndex) {
   return cache.inputsByNode.get(nodeId)?.[inputIndex] || null;
+}
+
+function graphInputConnection(nodeId, inputIndex, cache = null) {
+  return cachedGraphInput(cache || ensureGraphStructureCache(), nodeId, inputIndex);
 }
 
 function cachedTopoForOutput(cache, outputId) {
