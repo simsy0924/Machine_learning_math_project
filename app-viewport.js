@@ -11,6 +11,10 @@ function workspaceLocalPoint(clientX, clientY) {
   return { x: clientX - rect.left, y: clientY - rect.top };
 }
 
+function clampWorkspaceZoom(value) {
+  return Math.min(WORKSPACE_MAX_ZOOM, Math.max(WORKSPACE_MIN_ZOOM, Number(value) || 1));
+}
+
 function applyWorkspaceView() {
   const transform = `translate(${workspaceView.x}px, ${workspaceView.y}px) scale(${workspaceView.zoom})`;
   nodesLayer.style.transformOrigin = '0 0';
@@ -26,7 +30,7 @@ function applyWorkspaceView() {
 }
 
 function setWorkspaceZoom(nextZoom, anchor = null) {
-  const zoom = Math.min(WORKSPACE_MAX_ZOOM, Math.max(WORKSPACE_MIN_ZOOM, Number(nextZoom) || 1));
+  const zoom = clampWorkspaceZoom(nextZoom);
   const rect = workspace.getBoundingClientRect();
   const local = anchor || { x: rect.width / 2, y: rect.height / 2 };
   const worldX = (local.x - workspaceView.x) / workspaceView.zoom;
@@ -57,9 +61,7 @@ function restoreWorkspaceViewSnapshot(saved) {
   const zoom = Number(saved?.zoom);
   workspaceView.x = Number.isFinite(x) ? x : 0;
   workspaceView.y = Number.isFinite(y) ? y : 0;
-  workspaceView.zoom = Number.isFinite(zoom)
-    ? Math.min(WORKSPACE_MAX_ZOOM, Math.max(WORKSPACE_MIN_ZOOM, zoom))
-    : 1;
+  workspaceView.zoom = Number.isFinite(zoom) ? clampWorkspaceZoom(zoom) : 1;
   applyWorkspaceView();
   updateWires();
 }
@@ -113,14 +115,87 @@ function installViewportControls() {
   document.head.appendChild(style);
 }
 
-// Capture node drags before the original bounded drag handler so nodes can live
-// anywhere in the world coordinate plane, including outside the visible viewport.
+// One-pointer panning/node dragging and two-pointer touch pinch zoom share the
+// same pointer state so switching between them is smooth on tablets and phones.
+const workspaceTouches = new Map();
+let workspaceGesture = null;
+let activeNodeDrag = null;
+
+function touchPair() {
+  return [...workspaceTouches.values()].slice(0, 2);
+}
+
+function pairGeometry(points) {
+  const [a, b] = points;
+  const dx = b.clientX - a.clientX;
+  const dy = b.clientY - a.clientY;
+  return {
+    distance: Math.max(1, Math.hypot(dx, dy)),
+    midpoint: workspaceLocalPoint((a.clientX + b.clientX) / 2, (a.clientY + b.clientY) / 2)
+  };
+}
+
+function stopNodeDrag() {
+  if (!activeNodeDrag) return;
+  activeNodeDrag.nodeEl.classList.remove('dragging');
+  activeNodeDrag = null;
+}
+
+function startPinchGesture() {
+  const points = touchPair();
+  if (points.length < 2) return;
+  stopNodeDrag();
+  const geometry = pairGeometry(points);
+  const anchorWorld = {
+    x: (geometry.midpoint.x - workspaceView.x) / workspaceView.zoom,
+    y: (geometry.midpoint.y - workspaceView.y) / workspaceView.zoom
+  };
+  workspaceGesture = {
+    mode: 'pinch',
+    startDistance: geometry.distance,
+    startZoom: workspaceView.zoom,
+    anchorWorld
+  };
+  workspace.classList.add('panning');
+}
+
+function startPanFromPointer(pointerId, point) {
+  workspaceGesture = {
+    mode: 'pan',
+    pointerId,
+    startClientX: point.clientX,
+    startClientY: point.clientY,
+    originX: workspaceView.x,
+    originY: workspaceView.y
+  };
+  workspace.classList.add('panning');
+}
+
 workspace.addEventListener('pointerdown', event => {
+  const isTouch = event.pointerType === 'touch';
+  if (event.button != null && event.button !== 0 && !isTouch) return;
+
+  if (isTouch) {
+    workspaceTouches.set(event.pointerId, { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY });
+    workspace.setPointerCapture?.(event.pointerId);
+
+    if (workspaceTouches.size >= 2) {
+      event.preventDefault();
+      event.stopPropagation();
+      cancelConnection();
+      startPinchGesture();
+      return;
+    }
+  }
+
   const nodeEl = event.target.closest('.node');
   if (nodeEl && nodesLayer.contains(nodeEl)) {
-    if (event.target.closest('.port')) return;
-    const nodeId = Number(nodeEl.dataset.nodeId);
+    if (event.target.closest('.port')) {
+      if (isTouch) workspaceTouches.delete(event.pointerId);
+      return;
+    }
 
+    const nodeId = Number(nodeEl.dataset.nodeId);
     if (groupSelectionMode) {
       event.preventDefault();
       event.stopPropagation();
@@ -128,72 +203,98 @@ workspace.addEventListener('pointerdown', event => {
       return;
     }
 
-    if (event.button != null && event.button !== 0) return;
     event.preventDefault();
     event.stopPropagation();
-
     const node = graph.nodes.get(nodeId);
     if (!node) return;
+
     selectNode(nodeId);
     cancelConnection();
-
     const start = workspacePoint(event);
-    const origin = { x: node.x, y: node.y };
+    activeNodeDrag = {
+      pointerId: event.pointerId,
+      node,
+      nodeEl,
+      startX: start.x,
+      startY: start.y,
+      originX: node.x,
+      originY: node.y
+    };
     nodeEl.classList.add('dragging');
-    nodeEl.setPointerCapture?.(event.pointerId);
-
-    const move = e => {
-      e.preventDefault();
-      const p = workspacePoint(e);
-      node.x = origin.x + p.x - start.x;
-      node.y = origin.y + p.y - start.y;
-      nodeEl.style.left = `${node.x}px`;
-      nodeEl.style.top = `${node.y}px`;
-      updateWires();
-    };
-
-    const finish = e => {
-      nodeEl.classList.remove('dragging');
-      if (nodeEl.hasPointerCapture?.(e.pointerId)) nodeEl.releasePointerCapture(e.pointerId);
-      nodeEl.removeEventListener('pointermove', move);
-      nodeEl.removeEventListener('pointerup', finish);
-      nodeEl.removeEventListener('pointercancel', finish);
-    };
-
-    nodeEl.addEventListener('pointermove', move);
-    nodeEl.addEventListener('pointerup', finish);
-    nodeEl.addEventListener('pointercancel', finish);
+    workspace.setPointerCapture?.(event.pointerId);
     return;
   }
 
-  if (event.button != null && event.button !== 0) return;
   event.preventDefault();
+  event.stopPropagation();
   cancelConnection();
-
-  const start = { x: event.clientX, y: event.clientY };
-  const origin = { x: workspaceView.x, y: workspaceView.y };
-  workspace.classList.add('panning');
+  startPanFromPointer(event.pointerId, { clientX: event.clientX, clientY: event.clientY });
   workspace.setPointerCapture?.(event.pointerId);
-
-  const move = e => {
-    e.preventDefault();
-    workspaceView.x = origin.x + e.clientX - start.x;
-    workspaceView.y = origin.y + e.clientY - start.y;
-    applyWorkspaceView();
-  };
-
-  const finish = e => {
-    workspace.classList.remove('panning');
-    if (workspace.hasPointerCapture?.(e.pointerId)) workspace.releasePointerCapture(e.pointerId);
-    workspace.removeEventListener('pointermove', move);
-    workspace.removeEventListener('pointerup', finish);
-    workspace.removeEventListener('pointercancel', finish);
-  };
-
-  workspace.addEventListener('pointermove', move);
-  workspace.addEventListener('pointerup', finish);
-  workspace.addEventListener('pointercancel', finish);
 }, true);
+
+workspace.addEventListener('pointermove', event => {
+  if (event.pointerType === 'touch' && workspaceTouches.has(event.pointerId)) {
+    workspaceTouches.set(event.pointerId, { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY });
+  }
+
+  if (workspaceGesture?.mode === 'pinch' && workspaceTouches.size >= 2) {
+    event.preventDefault();
+    const geometry = pairGeometry(touchPair());
+    const zoom = clampWorkspaceZoom(workspaceGesture.startZoom * geometry.distance / workspaceGesture.startDistance);
+    workspaceView.zoom = zoom;
+    workspaceView.x = geometry.midpoint.x - workspaceGesture.anchorWorld.x * zoom;
+    workspaceView.y = geometry.midpoint.y - workspaceGesture.anchorWorld.y * zoom;
+    applyWorkspaceView();
+    updateWires();
+    return;
+  }
+
+  if (activeNodeDrag?.pointerId === event.pointerId) {
+    event.preventDefault();
+    const p = workspacePoint(event);
+    const { node, nodeEl } = activeNodeDrag;
+    node.x = activeNodeDrag.originX + p.x - activeNodeDrag.startX;
+    node.y = activeNodeDrag.originY + p.y - activeNodeDrag.startY;
+    nodeEl.style.left = `${node.x}px`;
+    nodeEl.style.top = `${node.y}px`;
+    updateWires();
+    return;
+  }
+
+  if (workspaceGesture?.mode === 'pan' && workspaceGesture.pointerId === event.pointerId) {
+    event.preventDefault();
+    workspaceView.x = workspaceGesture.originX + event.clientX - workspaceGesture.startClientX;
+    workspaceView.y = workspaceGesture.originY + event.clientY - workspaceGesture.startClientY;
+    applyWorkspaceView();
+  }
+}, true);
+
+function finishWorkspacePointer(event) {
+  const wasTouch = event.pointerType === 'touch';
+  if (wasTouch) workspaceTouches.delete(event.pointerId);
+
+  if (activeNodeDrag?.pointerId === event.pointerId) stopNodeDrag();
+
+  if (workspaceGesture?.mode === 'pinch') {
+    if (workspaceTouches.size >= 2) {
+      startPinchGesture();
+    } else if (workspaceTouches.size === 1) {
+      const remaining = [...workspaceTouches.values()][0];
+      startPanFromPointer(remaining.pointerId, remaining);
+    } else {
+      workspaceGesture = null;
+      workspace.classList.remove('panning');
+    }
+  } else if (workspaceGesture?.mode === 'pan' && workspaceGesture.pointerId === event.pointerId) {
+    workspaceGesture = null;
+    workspace.classList.remove('panning');
+  }
+
+  if (workspace.hasPointerCapture?.(event.pointerId)) workspace.releasePointerCapture(event.pointerId);
+}
+
+workspace.addEventListener('pointerup', finishWorkspacePointer, true);
+workspace.addEventListener('pointercancel', finishWorkspacePointer, true);
 
 // Ctrl+wheel also covers the pinch gesture emitted by many desktop trackpads.
 workspace.addEventListener('wheel', event => {
@@ -207,6 +308,9 @@ workspace.addEventListener('wheel', event => {
 const resetWorkspaceWithoutViewport = resetWorkspace;
 resetWorkspace = function() {
   resetWorkspaceWithoutViewport();
+  workspaceTouches.clear();
+  workspaceGesture = null;
+  stopNodeDrag();
   resetWorkspaceView();
 };
 
