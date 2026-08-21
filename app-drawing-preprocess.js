@@ -10,6 +10,7 @@
   const OUTPUT_SIZE = 28;
   const TARGET_SPAN = 26; // one-pixel safety margin for antialiased stroke edges
   const DRAW_LINE_WIDTH = 10;
+  const INK_GAMMA = 0.85; // gently lift antialiased gray pixels without changing geometry
 
   preprocessCanvasTo28 = function(canvas) {
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -51,7 +52,8 @@
     for (let i = 0; i < data.length; i++) {
       const p = i * 4;
       const gray = (small.data[p] + small.data[p + 1] + small.data[p + 2]) / 3;
-      data[i] = 1 - gray / 255;
+      const ink = 1 - gray / 255;
+      data[i] = ink <= 0 ? 0 : Math.pow(ink, INK_GAMMA);
     }
     return arrayValue(data, [OUTPUT_SIZE, OUTPUT_SIZE]);
   };
