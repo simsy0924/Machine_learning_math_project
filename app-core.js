@@ -50,6 +50,13 @@ const USER_BLOCK_STORAGE_KEY = 'machine-learning-math-project.user-blocks.v1';
 function arrayValue(data, shape = [data.length]) {
   return { kind: 'array', data: data instanceof Float32Array ? data : new Float32Array(data), shape: [...shape] };
 }
+// Internal constructor for the math kernels below. The caller always hands over a
+// freshly allocated buffer, and shape arrays are never mutated anywhere in the
+// runtime, so both can be adopted directly instead of being copied on every
+// single operation.
+function fastArrayValue(data, shape) {
+  return { kind: 'array', data, shape };
+}
 function isArrayValue(value) { return Boolean(value && value.kind === 'array'); }
 function asArrayValue(value) {
   if (!isArrayValue(value)) throw new Error('배열 입력이 필요합니다.');
@@ -63,30 +70,211 @@ function copyValue(value) {
 function elementwiseUnary(value, fn) {
   if (typeof value === 'number') return fn(value);
   const arr = asArrayValue(value);
-  const data = new Float32Array(arr.data.length);
-  for (let i = 0; i < data.length; i++) data[i] = fn(arr.data[i], i);
-  return arrayValue(data, arr.shape);
+  const source = arr.data;
+  const data = new Float32Array(source.length);
+  for (let i = 0; i < data.length; i++) data[i] = fn(source[i], i);
+  return fastArrayValue(data, arr.shape);
 }
 function elementwiseBinary(a, b, fn) {
   if (typeof a === 'number' && typeof b === 'number') return fn(a, b);
-  if (typeof a === 'number' && isArrayValue(b)) return elementwiseUnary(b, x => fn(a, x));
-  if (isArrayValue(a) && typeof b === 'number') return elementwiseUnary(a, x => fn(x, b));
-  const aa = asArrayValue(a);
-  const bb = asArrayValue(b);
-  if (aa.data.length !== bb.data.length) throw new Error('배열의 원소 수가 서로 다릅니다.');
-  const data = new Float32Array(aa.data.length);
-  for (let i = 0; i < data.length; i++) data[i] = fn(aa.data[i], bb.data[i]);
-  return arrayValue(data, aa.shape);
+  // Each mixed case gets its own loop. Wrapping fn in another closure here used
+  // to add a second layer of indirect calls to every element.
+  if (typeof a === 'number') {
+    const bb = asArrayValue(b), bd = bb.data;
+    const data = new Float32Array(bd.length);
+    for (let i = 0; i < data.length; i++) data[i] = fn(a, bd[i]);
+    return fastArrayValue(data, bb.shape);
+  }
+  const aa = asArrayValue(a), ad = aa.data;
+  if (typeof b === 'number') {
+    const data = new Float32Array(ad.length);
+    for (let i = 0; i < data.length; i++) data[i] = fn(ad[i], b);
+    return fastArrayValue(data, aa.shape);
+  }
+  const bd = asArrayValue(b).data;
+  if (ad.length !== bd.length) throw new Error('배열의 원소 수가 서로 다릅니다.');
+  const data = new Float32Array(ad.length);
+  for (let i = 0; i < data.length; i++) data[i] = fn(ad[i], bd[i]);
+  return fastArrayValue(data, aa.shape);
 }
-function addValues(a, b) { return elementwiseBinary(a, b, (x, y) => x + y); }
-function subtractValues(a, b) { return elementwiseBinary(a, b, (x, y) => x - y); }
-function multiplyValues(a, b) { return elementwiseBinary(a, b, (x, y) => x * y); }
-function divideValues(a, b) { return elementwiseBinary(a, b, (x, y) => x / y); }
-function negateValue(v) { return elementwiseUnary(v, x => -x); }
+
+// ---------- 원소별 연산 커널 ----------
+// These are the innermost loops of both the forward pass and backpropagation. A
+// single SGD step on a 15x784 weight matrix runs tens of thousands of elements
+// through them, so they are written as plain typed loops instead of going
+// through elementwiseBinary/elementwiseUnary with a per-element callback.
+// elementwiseBinary and elementwiseUnary remain for user-defined blocks and any
+// operation without a dedicated kernel.
+
+function addValues(a, b) {
+  if (typeof a === 'number') {
+    if (typeof b === 'number') return a + b;
+    const bb = asArrayValue(b), bd = bb.data;
+    const out = new Float32Array(bd.length);
+    for (let i = 0; i < out.length; i++) out[i] = a + bd[i];
+    return fastArrayValue(out, bb.shape);
+  }
+  const aa = asArrayValue(a), ad = aa.data;
+  if (typeof b === 'number') {
+    const out = new Float32Array(ad.length);
+    for (let i = 0; i < out.length; i++) out[i] = ad[i] + b;
+    return fastArrayValue(out, aa.shape);
+  }
+  const bd = asArrayValue(b).data;
+  if (ad.length !== bd.length) throw new Error('배열의 원소 수가 서로 다릅니다.');
+  const out = new Float32Array(ad.length);
+  for (let i = 0; i < out.length; i++) out[i] = ad[i] + bd[i];
+  return fastArrayValue(out, aa.shape);
+}
+
+function subtractValues(a, b) {
+  if (typeof a === 'number') {
+    if (typeof b === 'number') return a - b;
+    const bb = asArrayValue(b), bd = bb.data;
+    const out = new Float32Array(bd.length);
+    for (let i = 0; i < out.length; i++) out[i] = a - bd[i];
+    return fastArrayValue(out, bb.shape);
+  }
+  const aa = asArrayValue(a), ad = aa.data;
+  if (typeof b === 'number') {
+    const out = new Float32Array(ad.length);
+    for (let i = 0; i < out.length; i++) out[i] = ad[i] - b;
+    return fastArrayValue(out, aa.shape);
+  }
+  const bd = asArrayValue(b).data;
+  if (ad.length !== bd.length) throw new Error('배열의 원소 수가 서로 다릅니다.');
+  const out = new Float32Array(ad.length);
+  for (let i = 0; i < out.length; i++) out[i] = ad[i] - bd[i];
+  return fastArrayValue(out, aa.shape);
+}
+
+function multiplyValues(a, b) {
+  if (typeof a === 'number') {
+    if (typeof b === 'number') return a * b;
+    const bb = asArrayValue(b), bd = bb.data;
+    const out = new Float32Array(bd.length);
+    for (let i = 0; i < out.length; i++) out[i] = a * bd[i];
+    return fastArrayValue(out, bb.shape);
+  }
+  const aa = asArrayValue(a), ad = aa.data;
+  if (typeof b === 'number') {
+    const out = new Float32Array(ad.length);
+    for (let i = 0; i < out.length; i++) out[i] = ad[i] * b;
+    return fastArrayValue(out, aa.shape);
+  }
+  const bd = asArrayValue(b).data;
+  if (ad.length !== bd.length) throw new Error('배열의 원소 수가 서로 다릅니다.');
+  const out = new Float32Array(ad.length);
+  for (let i = 0; i < out.length; i++) out[i] = ad[i] * bd[i];
+  return fastArrayValue(out, aa.shape);
+}
+
+function divideValues(a, b) {
+  if (typeof a === 'number') {
+    if (typeof b === 'number') return a / b;
+    const bb = asArrayValue(b), bd = bb.data;
+    const out = new Float32Array(bd.length);
+    for (let i = 0; i < out.length; i++) out[i] = a / bd[i];
+    return fastArrayValue(out, bb.shape);
+  }
+  const aa = asArrayValue(a), ad = aa.data;
+  if (typeof b === 'number') {
+    const out = new Float32Array(ad.length);
+    for (let i = 0; i < out.length; i++) out[i] = ad[i] / b;
+    return fastArrayValue(out, aa.shape);
+  }
+  const bd = asArrayValue(b).data;
+  if (ad.length !== bd.length) throw new Error('배열의 원소 수가 서로 다릅니다.');
+  const out = new Float32Array(ad.length);
+  for (let i = 0; i < out.length; i++) out[i] = ad[i] / bd[i];
+  return fastArrayValue(out, aa.shape);
+}
+
+function maximumValues(a, b) {
+  if (typeof a === 'number') {
+    if (typeof b === 'number') return Math.max(a, b);
+    const bb = asArrayValue(b), bd = bb.data;
+    const out = new Float32Array(bd.length);
+    for (let i = 0; i < out.length; i++) out[i] = Math.max(a, bd[i]);
+    return fastArrayValue(out, bb.shape);
+  }
+  const aa = asArrayValue(a), ad = aa.data;
+  if (typeof b === 'number') {
+    const out = new Float32Array(ad.length);
+    for (let i = 0; i < out.length; i++) out[i] = Math.max(ad[i], b);
+    return fastArrayValue(out, aa.shape);
+  }
+  const bd = asArrayValue(b).data;
+  if (ad.length !== bd.length) throw new Error('배열의 원소 수가 서로 다릅니다.');
+  const out = new Float32Array(ad.length);
+  for (let i = 0; i < out.length; i++) out[i] = Math.max(ad[i], bd[i]);
+  return fastArrayValue(out, aa.shape);
+}
+
+function equalValues(a, b) {
+  if (typeof a === 'number') {
+    if (typeof b === 'number') return a === b ? 1 : 0;
+    const bb = asArrayValue(b), bd = bb.data;
+    const out = new Float32Array(bd.length);
+    for (let i = 0; i < out.length; i++) out[i] = a === bd[i] ? 1 : 0;
+    return fastArrayValue(out, bb.shape);
+  }
+  const aa = asArrayValue(a), ad = aa.data;
+  if (typeof b === 'number') {
+    const out = new Float32Array(ad.length);
+    for (let i = 0; i < out.length; i++) out[i] = ad[i] === b ? 1 : 0;
+    return fastArrayValue(out, aa.shape);
+  }
+  const bd = asArrayValue(b).data;
+  if (ad.length !== bd.length) throw new Error('배열의 원소 수가 서로 다릅니다.');
+  const out = new Float32Array(ad.length);
+  for (let i = 0; i < out.length; i++) out[i] = ad[i] === bd[i] ? 1 : 0;
+  return fastArrayValue(out, aa.shape);
+}
+
+function negateValue(v) {
+  if (typeof v === 'number') return -v;
+  const a = asArrayValue(v), d = a.data;
+  const out = new Float32Array(d.length);
+  for (let i = 0; i < out.length; i++) out[i] = -d[i];
+  return fastArrayValue(out, a.shape);
+}
+
+function squareValues(v) {
+  if (typeof v === 'number') return v * v;
+  const a = asArrayValue(v), d = a.data;
+  const out = new Float32Array(d.length);
+  for (let i = 0; i < out.length; i++) out[i] = d[i] * d[i];
+  return fastArrayValue(out, a.shape);
+}
+
+function absValues(v) {
+  if (typeof v === 'number') return Math.abs(v);
+  const a = asArrayValue(v), d = a.data;
+  const out = new Float32Array(d.length);
+  for (let i = 0; i < out.length; i++) out[i] = Math.abs(d[i]);
+  return fastArrayValue(out, a.shape);
+}
+
+function expValues(v) {
+  if (typeof v === 'number') return Math.exp(v);
+  const a = asArrayValue(v), d = a.data;
+  const out = new Float32Array(d.length);
+  for (let i = 0; i < out.length; i++) out[i] = Math.exp(d[i]);
+  return fastArrayValue(out, a.shape);
+}
+
+function logValues(v) {
+  if (typeof v === 'number') return Math.log(v);
+  const a = asArrayValue(v), d = a.data;
+  const out = new Float32Array(d.length);
+  for (let i = 0; i < out.length; i++) out[i] = Math.log(d[i]);
+  return fastArrayValue(out, a.shape);
+}
 function sumArray(arr) { let s = 0; for (const v of arr.data) s += v; return s; }
 function zerosLike(v) {
   if (typeof v === 'number') return 0;
-  if (isArrayValue(v)) { const a = asArrayValue(v); return arrayValue(new Float32Array(a.data.length), a.shape); }
+  if (isArrayValue(v)) return fastArrayValue(new Float32Array(v.data.length), v.shape);
   return null;
 }
 function fillLike(v, scalar) {
@@ -94,12 +282,14 @@ function fillLike(v, scalar) {
   const a = asArrayValue(v);
   const data = new Float32Array(a.data.length);
   data.fill(scalar);
-  return arrayValue(data, a.shape);
+  return fastArrayValue(data, a.shape);
 }
 function unbroadcast(grad, original) {
   if (typeof original === 'number' && isArrayValue(grad)) return sumArray(grad);
   if (isArrayValue(original) && typeof grad === 'number') return fillLike(original, grad);
-  if (isArrayValue(original) && isArrayValue(grad)) return arrayValue(new Float32Array(grad.data), original.shape);
+  // Same element count, different shape: reinterpret instead of copying the
+  // whole buffer. This runs on every backward pass through 행렬×벡터 and 더하기.
+  if (isArrayValue(original) && isArrayValue(grad)) return fastArrayValue(grad.data, original.shape);
   return grad;
 }
 function accumulateGrad(map, key, grad) {

@@ -134,7 +134,7 @@ function primitiveVJP(type, inputs, output, upstream) {
     case 'subtract': return [unbroadcast(upstream, a), unbroadcast(negateValue(upstream), b)];
     case 'multiply': return [unbroadcast(multiplyValues(upstream, b), a), unbroadcast(multiplyValues(upstream, a), b)];
     case 'divide': return [unbroadcast(divideValues(upstream, b), a), unbroadcast(negateValue(divideValues(multiplyValues(upstream, a), multiplyValues(b, b))), b)];
-    case 'square': return [multiplyValues(upstream, elementwiseUnary(a, x => 2 * x))];
+    case 'square': return [multiplyValues(upstream, multiplyValues(a, 2))];
     case 'abs': return [multiplyValues(upstream, elementwiseUnary(a, x => x > 0 ? 1 : x < 0 ? -1 : 0))];
     case 'maximum': {
       const fa = elementwiseBinary(a, b, (x, y) => x > y ? 1 : x < y ? 0 : 0.5); const fb = elementwiseBinary(a, b, (x, y) => x < y ? 1 : x > y ? 0 : 0.5);
