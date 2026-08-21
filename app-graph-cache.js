@@ -223,7 +223,7 @@ computeAllGraphGradients = function(outputId) {
     const name = String(node.params.name || 'x');
     const gradient = adjoints.get(id) ?? zerosLike(values.get(id));
     const previous = gradients.get(name);
-    gradients.set(name, previous == null ? copyValue(gradient) : addValues(previous, gradient));
+    gradients.set(name, previous == null ? gradient : addValues(previous, gradient));
   }
 
   return gradients;

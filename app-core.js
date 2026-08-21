@@ -404,7 +404,9 @@ function unbroadcast(grad, original) {
 }
 function accumulateGrad(map, key, grad) {
   if (grad == null) return;
-  map.set(key, map.has(key) ? addValues(map.get(key), grad) : copyValue(grad));
+  // Values are immutable by rule, so the first gradient for a node can be stored
+  // as-is; addValues allocates a fresh array for every later accumulation.
+  map.set(key, map.has(key) ? addValues(map.get(key), grad) : grad);
 }
 function dotValues(a, b) {
   const aa = asArrayValue(a), bb = asArrayValue(b);

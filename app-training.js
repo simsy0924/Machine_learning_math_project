@@ -48,16 +48,19 @@ function initialVariableValue(node) {
   return arrayValue(data, [length]);
 }
 
+// Runtime variable values are shared, not cloned. Values are immutable by rule
+// (see README), so reading a weight matrix hands back the stored array instead
+// of copying it on every access inside the training loop.
 function readRuntimeVariable(node) {
   const name = String(node.params.name || 'x');
   const signature = variableSignature(node);
   const stored = RUNTIME_VARIABLES.get(name);
   if (!stored || stored.signature !== signature) {
     const value = initialVariableValue(node);
-    RUNTIME_VARIABLES.set(name, { value: copyValue(value), signature });
-    return copyValue(value);
+    RUNTIME_VARIABLES.set(name, { value, signature });
+    return value;
   }
-  return copyValue(stored.value);
+  return stored.value;
 }
 
 function findVariableNode(name) {
@@ -70,10 +73,10 @@ function findVariableNode(name) {
 function writeRuntimeVariable(name, value, immediate = false) {
   const variableNode = findVariableNode(name);
   if (!variableNode) throw new Error(`'${name}'이라는 변수 블록을 찾지 못했습니다.`);
-  const entry = { value: copyValue(value), signature: variableSignature(variableNode) };
+  const entry = { value, signature: variableSignature(variableNode) };
   if (pendingVariableUpdates && !immediate) pendingVariableUpdates.set(String(name), entry);
   else RUNTIME_VARIABLES.set(String(name), entry);
-  return copyValue(value);
+  return value;
 }
 
 function commitPendingVariableUpdates() {

@@ -31,6 +31,10 @@ function collectTopo(outputId) {
 // Reverse-mode autodiff naturally produces gradients for every variable in one
 // backward pass. Derivative blocks that point at the same scalar loss therefore
 // share one pass while the training state (weights + loop indices) is unchanged.
+//
+// Gradients are handed out without copying. Values in this runtime are immutable
+// by rule (see README), so the derivative blocks sharing a pass can share the
+// same arrays, and a shared 15x784 weight gradient is not cloned per block.
 const AUTODIFF_ENTRY_IDS = new WeakMap();
 let nextAutodiffEntryId = 1;
 let sharedAutodiffContextKey = null;
@@ -92,7 +96,7 @@ function computeAllGraphGradients(outputId) {
     const name = String(node.params.name || 'x');
     const gradient = adjoints.get(id) ?? zerosLike(values.get(id));
     const previous = gradients.get(name);
-    gradients.set(name, previous == null ? copyValue(gradient) : addValues(previous, gradient));
+    gradients.set(name, previous == null ? gradient : addValues(previous, gradient));
   }
   return gradients;
 }
@@ -109,7 +113,7 @@ function differentiateGraph(outputId, variableName) {
     const cached = sharedAutodiffByOutput.get(outputId);
     if (cached) {
       if (!cached.has(requestedName)) throw new Error(`'${requestedName}'이라는 변수를 식에서 찾지 못했습니다.`);
-      return copyValue(cached.get(requestedName));
+      return cached.get(requestedName);
     }
   }
 
@@ -124,7 +128,7 @@ function differentiateGraph(outputId, variableName) {
     sharedAutodiffByOutput = new Map([[outputId, gradients]]);
   }
 
-  return copyValue(gradients.get(requestedName));
+  return gradients.get(requestedName);
 }
 
 function primitiveVJP(type, inputs, output, upstream) {
@@ -178,11 +182,11 @@ function userBlockVJP(definition, externalValues, upstream) {
   evalInternal(definition.outputNodeId);
   const adj = new Map([[definition.outputNodeId, upstream]]), externalGrads = externalValues.map(v => zerosLike(v));
   for (let k = topo.length - 1; k >= 0; k--) {
-    const id = topo[k], up = adj.get(id); if (up == null) continue; const node = nodeMap.get(id); const blockDef = getBlockDef(node.type); const sourceSlot = externalIndexBySlot.get(`${id}:source`); if (sourceSlot != null) { externalGrads[sourceSlot] = externalGrads[sourceSlot] == null ? copyValue(up) : addValues(externalGrads[sourceSlot], up); continue; }
+    const id = topo[k], up = adj.get(id); if (up == null) continue; const node = nodeMap.get(id); const blockDef = getBlockDef(node.type); const sourceSlot = externalIndexBySlot.get(`${id}:source`); if (sourceSlot != null) { externalGrads[sourceSlot] = externalGrads[sourceSlot] == null ? up : addValues(externalGrads[sourceSlot], up); continue; }
     const ins = [], refs = [];
     for (let i = 0; i < blockDef.inputs.length; i++) { const c = definition.connections.find(x => x.to === id && x.inputIndex === i); if (c) { ins.push(values.get(c.from)); refs.push({ nodeId: c.from }); } else { const slot = externalIndexBySlot.get(`${id}:${i}`); ins.push(externalValues[slot]); refs.push({ external: slot }); } }
     const grads = node.type.startsWith('custom:') ? userBlockVJP(USER_BLOCKS.get(node.type.slice(7)), ins, up) : primitiveVJP(node.type, ins, values.get(id), up);
-    grads.forEach((g, i) => { if (g == null) return; const ref = refs[i]; if (ref.external != null) externalGrads[ref.external] = externalGrads[ref.external] == null ? copyValue(g) : addValues(externalGrads[ref.external], g); else accumulateGrad(adj, ref.nodeId, g); });
+    grads.forEach((g, i) => { if (g == null) return; const ref = refs[i]; if (ref.external != null) externalGrads[ref.external] = externalGrads[ref.external] == null ? g : addValues(externalGrads[ref.external], g); else accumulateGrad(adj, ref.nodeId, g); });
   }
   return externalGrads;
 }

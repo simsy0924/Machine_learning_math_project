@@ -1,62 +1,9 @@
-(function installRuntimePerformanceOptimizations() {
-  // Math values are immutable by convention: every block operation creates a new
-  // Float32Array instead of mutating its inputs. Runtime variables and gradients
-  // can therefore share those arrays safely instead of cloning large matrices on
-  // every read/write and every cached derivative lookup.
-  readRuntimeVariable = function(node) {
-    const name = String(node.params.name || 'x');
-    const signature = variableSignature(node);
-    const stored = RUNTIME_VARIABLES.get(name);
-    if (!stored || stored.signature !== signature) {
-      const value = initialVariableValue(node);
-      RUNTIME_VARIABLES.set(name, { value, signature });
-      return value;
-    }
-    return stored.value;
-  };
-
-  writeRuntimeVariable = function(name, value, immediate = false) {
-    const variableNode = findVariableNode(name);
-    if (!variableNode) throw new Error(`'${name}'이라는 변수 블록을 찾지 못했습니다.`);
-    const entry = { value, signature: variableSignature(variableNode) };
-    if (pendingVariableUpdates && !immediate) pendingVariableUpdates.set(String(name), entry);
-    else RUNTIME_VARIABLES.set(String(name), entry);
-    return value;
-  };
-
-  accumulateGrad = function(map, key, grad) {
-    if (grad == null) return;
-    map.set(key, map.has(key) ? addValues(map.get(key), grad) : grad);
-  };
-
-  differentiateGraph = function(outputId, variableName) {
-    const requestedName = String(variableName);
-    const contextBefore = currentTrainingAutodiffContextKey();
-
-    if (contextBefore != null) {
-      if (sharedAutodiffContextKey !== contextBefore) {
-        sharedAutodiffContextKey = contextBefore;
-        sharedAutodiffByOutput = new Map();
-      }
-      const cached = sharedAutodiffByOutput.get(outputId);
-      if (cached) {
-        if (!cached.has(requestedName)) throw new Error(`'${requestedName}'이라는 변수를 식에서 찾지 못했습니다.`);
-        return cached.get(requestedName);
-      }
-    }
-
-    const gradients = computeAllGraphGradients(outputId);
-    if (!gradients.has(requestedName)) throw new Error(`'${requestedName}'이라는 변수를 식에서 찾지 못했습니다.`);
-
-    if (contextBefore != null) {
-      const contextAfter = currentTrainingAutodiffContextKey();
-      sharedAutodiffContextKey = contextAfter;
-      sharedAutodiffByOutput = new Map([[outputId, gradients]]);
-    }
-
-    return gradients.get(requestedName);
-  };
-
+(function installProgressRateDisplay() {
+  // readRuntimeVariable, writeRuntimeVariable, accumulateGrad and
+  // differentiateGraph used to be re-declared here without their defensive
+  // copies. Those copies are now gone from the original definitions, so the
+  // overrides were removed: the code you read in app-core.js, app-training.js
+  // and app-engine.js is the code that runs.
   function updateStepRate(progress, now, force = false) {
     if (progress.rateSampleTime == null) {
       progress.rateSampleTime = now;
