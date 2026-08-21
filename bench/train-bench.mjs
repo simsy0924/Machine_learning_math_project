@@ -27,6 +27,7 @@ function parseArgs(argv) {
     steps: 10000,
     runs: 3,
     warmup: 1,
+    hidden: 0,
     classes: ['cat', 'fish', 'house'],
     lr: 0.05,
     seed: 1,
@@ -41,13 +42,14 @@ function parseArgs(argv) {
       case '--steps': options.steps = Number(value); break;
       case '--runs': options.runs = Number(value); break;
       case '--warmup': options.warmup = Number(value); break;
+      case '--hidden': options.hidden = Number(value); break;
       case '--classes': options.classes = String(value).split(','); break;
       case '--lr': options.lr = Number(value); break;
       case '--seed': options.seed = Number(value); break;
       case '--headed': options.headed = true; i--; break;
       case '--json': options.json = true; i--; break;
       case '--help':
-        console.log('usage: node bench/train-bench.mjs [--steps N] [--runs N] [--warmup N] [--classes a,b,c] [--lr X] [--seed N] [--headed] [--json]');
+        console.log('usage: node bench/train-bench.mjs [--steps N] [--runs N] [--warmup N] [--hidden N] [--classes a,b,c] [--lr X] [--seed N] [--headed] [--json]');
         process.exit(0);
         break;
       default:
@@ -123,7 +125,7 @@ function loadChromium() {
 // Runs inside the page. Only uses the app's own public globals, so it exercises
 // exactly the code path a user hits with the 계산 button.
 function benchmarkInPage(options) {
-  const { classes, steps, lr, seed, runs, warmup } = options;
+  const { classes, steps, lr, seed, runs, warmup, hidden } = options;
 
   function fnv(hashA, hashB, word, index) {
     return [
@@ -182,20 +184,44 @@ function benchmarkInPage(options) {
     const x = add('flatten');
     link(image, x, 0);
 
-    // z = W·x + b
-    const W = add('variable', {
-      name: 'W', mode: 'matrix', rows: classCount, cols: 784,
-      init: 'random', seed, scale: 0.05
-    });
-    const wx = add('matvec');
-    link(W, wx, 0);
-    link(x, wx, 1);
-    const b = add('variable', {
-      name: 'b', mode: 'vector', length: classCount, init: 'constant', value: 0
-    });
-    const z = add('add');
-    link(wx, z, 0);
-    link(b, z, 1);
+    // One affine layer: name·input + bias. The parameters are collected so the
+    // SGD update below can be generated for each of them.
+    const parameters = [];
+    const affine = (input, name, rows, cols, layerSeed) => {
+      const weights = add('variable', {
+        name: `W${name}`, mode: 'matrix', rows, cols,
+        init: 'random', seed: layerSeed, scale: 0.05
+      });
+      const product = add('matvec');
+      link(weights, product, 0);
+      link(input, product, 1);
+
+      const bias = add('variable', {
+        name: `b${name}`, mode: 'vector', length: rows, init: 'constant', value: 0
+      });
+      const sum = add('add');
+      link(product, sum, 0);
+      link(bias, sum, 1);
+
+      parameters.push(weights, bias);
+      return sum;
+    };
+
+    // With --hidden N the graph becomes a two-layer network with a ReLU built
+    // from the ordinary 최댓값 block, which is what the project is actually for.
+    let features = x;
+    let inputSize = 784;
+    if (hidden > 0) {
+      const preActivation = affine(x, '1', hidden, 784, seed);
+      const zero = add('number', { value: 0 });
+      const relu = add('maximum');
+      link(zero, relu, 0);
+      link(preActivation, relu, 1);
+      features = relu;
+      inputSize = hidden;
+    }
+
+    const z = affine(features, hidden > 0 ? '2' : '', classCount, inputSize, hidden > 0 ? seed + 1 : seed);
 
     // p = softmax(z), built from ordinary blocks and stabilized by max(z)
     const zMax = add('arrayMax');
@@ -229,7 +255,8 @@ function benchmarkInPage(options) {
     // SGD update for both parameters, committed together at the end of a step
     const learningRate = add('number', { value: lr });
     const updates = [];
-    for (const [name, parameter] of [['W', W], ['b', b]]) {
+    for (const parameter of parameters) {
+      const name = parameter.params.name;
       const gradient = add('derivative', { variable: name });
       link(loss, gradient, 0);
       const scaled = add('multiply');
@@ -243,12 +270,18 @@ function benchmarkInPage(options) {
       updates.push(assign);
     }
 
-    const both = add('sequence');
-    link(updates[0], both, 0);
-    link(updates[1], both, 1);
+    // 둘 다 계산 takes two inputs, so chain it to commit every parameter in one
+    // iteration.
+    let body = updates[0];
+    for (let i = 1; i < updates.length; i++) {
+      const sequence = add('sequence');
+      link(body, sequence, 0);
+      link(updates[i], sequence, 1);
+      body = sequence;
+    }
 
     const repeat = add('repeat', { count: steps, start: 0, indexVariable: 'i' });
-    link(both, repeat, 0);
+    link(body, repeat, 0);
 
     return { loss, repeat, index };
   }
@@ -266,7 +299,7 @@ function benchmarkInPage(options) {
     let total = 0;
 
     for (let i = 0; i < sampleCount; i++) {
-      RUNTIME_VARIABLES.set('i', { value: first + i, signature });
+      setRuntimeVariableEntry('i', { value: first + i, signature });
       total += evaluateNode(lossId, new Map(), new Set());
     }
     return total / sampleCount;
@@ -274,7 +307,7 @@ function benchmarkInPage(options) {
 
   // Every run must start from the same state or the checksums diverge.
   function resetRuntimeState() {
-    RUNTIME_VARIABLES.clear();
+    clearRuntimeVariables();
     pendingVariableUpdates = null;
     sharedAutodiffContextKey = null;
     sharedAutodiffByOutput = new Map();
@@ -315,7 +348,7 @@ function benchmarkInPage(options) {
       });
     }
 
-    return { classes: loaded, steps, warmup, results };
+    return { classes: loaded, steps, warmup, hidden, results };
   })();
 }
 
@@ -344,7 +377,8 @@ async function main() {
       lr: options.lr,
       seed: options.seed,
       runs: options.runs,
-      warmup: options.warmup
+      warmup: options.warmup,
+      hidden: options.hidden
     });
 
     if (options.json) {
@@ -371,6 +405,7 @@ function printReport(report, options, failures) {
 
   console.log(
     `종류 ${report.classes.join(', ')} · step ${report.steps.toLocaleString()}` +
+    ` · ${report.hidden > 0 ? `은닉층 ${report.hidden}` : '은닉층 없음'}` +
     ` · lr ${options.lr} · seed ${options.seed} · warmup ${report.warmup}회 제외`
   );
   report.results.forEach((result, index) => {
