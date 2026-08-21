@@ -145,7 +145,7 @@
     const vd = v.data;
     if (vd.length !== cols) throw new Error(`행렬의 열 ${cols}개와 벡터 길이 ${vd.length}가 다릅니다.`);
 
-    const out = new Float32Array(rows);
+    const out = takeResultBuffer(rows);
     for (let r = 0; r < rows; r++) {
       const base = r * cols;
       let sum = 0;
@@ -176,7 +176,7 @@
     const vd = v.data;
     if (vd.length !== rows) throw new Error('전치 행렬과 벡터의 크기가 맞지 않습니다.');
 
-    const out = new Float32Array(cols);
+    const out = takeResultBuffer(cols);
     for (let c = 0; c < cols; c++) {
       let sum = 0;
       let r = 0;
@@ -203,7 +203,7 @@
     const ad = aa.data;
     const bd = bb.data;
     const cols = bd.length;
-    const out = new Float32Array(ad.length * cols);
+    const out = takeResultBuffer(ad.length * cols);
     for (let r = 0; r < ad.length; r++) {
       const scale = ad[r];
       const base = r * cols;

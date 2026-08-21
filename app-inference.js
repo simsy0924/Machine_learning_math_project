@@ -78,7 +78,7 @@ function collectAncestorNodeIds(outputId) {
     if (!node) return;
     const def = getBlockDef(node.type);
     for (let inputIndex = 0; inputIndex < def.inputs.length; inputIndex++) {
-      const connection = graph.connections.find(c => c.to === id && c.inputIndex === inputIndex);
+      const connection = graphInputConnection(id, inputIndex);
       if (connection) visit(connection.from);
     }
   };

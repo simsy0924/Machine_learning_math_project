@@ -111,11 +111,11 @@ const BLOCKS = {
   subtract: op2('빼기', 'a - b', (a, b) => subtractValues(a, b)),
   multiply: op2('곱하기', 'a × b', (a, b) => multiplyValues(a, b)),
   divide: op2('나누기', 'a ÷ b', (a, b) => divideValues(a, b)),
-  square: op1('제곱', 'x²', x => elementwiseUnary(x, v => v * v)),
-  abs: op1('절댓값', '|x|', x => elementwiseUnary(x, v => Math.abs(v))),
-  maximum: op2('최댓값', 'max(a,b)', (a, b) => elementwiseBinary(a, b, (x, y) => Math.max(x, y))),
-  exp: op1('지수', 'eˣ', x => elementwiseUnary(x, v => Math.exp(v))),
-  log: op1('로그', 'ln(x)', x => elementwiseUnary(x, v => Math.log(v))),
+  square: op1('제곱', 'x²', x => squareValues(x)),
+  abs: op1('절댓값', '|x|', x => absValues(x)),
+  maximum: op2('최댓값', 'max(a,b)', (a, b) => maximumValues(a, b)),
+  exp: op1('지수', 'eˣ', x => expValues(x)),
+  log: op1('로그', 'ln(x)', x => logValues(x)),
   sum: {
     title: '합', kind: 'operation', inputs: ['x'], description: '배열의 원소를 모두 더한다.', formula: () => 'Σxᵢ',
     compute: (n, [x]) => typeof x === 'number' ? x : sumArray(asArrayValue(x))

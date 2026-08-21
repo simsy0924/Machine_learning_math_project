@@ -244,7 +244,7 @@ evaluateNode = function(nodeId, memo = new Map(), visiting = new Set()) {
   if (def.special === 'setVariable') {
     if (visiting.has(nodeId)) throw new Error('순환 연결은 계산할 수 없습니다.');
     visiting.add(nodeId);
-    const connection = graph.connections.find(c => c.to === nodeId && c.inputIndex === 0);
+    const connection = graphInputConnection(nodeId, 0);
     if (!connection) throw new Error("입력 '새 값'이 연결되지 않았습니다.");
     const value = evaluateNode(connection.from, memo, visiting);
     const result = writeRuntimeVariable(String(node.params.variable || 'w'), value);
