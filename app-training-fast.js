@@ -225,7 +225,8 @@
       values: [],
       pendingUpdates: new Map(),
       loopFrame: new Map(),
-      progressFrame: { name: '', index: 0, count: 0 }
+      progressFrame: { name: '', index: 0, count: 0 },
+      arena: createResultArena()
     };
   }
 
@@ -322,6 +323,13 @@
     let last = 0;
     let lastIndex = null;
 
+    // Hoisted so the arena call does not allocate a closure per SGD step.
+    const runIteration = () => {
+      const value = executeTrainingLeafPlan(leafPlan);
+      commitPendingVariableUpdates();
+      return value;
+    };
+
     try {
       for (let offset = 0; offset < count; offset++) {
         const loopValue = start + offset;
@@ -343,8 +351,9 @@
         progress.stack.push(progressFrame);
 
         try {
-          last = executeTrainingLeafPlan(leafPlan);
-          commitPendingVariableUpdates();
+          // The arena covers the whole iteration including the commit, so the
+          // buffers that just became the new weights are seen as still live.
+          last = withResultArena(leafPlan.arena, runIteration);
           progress.completed++;
 
           // Avoid an async Promise/await round-trip on every single SGD step.

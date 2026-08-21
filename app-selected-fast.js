@@ -61,7 +61,8 @@ function compileSelectedLeafPlan(outputId, structureCache = ensureGraphStructure
     values: [],
     pendingUpdates: new Map(),
     loopFrame: new Map(),
-    progressFrame: { name: '', index: 0, count: 0 }
+    progressFrame: { name: '', index: 0, count: 0 },
+    arena: createResultArena()
   };
 }
 
@@ -160,6 +161,15 @@ evaluateRepeatProgressive = async function(nodeId, memo, visiting, progress) {
   let last = 0;
   let lastIndex = null;
 
+  // Hoisted so the arena call does not allocate a closure per test sample.
+  const runIteration = leafPlan
+    ? () => {
+        const value = executeSelectedLeafPlan(leafPlan);
+        commitPendingVariableUpdates();
+        return value;
+      }
+    : null;
+
   try {
     for (let offset = 0; offset < count; offset++) {
       const loopValue = start + offset;
@@ -196,12 +206,13 @@ evaluateRepeatProgressive = async function(nodeId, memo, visiting, progress) {
 
       try {
         if (leafPlan) {
-          last = executeSelectedLeafPlan(leafPlan);
+          // The arena covers the commit too, so buffers that just became
+          // runtime variable values are seen as still live.
+          last = withResultArena(leafPlan.arena, runIteration);
         } else {
           last = await evaluateNodeProgressive(connection.from, new Map(), new Set(), progress);
+          commitPendingVariableUpdates();
         }
-
-        commitPendingVariableUpdates();
 
         if (isLeafRepeat) {
           progress.completed++;

@@ -46,6 +46,32 @@ node bench/train-bench.mjs --steps 20000 --runs 5 --warmup 2
   학습 전에는 약 `1.005`, 20,000 step 뒤에는 약 `0.513`입니다. 벤치마크 그래프가
   실제로 학습하고 있다는 확인용 값입니다.
 
+## 버퍼 재사용 검사
+
+```bash
+node bench/arena-check.mjs
+```
+
+커널이 결과 버퍼를 재사용해도 계산 결과가 달라지지 않는지 확인합니다. 같은 그래프를
+**재사용을 끄고 한 번, 켜고 한 번** 실행해 런타임 변수 상태를 비트 단위로 비교합니다.
+
+```
+OK   aliasingAccumulator  풀링 끔 52370d421c73f0f3 · 풀링 켬 52370d421c73f0f3
+OK   userBlockTraining    풀링 끔 349c784bbe2e5e5a · 풀링 켬 349c784bbe2e5e5a
+OK   matrixAccumulator    풀링 끔 613f1c38cfeda1fe · 풀링 켬 613f1c38cfeda1fe
+OK   nestedRepeat         풀링 끔 4054022e11e8d6c9 · 풀링 켬 4054022e11e8d6c9
+```
+
+버퍼 재사용 버그는 예외를 던지지 않고 **조용히 틀린 값으로 학습**하기 때문에, 커널이나
+버퍼 아레나를 건드린 뒤에는 이 검사를 반드시 돌리세요. 검사 그래프는 각각 다른 함정을 노립니다.
+
+| 그래프 | 노리는 것 |
+| --- | --- |
+| `aliasingAccumulator` | `펼치기`·`값 보기`·`둘 다 계산`이 입력 버퍼를 그대로 넘기는 경로 |
+| `userBlockTraining` | 사용자 블록을 통한 미분, `zerosLike`의 0 초기화 |
+| `matrixAccumulator` | 회차를 넘어 살아남는 행렬이 `외적`에 들어가는 경우 |
+| `nestedRepeat` | 중첩 반복의 회차 경계 |
+
 ## 필요한 것
 
 - Playwright (전역 설치도 인식합니다. 다른 위치에 있으면 `PLAYWRIGHT_MODULE`로 지정)
