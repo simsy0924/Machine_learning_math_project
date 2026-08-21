@@ -299,7 +299,7 @@ function benchmarkInPage(options) {
     let total = 0;
 
     for (let i = 0; i < sampleCount; i++) {
-      setRuntimeVariableEntry('i', { value: first + i, signature });
+      RUNTIME_VARIABLES.set('i', { value: first + i, signature });
       total += evaluateNode(lossId, new Map(), new Set());
     }
     return total / sampleCount;
@@ -307,7 +307,7 @@ function benchmarkInPage(options) {
 
   // Every run must start from the same state or the checksums diverge.
   function resetRuntimeState() {
-    clearRuntimeVariables();
+    RUNTIME_VARIABLES.clear();
     pendingVariableUpdates = null;
     sharedAutodiffContextKey = null;
     sharedAutodiffByOutput = new Map();
