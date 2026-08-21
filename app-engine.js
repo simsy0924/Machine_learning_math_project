@@ -14,11 +14,11 @@ function evaluateNode(nodeId, memo = new Map(), visiting = new Set()) {
   const node = graph.nodes.get(nodeId); if (!node) throw new Error('존재하지 않는 블록입니다.');
   const def = getBlockDef(node.type); visiting.add(nodeId);
   if (def.special === 'derivative') {
-    const c = graph.connections.find(x => x.to === nodeId && x.inputIndex === 0); if (!c) throw new Error("입력 '식'이 연결되지 않았습니다.");
+    const c = graphInputConnection(nodeId, 0); if (!c) throw new Error("입력 '식'이 연결되지 않았습니다.");
     const value = differentiateGraph(c.from, String(node.params.variable || 'x'));
     memo.set(nodeId, value); visiting.delete(nodeId); return value;
   }
-  const inputs = def.inputs.map((label, inputIndex) => { const c = graph.connections.find(x => x.to === nodeId && x.inputIndex === inputIndex); if (!c) throw new Error(`입력 '${label}'이 연결되지 않았습니다.`); return evaluateNode(c.from, memo, visiting); });
+  const inputs = def.inputs.map((label, inputIndex) => { const c = graphInputConnection(nodeId, inputIndex); if (!c) throw new Error(`입력 '${label}'이 연결되지 않았습니다.`); return evaluateNode(c.from, memo, visiting); });
   const value = def.compute(node, inputs); memo.set(nodeId, value); visiting.delete(nodeId); return value;
 }
 
@@ -80,7 +80,7 @@ function computeAllGraphGradients(outputId) {
     const id = topo[k], upstream = adjoints.get(id); if (upstream == null) continue;
     const node = graph.nodes.get(id), def = getBlockDef(node.type); if (!def.inputs.length || def.special === 'derivative') continue;
     const inputIds = [], inputs = [];
-    for (let i = 0; i < def.inputs.length; i++) { const c = graph.connections.find(x => x.to === id && x.inputIndex === i); if (!c) throw new Error(`미분 중 입력 '${def.inputs[i]}'이 비어 있습니다.`); inputIds.push(c.from); inputs.push(values.get(c.from)); }
+    for (let i = 0; i < def.inputs.length; i++) { const c = graphInputConnection(id, i); if (!c) throw new Error(`미분 중 입력 '${def.inputs[i]}'이 비어 있습니다.`); inputIds.push(c.from); inputs.push(values.get(c.from)); }
     const grads = node.type.startsWith('custom:') ? userBlockVJP(USER_BLOCKS.get(node.type.slice(7)), inputs, upstream) : primitiveVJP(node.type, inputs, values.get(id), upstream);
     grads.forEach((g, i) => accumulateGrad(adjoints, inputIds[i], g));
   }
