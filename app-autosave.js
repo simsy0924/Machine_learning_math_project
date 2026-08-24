@@ -78,6 +78,15 @@
     return result;
   };
 
+  if (typeof deleteUserBlock === 'function') {
+    const deleteUserBlockBeforeAutosave = deleteUserBlock;
+    deleteUserBlock = function(...args) {
+      const deleted = deleteUserBlockBeforeAutosave(...args);
+      if (deleted) scheduleSave();
+      return deleted;
+    };
+  }
+
   const resetWorkspaceBeforeAutosave = resetWorkspace;
   resetWorkspace = function(...args) {
     const result = resetWorkspaceBeforeAutosave(...args);
