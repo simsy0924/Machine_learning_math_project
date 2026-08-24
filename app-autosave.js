@@ -8,6 +8,10 @@
   let timer = null;
   let restoring = false;
 
+  function editingUserBlockInternals() {
+    return Boolean(window.isUserBlockWorkspaceEditing?.());
+  }
+
   function buildAutosaveSnapshot() {
     const datasetSelection = window.quickDrawDataset?.selectedClassNames?.() ||
       Array.from(document.querySelectorAll('#classPicker input[type="checkbox"]:checked')).map(input => input.value);
@@ -30,7 +34,9 @@
   }
 
   function saveNow() {
-    if (restoring) return;
+    // During user-block editing graph.* intentionally points at the temporary
+    // inner graph, so never let that overwrite the outer workspace autosave.
+    if (restoring || editingUserBlockInternals()) return;
     if (timer != null) {
       clearTimeout(timer);
       timer = null;
@@ -43,13 +49,11 @@
   }
 
   function scheduleSave() {
-    if (restoring) return;
+    if (restoring || editingUserBlockInternals()) return;
     if (timer != null) clearTimeout(timer);
     timer = setTimeout(saveNow, AUTOSAVE_DELAY_MS);
   }
 
-  // Wrap persistent graph mutations. The underlying functions remain the single
-  // source of truth; autosave merely observes that a mutation finished.
   const addBlockBeforeAutosave = addBlock;
   addBlock = function(...args) {
     const result = addBlockBeforeAutosave(...args);
@@ -94,8 +98,6 @@
     return result;
   };
 
-  // A manual project import should become the new autosave baseline, while the
-  // restore itself must not briefly save the empty workspace used during rebuild.
   const restoreProjectBeforeAutosave = restoreProject;
   restoreProject = async function(project) {
     const wasRestoring = restoring;
@@ -108,16 +110,12 @@
     if (!restoring) scheduleSave();
   };
 
-  // Inspector controls mutate node.params inside their own input listener.
   inspectorControls.addEventListener('input', scheduleSave);
   inspectorControls.addEventListener('change', scheduleSave);
 
-  // Dataset selection, node dragging, panning and zooming are state changes too.
   document.getElementById('classPicker')?.addEventListener('change', scheduleSave);
   document.getElementById('selectAllClassesBtn')?.addEventListener('click', scheduleSave);
   document.getElementById('clearClassSelectionBtn')?.addEventListener('click', scheduleSave);
-  // app-boot registered the reset button before this module replaced the global
-  // resetWorkspace binding, so observe the button itself as well.
   document.getElementById('resetWorkspaceBtn')?.addEventListener('click', scheduleSave);
   workspace.addEventListener('pointerup', scheduleSave, true);
   workspace.addEventListener('pointercancel', scheduleSave, true);
@@ -125,6 +123,10 @@
     if (event.ctrlKey || event.metaKey) scheduleSave();
   }, { passive: true });
   document.getElementById('workspaceViewportControls')?.addEventListener('click', scheduleSave);
+
+  // The editor dispatches this only after it has restored the outer graph, so the
+  // next snapshot contains the normal workspace plus the newly edited definition.
+  window.addEventListener('user-block-definition-changed', scheduleSave);
 
   window.addEventListener('pagehide', saveNow);
 
@@ -142,8 +144,6 @@
 
     restoring = true;
     try {
-      // runtimeVariables is intentionally empty, so graph/parameters return but
-      // trained weights and other runtime state start fresh after a reload.
       await restoreProjectBeforeAutosave(saved);
       workspaceStatus.textContent = `${graph.nodes.size}개 블록 · 자동 복구됨`;
     } catch (error) {

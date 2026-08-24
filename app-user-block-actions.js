@@ -4,6 +4,7 @@
 (function installWorkspaceSafetyActions() {
   // Capture runs before the reset button's existing bubble listener in app-boot.
   resetWorkspaceBtn.addEventListener('click', event => {
+    if (window.isUserBlockWorkspaceEditing?.()) return;
     if (confirm('작업공간을 초기화할까요?\n현재 블록과 연결이 모두 사라집니다.')) return;
     event.preventDefault();
     event.stopImmediatePropagation();
@@ -25,6 +26,11 @@
   }
 
   deleteUserBlock = function(customId) {
+    if (window.isUserBlockWorkspaceEditing?.()) {
+      alert('사용자 블록 내부 편집을 저장하거나 취소한 뒤 블록을 삭제해 주세요.');
+      return false;
+    }
+
     const definition = USER_BLOCKS.get(customId);
     if (!definition) return false;
 
@@ -47,8 +53,6 @@
 
   const renderMyBlocksPaletteBeforeDeleteActions = renderMyBlocksPalette;
   renderMyBlocksPalette = function() {
-    // Rebuild directly so each definition gets an add button and a separate
-    // destructive action without changing the semantics of clicking the block.
     myBlocksPalette.replaceChildren();
     const definitions = [...USER_BLOCKS.values()];
     myBlocksEmpty.hidden = definitions.length > 0;
