@@ -105,6 +105,11 @@
 
   // Dataset selection, node dragging, panning and zooming are state changes too.
   document.getElementById('classPicker')?.addEventListener('change', scheduleSave);
+  document.getElementById('selectAllClassesBtn')?.addEventListener('click', scheduleSave);
+  document.getElementById('clearClassSelectionBtn')?.addEventListener('click', scheduleSave);
+  // app-boot registered the reset button before this module replaced the global
+  // resetWorkspace binding, so observe the button itself as well.
+  document.getElementById('resetWorkspaceBtn')?.addEventListener('click', scheduleSave);
   workspace.addEventListener('pointerup', scheduleSave, true);
   workspace.addEventListener('pointercancel', scheduleSave, true);
   workspace.addEventListener('wheel', event => {
