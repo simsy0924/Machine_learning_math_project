@@ -1,0 +1,40 @@
+body.user-block-viewer-open { overflow: hidden; }
+.user-block-viewer { position: fixed; inset: 0; z-index: 1000; }
+.user-block-viewer-backdrop { position: absolute; inset: 0; background: rgba(20, 23, 29, .48); }
+.user-block-viewer-dialog { position: absolute; inset: 5vh 4vw; display: flex; flex-direction: column; min-width: 0; overflow: hidden; background: #fff; border: 1px solid #d4d7dc; border-radius: 18px; box-shadow: 0 24px 70px rgba(20, 24, 32, .24); }
+.user-block-viewer-head { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 16px 18px 12px; border-bottom: 1px solid #e2e4e8; }
+.user-block-viewer-head h2 { margin-top: 2px; font-size: 20px; }
+.user-block-viewer-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.user-block-viewer-breadcrumb { margin-top: 5px; color: #747a83; font-size: 12px; font-weight: 700; }
+.user-block-viewer-note { padding: 9px 18px; background: #faf7ff; border-bottom: 1px solid #ebe5f2; color: #675876; font-size: 12px; }
+.user-block-viewer-canvas { flex: 1; min-height: 0; overflow: auto; background-color: #fafafb; background-image: radial-gradient(#d6d8dd 1px, transparent 1px); background-size: 20px 20px; }
+.user-block-viewer-stage { position: relative; min-width: 100%; min-height: 100%; }
+.user-block-viewer-wires { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.user-block-viewer-wire { fill: none; stroke: #666c75; stroke-width: 2.5; }
+.user-block-viewer-wire.external-wire { stroke-dasharray: 7 5; stroke: #8a68a9; }
+.user-block-viewer-node { position: absolute; min-height: 84px; border: 1px solid #c9ccd1; border-radius: 12px; background: #fff; box-shadow: 0 5px 16px rgba(30, 33, 40, .1); overflow: hidden; }
+.user-block-viewer-node-head { min-height: 39px; display: flex; align-items: center; justify-content: space-between; gap: 7px; padding: 9px 10px; border-top: 4px solid #d28a25; border-bottom: 1px solid #eceef0; font-size: 12px; }
+.user-block-viewer-node-head strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-block-viewer-node-head span { flex: 0 0 auto; color: #858b94; font-size: 9px; font-weight: 800; }
+.user-block-viewer-node-formula { padding: 9px 10px; color: #505660; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-block-viewer-node.source .user-block-viewer-node-head { border-top-color: #3478c9; }
+.user-block-viewer-node.data .user-block-viewer-node-head { border-top-color: #cc5f7a; }
+.user-block-viewer-node.generator .user-block-viewer-node-head { border-top-color: #8d63c7; }
+.user-block-viewer-node.transform .user-block-viewer-node-head { border-top-color: #6d58b8; }
+.user-block-viewer-node.calculus .user-block-viewer-node-head { border-top-color: #208b88; }
+.user-block-viewer-node.custom .user-block-viewer-node-head { border-top-color: #7b4aa8; background: #fbf8ff; }
+.user-block-viewer-node.sink .user-block-viewer-node-head { border-top-color: #555b66; }
+.user-block-viewer-node.output-node { outline: 3px solid rgba(35, 126, 91, .22); border-color: #358667; }
+.user-block-viewer-output-label { position: absolute; right: 7px; bottom: 5px; padding: 2px 6px; border-radius: 999px; background: #e8f5ef; color: #287053; font-size: 9px; font-weight: 900; }
+.user-block-viewer-node.nested-custom { cursor: pointer; }
+.user-block-viewer-node.nested-custom:hover { box-shadow: 0 8px 23px rgba(69, 45, 91, .18); border-color: #8d67b0; }
+.user-block-viewer-external { position: absolute; min-height: 60px; display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 9px 10px; border: 1px dashed #9a75b8; border-radius: 11px; background: #fbf8ff; }
+.user-block-viewer-external span { color: #8b7899; font-size: 9px; font-weight: 800; }
+.user-block-viewer-external strong { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-block-open-button { width: 100%; margin: 2px 0 8px; }
+
+@media (max-width: 780px) {
+  .user-block-viewer-dialog { inset: 2vh 2vw; }
+  .user-block-viewer-head { align-items: flex-start; flex-direction: column; }
+  .user-block-viewer-actions { width: 100%; justify-content: flex-end; }
+}
