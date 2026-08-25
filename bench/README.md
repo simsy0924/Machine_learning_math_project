@@ -72,6 +72,23 @@ OK   nestedRepeat         풀링 끔 4054022e11e8d6c9 · 풀링 켬 4054022e11e8
 | `matrixAccumulator` | 회차를 넘어 살아남는 행렬이 `외적`에 들어가는 경우 |
 | `nestedRepeat` | 중첩 반복의 회차 경계 |
 
+## 공간 배열 연산 검사
+
+```bash
+node bench/spatial-math-check.mjs
+```
+
+실제 브라우저 페이지에서 `배열 모양 바꾸기`와 `슬라이딩 창 펼치기`를 검사합니다.
+
+검사 항목:
+
+- reshape 모양 변경과 `-1` 자동 계산
+- reshape의 zero-copy 동작
+- 2×2 sliding-window unfold 순전파
+- 겹치는 창에서 입력 gradient 누적
+- zero padding
+- `unfold → 행렬×벡터 → 합` 전체 그래프에서 커널과 입력 양쪽 자동미분
+
 ## 필요한 것
 
 - Playwright (전역 설치도 인식합니다. 다른 위치에 있으면 `PLAYWRIGHT_MODULE`로 지정)
