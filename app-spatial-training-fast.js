@@ -1,15 +1,13 @@
 // Training-only fusion for sliding-window unfold -> matrix x vector.
 //
-// The visible graph and its mathematical operations do not change. During the
-// compiled reverse-mode pass we recognize unfold2d nodes whose outputs are used
-// only as the matrix input of matvec blocks, then avoid materializing the large
-// patch matrix and its equally large gradient matrices.
+// The visible graph and math stay unchanged. For reverse-mode training, an
+// unfold2d whose consumers are all matvec blocks can be executed without ever
+// materializing its large patch matrix or the equally large patch gradients.
 //
-// Floating-point order matters for training reproducibility. In particular, if
-// one unfold feeds several matvec nodes (four convolution filters, for example),
-// the normal engine first accumulates their Float32 patch gradients and only then
-// scatters them back to the source image. The fused backward path reproduces that
-// exact order instead of independently scattering each branch.
+// Floating-point order is intentionally preserved. If one unfold feeds several
+// matvec nodes (for example four convolution filters), the normal engine first
+// accumulates their Float32 patch gradients and only then scatters them back to
+// the source image. The fused path reproduces that order.
 
 (function installSpatialTrainingFusion() {
   const computeAllGraphGradientsBeforeSpatialFusion = computeAllGraphGradients;
@@ -73,9 +71,9 @@
     return v;
   }
 
-  // ---------- Fused forward ----------
+  // ---------- fused forward ----------
 
-  function unfoldMatvec3x3Stride1(source, vector, config) {
+  function forward3x3Stride1(source, vector, config) {
     const src = source.data;
     const vd = vector.data;
     const out = takeResultBuffer(config.windowCount);
@@ -101,7 +99,7 @@
     return fastArrayValue(out, [config.windowCount]);
   }
 
-  function unfoldMatvec2x2Stride2(source, vector, config) {
+  function forward2x2Stride2(source, vector, config) {
     const src = source.data;
     const vd = vector.data;
     const out = takeResultBuffer(config.windowCount);
@@ -122,7 +120,7 @@
     return fastArrayValue(out, [config.windowCount]);
   }
 
-  function unfoldMatvecGeneric(source, vector, config) {
+  function forwardGeneric(source, vector, config) {
     const src = source.data;
     const vd = vector.data;
     const out = takeResultBuffer(config.windowCount);
@@ -157,16 +155,16 @@
 
     if (config.padding === 0 && config.kernelRows === 3 && config.kernelCols === 3 &&
         config.strideRows === 1 && config.strideCols === 1) {
-      return unfoldMatvec3x3Stride1(source, v, config);
+      return forward3x3Stride1(source, v, config);
     }
     if (config.padding === 0 && config.kernelRows === 2 && config.kernelCols === 2 &&
         config.strideRows === 2 && config.strideCols === 2) {
-      return unfoldMatvec2x2Stride2(source, v, config);
+      return forward2x2Stride2(source, v, config);
     }
-    return unfoldMatvecGeneric(source, v, config);
+    return forwardGeneric(source, v, config);
   }
 
-  // ---------- Fused backward: vector side ----------
+  // ---------- fused backward: matvec vector input ----------
 
   function vectorGradient3x3Stride1(source, upstream, config) {
     const src = source.data;
@@ -269,14 +267,22 @@
     return vectorGradientGeneric(source, gradient, config);
   }
 
-  // ---------- Fused backward: unfold input side ----------
+  // ---------- fused backward: unfold source input ----------
 
-  function accumulatedPatchGradient(contributions, patchIndex) {
-    // Reproduce: first outer-product Float32 result, then Float32 addValues for
-    // every later consumer of the shared unfold node.
-    let value = Math.fround(contributions[0].upstream * contributions[0].vector[patchIndex]);
-    for (let i = 1; i < contributions.length; i++) {
-      const next = Math.fround(contributions[i].upstream * contributions[i].vector[patchIndex]);
+  function contributionArrays(contributionSets) {
+    const upstreams = new Array(contributionSets.length);
+    const vectors = new Array(contributionSets.length);
+    for (let i = 0; i < contributionSets.length; i++) {
+      upstreams[i] = contributionSets[i].upstream.data;
+      vectors[i] = contributionSets[i].vector.data;
+    }
+    return { upstreams, vectors };
+  }
+
+  function combinedPatchGradient(upstreams, vectors, row, patchIndex) {
+    let value = Math.fround(upstreams[0][row] * vectors[0][patchIndex]);
+    for (let i = 1; i < upstreams.length; i++) {
+      const next = Math.fround(upstreams[i][row] * vectors[i][patchIndex]);
       value = Math.fround(value + next);
     }
     return value;
@@ -286,28 +292,20 @@
     const out = takeResultBuffer(source.data.length);
     out.fill(0);
     const width = config.width;
+    const { upstreams, vectors } = contributionArrays(contributionSets);
 
-    // contributionSets contains one item per fused matvec consumer in the same
-    // reverse order in which the normal adjoint arrays would have been added.
     for (let r = 0, row = 0; r < config.outRows; r++) {
       let p = r * width;
       for (let c = 0; c < config.outCols; c++, p++, row++) {
-        const contributions = new Array(contributionSets.length);
-        for (let i = 0; i < contributionSets.length; i++) {
-          contributions[i] = {
-            upstream: contributionSets[i].upstream.data[row],
-            vector: contributionSets[i].vector.data
-          };
-        }
-        out[p] += accumulatedPatchGradient(contributions, 0);
-        out[p + 1] += accumulatedPatchGradient(contributions, 1);
-        out[p + 2] += accumulatedPatchGradient(contributions, 2);
-        out[p + width] += accumulatedPatchGradient(contributions, 3);
-        out[p + width + 1] += accumulatedPatchGradient(contributions, 4);
-        out[p + width + 2] += accumulatedPatchGradient(contributions, 5);
-        out[p + width * 2] += accumulatedPatchGradient(contributions, 6);
-        out[p + width * 2 + 1] += accumulatedPatchGradient(contributions, 7);
-        out[p + width * 2 + 2] += accumulatedPatchGradient(contributions, 8);
+        out[p] += combinedPatchGradient(upstreams, vectors, row, 0);
+        out[p + 1] += combinedPatchGradient(upstreams, vectors, row, 1);
+        out[p + 2] += combinedPatchGradient(upstreams, vectors, row, 2);
+        out[p + width] += combinedPatchGradient(upstreams, vectors, row, 3);
+        out[p + width + 1] += combinedPatchGradient(upstreams, vectors, row, 4);
+        out[p + width + 2] += combinedPatchGradient(upstreams, vectors, row, 5);
+        out[p + width * 2] += combinedPatchGradient(upstreams, vectors, row, 6);
+        out[p + width * 2 + 1] += combinedPatchGradient(upstreams, vectors, row, 7);
+        out[p + width * 2 + 2] += combinedPatchGradient(upstreams, vectors, row, 8);
       }
     }
     return fastArrayValue(out, source.shape);
@@ -317,21 +315,15 @@
     const out = takeResultBuffer(source.data.length);
     out.fill(0);
     const width = config.width;
+    const { upstreams, vectors } = contributionArrays(contributionSets);
 
     for (let r = 0, row = 0; r < config.outRows; r++) {
       let p = r * 2 * width;
       for (let c = 0; c < config.outCols; c++, p += 2, row++) {
-        const contributions = new Array(contributionSets.length);
-        for (let i = 0; i < contributionSets.length; i++) {
-          contributions[i] = {
-            upstream: contributionSets[i].upstream.data[row],
-            vector: contributionSets[i].vector.data
-          };
-        }
-        out[p] += accumulatedPatchGradient(contributions, 0);
-        out[p + 1] += accumulatedPatchGradient(contributions, 1);
-        out[p + width] += accumulatedPatchGradient(contributions, 2);
-        out[p + width + 1] += accumulatedPatchGradient(contributions, 3);
+        out[p] += combinedPatchGradient(upstreams, vectors, row, 0);
+        out[p + 1] += combinedPatchGradient(upstreams, vectors, row, 1);
+        out[p + width] += combinedPatchGradient(upstreams, vectors, row, 2);
+        out[p + width + 1] += combinedPatchGradient(upstreams, vectors, row, 3);
       }
     }
     return fastArrayValue(out, source.shape);
@@ -340,6 +332,7 @@
   function inputGradientGeneric(source, contributionSets, config) {
     const out = takeResultBuffer(source.data.length);
     out.fill(0);
+    const { upstreams, vectors } = contributionArrays(contributionSets);
 
     for (let outRow = 0, row = 0; outRow < config.outRows; outRow++) {
       const sourceTop = outRow * config.strideRows - config.padding;
@@ -351,13 +344,7 @@
           for (let kc = 0; kc < config.kernelCols; kc++, k++) {
             const sourceCol = sourceLeft + kc;
             if (sourceRow < 0 || sourceRow >= config.height || sourceCol < 0 || sourceCol >= config.width) continue;
-
-            let value = Math.fround(contributionSets[0].upstream.data[row] * contributionSets[0].vector.data[k]);
-            for (let i = 1; i < contributionSets.length; i++) {
-              const next = Math.fround(contributionSets[i].upstream.data[row] * contributionSets[i].vector.data[k]);
-              value = Math.fround(value + next);
-            }
-            out[sourceRow * config.width + sourceCol] += value;
+            out[sourceRow * config.width + sourceCol] += combinedPatchGradient(upstreams, vectors, row, k);
           }
         }
       }
@@ -389,7 +376,7 @@
     return inputGradientGeneric(source, contributionSets, config);
   }
 
-  // ---------- Compiled fused reverse-mode plan ----------
+  // ---------- compiled reverse-mode plan ----------
 
   function structureVersion(cache) {
     return `${cache.nodeCount}:${cache.connectionCount}:${cache.hashA}:${cache.hashB}`;
@@ -399,7 +386,6 @@
     const topo = cachedTopoForOutput(structureCache, outputId);
     const steps = [];
     const variableSteps = [];
-    const stepById = new Map();
 
     for (const id of topo) {
       const node = graph.nodes.get(id);
@@ -427,7 +413,6 @@
         vectorInputId: null
       };
       steps.push(step);
-      stepById.set(id, step);
       if (node.type === 'variable') variableSteps.push(step);
     }
 
@@ -512,11 +497,7 @@
         continue;
       }
       if (step.kind === 'fusedUnfoldMatvec') {
-        values[step.id] = unfoldMatvecForward(
-          step.unfoldNode,
-          values[step.unfoldInputId],
-          values[step.vectorInputId]
-        );
+        values[step.id] = unfoldMatvecForward(step.unfoldNode, values[step.unfoldInputId], values[step.vectorInputId]);
         continue;
       }
 
@@ -540,8 +521,7 @@
         const source = values[step.unfoldInputId];
         const vector = values[step.vectorInputId];
 
-        const vectorGradient = unfoldMatvecVectorGradient(step.unfoldNode, source, gradient);
-        accumulateAdjoint(plan, step.vectorInputId, vectorGradient);
+        accumulateAdjoint(plan, step.vectorInputId, unfoldMatvecVectorGradient(step.unfoldNode, source, gradient));
 
         let contributions = pendingUnfoldAdjoints.get(step.unfoldId);
         if (!contributions) {
@@ -555,8 +535,7 @@
       if (step.kind === 'fusedUnfoldSource') {
         const contributions = pendingUnfoldAdjoints.get(step.id);
         if (!contributions?.length) continue;
-        const inputGradient = unfoldInputGradient(step.node, values[step.inputIds[0]], contributions);
-        accumulateAdjoint(plan, step.inputIds[0], inputGradient);
+        accumulateAdjoint(plan, step.inputIds[0], unfoldInputGradient(step.node, values[step.inputIds[0]], contributions));
         continue;
       }
 
