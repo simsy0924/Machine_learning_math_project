@@ -30,6 +30,21 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
+
+          # GitHub Actions overrides the image ENTRYPOINT, so VitoVan's
+          # /magic/entrypoint.sh never gets a chance to source these paths.
+          # Recreate only the environment setup here; the image already contains
+          # the compiled Cairo/pixman stack and an activated Emscripten SDK.
+          export magicdir=/magic
+          export magicprefix=/magic/build
+          export EM_PKG_CONFIG_PATH="$magicprefix/lib/pkgconfig"
+          export PKG_CONFIG_PATH="$magicprefix/lib/pkgconfig"
+          export EM_PKG_CONFIG_LIBDIR="$magicprefix/lib"
+          export PKG_CONFIG_LIBDIR="$magicprefix/lib"
+          source /magic/emsdk/emsdk_env.sh
+
+          command -v emcc
+          pkg-config --modversion cairo
           mkdir -p vendor
 
           emcc \
