@@ -18,7 +18,7 @@ jobs:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     container:
-      image: vitovan/pango-cairo-wasm:latest
+      image: emscripten/emsdk:4.0.10
 
     steps:
       - name: Checkout
@@ -26,32 +26,118 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Build Cairo rasterizer
+      - name: Install build tools
+        shell: bash
+        run: |
+          set -euxo pipefail
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            ca-certificates curl xz-utils meson ninja-build pkg-config
+
+      - name: Build minimal single-thread pixman and Cairo
         shell: bash
         run: |
           set -euxo pipefail
 
-          # GitHub Actions overrides the image ENTRYPOINT, so VitoVan's
-          # /magic/entrypoint.sh never gets a chance to source these paths.
-          export magicdir=/magic
-          export magicprefix=/magic/build
-          export EM_PKG_CONFIG_PATH="$magicprefix/lib/pkgconfig"
-          export PKG_CONFIG_PATH="$magicprefix/lib/pkgconfig"
-          export EM_PKG_CONFIG_LIBDIR="$magicprefix/lib"
-          export PKG_CONFIG_LIBDIR="$magicprefix/lib"
-          source /magic/emsdk/emsdk_env.sh
+          PIXMAN_VERSION=0.46.4
+          CAIRO_VERSION=1.18.4
+          PREFIX="$GITHUB_WORKSPACE/.wasm-prefix"
+          BUILD_ROOT="$RUNNER_TEMP/quickdraw-cairo-build"
+          mkdir -p "$PREFIX" "$BUILD_ROOT" vendor
+          cd "$BUILD_ROOT"
 
-          command -v emcc
+          cat > emscripten.cross <<'EOF'
+          [binaries]
+          c = 'emcc'
+          cpp = 'em++'
+          ar = 'emar'
+          ranlib = 'emranlib'
+          strip = 'llvm-strip'
+          pkg-config = 'pkg-config'
+
+          [properties]
+          needs_exe_wrapper = true
+
+          [built-in options]
+          c_args = []
+          c_link_args = []
+
+          [host_machine]
+          system = 'emscripten'
+          cpu_family = 'wasm32'
+          cpu = 'wasm32'
+          endian = 'little'
+          EOF
+
+          curl -fL --retry 3 \
+            "https://cairographics.org/releases/pixman-${PIXMAN_VERSION}.tar.xz" \
+            -o pixman.tar.xz
+          curl -fL --retry 3 \
+            "https://cairographics.org/releases/pixman-${PIXMAN_VERSION}.tar.xz.sha512" \
+            -o pixman.tar.xz.sha512
+          sha512sum -c pixman.tar.xz.sha512
+
+          curl -fL --retry 3 \
+            "https://cairographics.org/releases/cairo-${CAIRO_VERSION}.tar.xz" \
+            -o cairo.tar.xz
+          echo '445ed8208a6e4823de1226a74ca319d3600e83f6369f99b14265006599c32ccb  cairo.tar.xz' | sha256sum -c -
+
+          tar -xf pixman.tar.xz
+          tar -xf cairo.tar.xz
+
+          # Build only pixman's portable CPU implementation. Optional platform
+          # integrations are deliberately absent from this cross environment.
+          meson setup pixman-build "pixman-${PIXMAN_VERSION}" \
+            --cross-file emscripten.cross \
+            --prefix "$PREFIX" \
+            --libdir lib \
+            --default-library static \
+            --buildtype release
+          meson compile -C pixman-build
+          meson install -C pixman-build
+
+          export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
+          export PKG_CONFIG_LIBDIR="$PREFIX/lib/pkgconfig"
+
+          # This app only needs cairo_image_surface + paths/strokes. Disable every
+          # font, compressed-file and platform surface backend so the resulting
+          # WASM contains no pthread/FreeType/Fontconfig/HarfBuzz baggage.
+          meson setup cairo-build "cairo-${CAIRO_VERSION}" \
+            --cross-file emscripten.cross \
+            --prefix "$PREFIX" \
+            --libdir lib \
+            --default-library static \
+            --buildtype release \
+            -Dfontconfig=disabled \
+            -Dfreetype=disabled \
+            -Ddwrite=disabled \
+            -Dpng=disabled \
+            -Dzlib=disabled \
+            -Dquartz=disabled \
+            -Dtee=disabled \
+            -Dxcb=disabled \
+            -Dxlib=disabled \
+            -Dxlib-xcb=disabled \
+            -Dtests=disabled \
+            -Dlzo=disabled \
+            -Dgtk2-utils=disabled \
+            -Dglib=disabled \
+            -Dspectre=disabled \
+            -Dsymbol-lookup=disabled \
+            -Dgtk_doc=false
+          meson compile -C cairo-build
+          meson install -C cairo-build
+
+          cd "$GITHUB_WORKSPACE"
+          export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
+          export PKG_CONFIG_LIBDIR="$PREFIX/lib/pkgconfig"
+
+          pkg-config --modversion pixman-1
           pkg-config --modversion cairo
-          mkdir -p vendor
 
-          # Only the Cairo image backend and its direct static dependencies are
-          # needed. Do not link glib/gobject here: their pkg-config flags add
-          # pthread support, which would force SharedArrayBuffer + worker/COOP-
-          # COEP requirements that are unnecessary for this tiny rasterizer.
           emcc \
             wasm/quickdraw-cairo/quickdraw_cairo_module.c \
-            $(pkg-config --libs --cflags cairo pixman-1 freetype2 fontconfig expat) \
+            $(pkg-config --static --cflags --libs cairo) \
             -O3 \
             -flto \
             --no-entry \
@@ -59,7 +145,7 @@ jobs:
             -sMODULARIZE=1 \
             -sEXPORT_NAME=QuickDrawCairoModule \
             -sALLOW_MEMORY_GROWTH=1 \
-            -sENVIRONMENT=web \
+            -sENVIRONMENT=web,node \
             -sFILESYSTEM=0 \
             -sEXPORTED_FUNCTIONS='["_qd_reset","_qd_begin_stroke","_qd_add_point","_qd_render","_qd_raster_ptr","_qd_raster_length","_qd_get_last_status","_qd_get_point_count","_qd_cairo_version"]' \
             -sEXPORTED_RUNTIME_METHODS='["UTF8ToString"]' \
@@ -68,6 +154,44 @@ jobs:
           test -s vendor/quickdraw-cairo.js
           test -s vendor/quickdraw-cairo.wasm
           ls -lh vendor/quickdraw-cairo.js vendor/quickdraw-cairo.wasm
+
+      - name: Smoke-test generated Cairo runtime
+        shell: bash
+        run: |
+          set -euxo pipefail
+          node <<'NODE'
+          const path = require('path');
+          const createModule = require('./vendor/quickdraw-cairo.js');
+
+          (async () => {
+            const module = await createModule({
+              locateFile(file) {
+                return path.join(process.cwd(), 'vendor', file);
+              }
+            });
+
+            module._qd_reset();
+            if (module._qd_begin_stroke() < 0) throw new Error('begin stroke failed');
+            for (let i = 0; i <= 255; i += 5) {
+              if (module._qd_add_point(i, i) !== 0) throw new Error('add point failed');
+            }
+            if (module._qd_render() !== 0) throw new Error('render failed');
+
+            const length = module._qd_raster_length();
+            if (length !== 784) throw new Error(`unexpected raster length ${length}`);
+            const ptr = module._qd_raster_ptr();
+            const pixels = module.HEAPU8.subarray(ptr, ptr + length);
+            const nonzero = pixels.reduce((n, value) => n + (value > 0), 0);
+            const sum = pixels.reduce((n, value) => n + value, 0);
+            if (nonzero < 10 || sum <= 0) throw new Error('Cairo raster is empty');
+
+            const version = module.UTF8ToString(module._qd_cairo_version());
+            console.log(`Cairo ${version} · ${nonzero} nonzero pixels · sum ${sum}`);
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
 
       - name: Commit generated runtime
         shell: bash
