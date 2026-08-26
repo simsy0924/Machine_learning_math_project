@@ -7,6 +7,7 @@ on:
       - feature/quickdraw-cairo-wasm
     paths:
       - 'app-drawing-preprocess.js'
+      - 'bench/quickdraw-cairo-check.mjs'
       - 'wasm/quickdraw-cairo/**'
       - '.github/workflows/build-quickdraw-cairo-wasm.yml'
   workflow_dispatch:
@@ -220,6 +221,7 @@ jobs:
         run: |
           set -euxo pipefail
           node --check app-drawing-preprocess.js
+          node --check bench/quickdraw-cairo-check.mjs
 
       - name: Commit generated runtime
         shell: bash
@@ -236,3 +238,28 @@ jobs:
           fi
           git commit -m 'Build Quick Draw Cairo WASM runtime [skip ci]'
           git push origin "HEAD:${GITHUB_REF_NAME}"
+
+  browser-integration:
+    if: github.actor != 'github-actions[bot]'
+    needs: build
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.52.0-noble
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install matching Playwright package
+        shell: bash
+        run: |
+          set -euxo pipefail
+          npm install --no-save --no-package-lock playwright@1.52.0
+
+      - name: Exercise hand drawing through Chromium and Cairo WASM
+        shell: bash
+        run: |
+          set -euxo pipefail
+          node bench/quickdraw-cairo-check.mjs
