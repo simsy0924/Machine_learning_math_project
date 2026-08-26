@@ -89,6 +89,24 @@ node bench/spatial-math-check.mjs
 - zero padding
 - `unfold → 행렬×벡터 → 합` 전체 그래프에서 커널과 입력 양쪽 자동미분
 
+## 공간 연산 fusion 검사
+
+```bash
+node bench/spatial-fusion-check.mjs
+```
+
+4필터 CNN에서 실제로 사용하는 패턴을 만들어 학습용 `unfold → 행렬×벡터` fusion을 검사합니다.
+
+- 하나의 3×3 unfold를 네 합성곱 필터가 공유
+- 각 필터 뒤의 2×2 / stride 2 평균 풀링
+- fusion OFF/ON의 모든 변수 gradient를 Float32 비트 단위로 비교
+- fusion된 matvec 개수 확인
+- 같은 gradient pass의 평균 실행 시간을 함께 출력
+
+fusion은 사용자에게 보이는 블록이나 수식을 바꾸지 않습니다. 학습 중에만 큰 patch 행렬과
+patch-gradient 행렬의 실체화를 생략합니다. 필요하면 개발자 콘솔에서
+`SPATIAL_TRAINING_FUSION.setDisabled(true)`로 기존 경로와 직접 비교할 수 있습니다.
+
 ## 필요한 것
 
 - Playwright (전역 설치도 인식합니다. 다른 위치에 있으면 `PLAYWRIGHT_MODULE`로 지정)
