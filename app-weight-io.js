@@ -1,6 +1,11 @@
-// Export and import only variables that are actually trained by derivative-based
-// setVariable updates. Runtime counters and evaluation accumulators can also use
-// setVariable, but they are experiment state rather than model weights.
+// Export and import only variables that are actual trainable model parameters.
+//
+// A trainable parameter is identified by the variable named on a derivative
+// block, and it must also be the target of at least one setVariable update.
+// This works for both direct SGD and minibatch training. In minibatch graphs the
+// derivative flows into accumulator variables such as gW, while the actual model
+// parameter W is updated later from that accumulator; following the derivative
+// branch into setVariable would therefore save the wrong variable.
 
 const WEIGHTS_FORMAT = 'machine-learning-math-weights';
 const WEIGHTS_VERSION = 1;
@@ -10,45 +15,37 @@ const exportWeightsBtn = document.getElementById('exportWeightsBtn');
 const importWeightsBtn = document.getElementById('importWeightsBtn');
 const importWeightsInput = document.getElementById('importWeightsInput');
 
-function updateBranchContainsDerivative(nodeId, structureCache, seen = new Set()) {
-  if (seen.has(nodeId)) return false;
-  seen.add(nodeId);
-  const node = graph.nodes.get(nodeId);
-  if (!node) return false;
-  const def = getBlockDef(node.type);
-  if (def.special === 'derivative') return true;
-
-  for (let inputIndex = 0; inputIndex < def.inputs.length; inputIndex++) {
-    const connection = structureCache
-      ? cachedGraphInput(structureCache, nodeId, inputIndex)
-      : graph.connections.find(c => c.to === nodeId && c.inputIndex === inputIndex);
-    if (connection && updateBranchContainsDerivative(connection.from, structureCache, seen)) return true;
-  }
-  return false;
-}
-
-function collectTrainableVariableNames() {
+function collectSetVariableTargets() {
   const names = new Set();
-  const structureCache = typeof ensureGraphStructureCache === 'function' ? ensureGraphStructureCache() : null;
-
   for (const node of graph.nodes.values()) {
     const def = getBlockDef(node.type);
     if (def.special !== 'setVariable') continue;
-
-    const input = structureCache
-      ? cachedGraphInput(structureCache, node.id, 0)
-      : graph.connections.find(c => c.to === node.id && c.inputIndex === 0);
-    if (!input || !updateBranchContainsDerivative(input.from, structureCache)) continue;
-
     const name = String(node.params.variable || '').trim();
     if (name) names.add(name);
   }
+  return names;
+}
+
+function collectTrainableVariableNames() {
+  const updateTargets = collectSetVariableTargets();
+  const names = new Set();
+
+  for (const node of graph.nodes.values()) {
+    const def = getBlockDef(node.type);
+    if (def.special !== 'derivative') continue;
+
+    const name = String(node.params.variable || '').trim();
+    if (!name || !updateTargets.has(name)) continue;
+    if (!findVariableNode(name)) continue;
+    names.add(name);
+  }
+
   return [...names];
 }
 
 function buildWeightsSnapshot() {
   const names = collectTrainableVariableNames();
-  if (!names.length) throw new Error("미분을 이용해 '값 바꾸기'로 학습되는 변수가 없습니다.");
+  if (!names.length) throw new Error("미분되고 실제로 '값 바꾸기'로 갱신되는 학습 변수가 없습니다.");
 
   const variables = names.map(name => {
     const variableNode = findVariableNode(name);
@@ -112,6 +109,27 @@ function validateWeightsSnapshot(snapshot) {
   if (snapshot.variables.length > 1000) throw new Error('저장된 변수 수가 지나치게 많습니다.');
 }
 
+function assertTrainableVariableSet(snapshot) {
+  const expected = collectTrainableVariableNames();
+  if (!expected.length) throw new Error('현재 그래프에서 학습 가중치를 찾지 못했습니다.');
+
+  const saved = snapshot.variables.map(item => String(item?.name || '').trim());
+  if (saved.some(name => !name)) throw new Error('이름이 없는 가중치가 있습니다.');
+  if (new Set(saved).size !== saved.length) throw new Error('가중치 파일에 같은 변수 이름이 중복되어 있습니다.');
+
+  const expectedSet = new Set(expected);
+  const savedSet = new Set(saved);
+  const missing = expected.filter(name => !savedSet.has(name));
+  const unexpected = saved.filter(name => !expectedSet.has(name));
+
+  if (missing.length || unexpected.length) {
+    const details = [];
+    if (missing.length) details.push(`빠진 학습 가중치: ${missing.join(', ')}`);
+    if (unexpected.length) details.push(`현재 모델의 학습 가중치가 아닌 변수: ${unexpected.join(', ')}`);
+    throw new Error(`가중치 파일이 현재 모델과 맞지 않습니다. ${details.join(' / ')}`);
+  }
+}
+
 function sameArrayShape(a, b) {
   return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((v, i) => Number(v) === Number(b[i]));
 }
@@ -140,11 +158,11 @@ function assertClassOrderCompatible(savedClasses) {
 function restoreWeights(snapshot) {
   validateWeightsSnapshot(snapshot);
   assertClassOrderCompatible(snapshot.classes);
+  assertTrainableVariableSet(snapshot);
 
   const restored = [];
   for (const saved of snapshot.variables) {
     const name = String(saved?.name || '').trim();
-    if (!name) throw new Error('이름이 없는 변수가 있습니다.');
     const variableNode = findVariableNode(name);
     if (!variableNode) throw new Error(`현재 모델에 '${name}' 변수 블록이 없습니다.`);
     const value = deserializeRuntimeValue(saved.value);
