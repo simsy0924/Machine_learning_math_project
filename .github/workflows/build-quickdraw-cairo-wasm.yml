@@ -32,7 +32,9 @@ jobs:
           set -euxo pipefail
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            ca-certificates curl xz-utils meson ninja-build pkg-config
+            ca-certificates curl xz-utils ninja-build pkg-config python3-pip
+          python3 -m pip install --no-cache-dir 'meson==1.7.0'
+          meson --version
 
       - name: Build minimal single-thread pixman and Cairo
         shell: bash
@@ -71,19 +73,19 @@ jobs:
 
           curl -fL --retry 3 \
             "https://cairographics.org/releases/pixman-${PIXMAN_VERSION}.tar.xz" \
-            -o pixman.tar.xz
+            -o "pixman-${PIXMAN_VERSION}.tar.xz"
           curl -fL --retry 3 \
             "https://cairographics.org/releases/pixman-${PIXMAN_VERSION}.tar.xz.sha512" \
-            -o pixman.tar.xz.sha512
-          sha512sum -c pixman.tar.xz.sha512
+            -o "pixman-${PIXMAN_VERSION}.tar.xz.sha512"
+          sha512sum -c "pixman-${PIXMAN_VERSION}.tar.xz.sha512"
 
           curl -fL --retry 3 \
             "https://cairographics.org/releases/cairo-${CAIRO_VERSION}.tar.xz" \
-            -o cairo.tar.xz
-          echo '445ed8208a6e4823de1226a74ca319d3600e83f6369f99b14265006599c32ccb  cairo.tar.xz' | sha256sum -c -
+            -o "cairo-${CAIRO_VERSION}.tar.xz"
+          echo '445ed8208a6e4823de1226a74ca319d3600e83f6369f99b14265006599c32ccb  cairo-1.18.4.tar.xz' | sha256sum -c -
 
-          tar -xf pixman.tar.xz
-          tar -xf cairo.tar.xz
+          tar -xf "pixman-${PIXMAN_VERSION}.tar.xz"
+          tar -xf "cairo-${CAIRO_VERSION}.tar.xz"
 
           # Build only pixman's portable CPU implementation. Optional platform
           # integrations are deliberately absent from this cross environment.
