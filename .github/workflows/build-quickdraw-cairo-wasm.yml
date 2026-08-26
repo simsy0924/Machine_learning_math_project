@@ -6,6 +6,7 @@ on:
       - main
       - feature/quickdraw-cairo-wasm
     paths:
+      - 'app-drawing-preprocess.js'
       - 'wasm/quickdraw-cairo/**'
       - '.github/workflows/build-quickdraw-cairo-wasm.yml'
   workflow_dispatch:
@@ -89,30 +90,32 @@ jobs:
           tar -xf "pixman-${PIXMAN_VERSION}.tar.xz"
           tar -xf "cairo-${CAIRO_VERSION}.tar.xz"
 
-          # Build only pixman's portable CPU implementation. Setting Meson's
-          # Emscripten thread counts to zero prevents its threads dependency
-          # from injecting -pthread/PTHREAD_POOL_SIZE into generated .pc files.
+          # Only the portable pixman library is needed. Tests are disabled so
+          # their thread executables do not become part of the cross build.
           meson setup pixman-build "pixman-${PIXMAN_VERSION}" \
             --cross-file emscripten.cross \
             --prefix "$PREFIX" \
             --libdir lib \
             --default-library static \
-            --buildtype release
+            --buildtype release \
+            -Dtests=disabled
           meson compile -C pixman-build
           meson install -C pixman-build
 
           export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
           export PKG_CONFIG_LIBDIR="$PREFIX/lib/pkgconfig"
 
-          # This app only needs cairo_image_surface + paths/strokes. Disable every
-          # font, compressed-file and platform surface backend so the resulting
-          # WASM contains no FreeType/Fontconfig/HarfBuzz baggage.
+          # Browser execution is single-threaded. CAIRO_NO_MUTEX is Cairo's
+          # documented opt-in for platforms that intentionally provide no mutex
+          # implementation; it prevents cairo-mutex from calling pthread APIs.
+          # Font and non-image surface backends are disabled as well.
           meson setup cairo-build "cairo-${CAIRO_VERSION}" \
             --cross-file emscripten.cross \
             --prefix "$PREFIX" \
             --libdir lib \
             --default-library static \
             --buildtype release \
+            -Dc_args=-DCAIRO_NO_MUTEX=1 \
             -Dfontconfig=disabled \
             -Dfreetype=disabled \
             -Ddwrite=disabled \
@@ -137,19 +140,23 @@ jobs:
           export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
           export PKG_CONFIG_LIBDIR="$PREFIX/lib/pkgconfig"
 
-          pkg-config --modversion pixman-1
-          pkg-config --modversion cairo
+          test "$(pkg-config --modversion pixman-1)" = "$PIXMAN_VERSION"
+          test "$(pkg-config --modversion cairo)" = "$CAIRO_VERSION"
 
-          CAIRO_FLAGS="$(pkg-config --static --cflags --libs cairo)"
-          if printf '%s\n' "$CAIRO_FLAGS" | grep -Eq '(^|[[:space:]])-pthread([[:space:]]|$)|PTHREAD_POOL_SIZE'; then
-            echo 'Unexpected pthread flags in Cairo WASM link configuration:' >&2
-            printf '%s\n' "$CAIRO_FLAGS" >&2
-            exit 1
-          fi
-
+          # Meson's generic Emscripten `threads` dependency writes -pthread to
+          # cairo.pc even when Cairo is compiled with CAIRO_NO_MUTEX. Do not use
+          # those metadata-only thread flags for the final browser module.
+          # Link the two static libraries directly; a missing pthread symbol now
+          # becomes a hard link error instead of silently enabling shared memory.
           emcc \
             wasm/quickdraw-cairo/quickdraw_cairo_module.c \
-            $CAIRO_FLAGS \
+            -I"$PREFIX/include/cairo" \
+            -I"$PREFIX/include/pixman-1" \
+            -L"$PREFIX/lib" \
+            -lcairo \
+            -lpixman-1 \
+            -lm \
+            -ldl \
             -O3 \
             -flto \
             --no-entry \
@@ -166,6 +173,7 @@ jobs:
           test -s vendor/quickdraw-cairo.js
           test -s vendor/quickdraw-cairo.wasm
           ! grep -q 'PThread' vendor/quickdraw-cairo.js
+          ! grep -q 'SharedArrayBuffer' vendor/quickdraw-cairo.js
           ls -lh vendor/quickdraw-cairo.js vendor/quickdraw-cairo.wasm
 
       - name: Smoke-test generated Cairo runtime
@@ -207,8 +215,15 @@ jobs:
           });
           NODE
 
+      - name: Check browser integration syntax
+        shell: bash
+        run: |
+          set -euxo pipefail
+          node --check app-drawing-preprocess.js
+
       - name: Commit generated runtime
         shell: bash
+        if: github.ref_name == 'feature/quickdraw-cairo-wasm'
         run: |
           set -euxo pipefail
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
