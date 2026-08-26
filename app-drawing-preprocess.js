@@ -24,6 +24,7 @@
   const RDP_EPSILON = 2;
   const DISPLAY_LINE_WIDTH = 10;
   const WASM_BASE = 'vendor/quickdraw-cairo';
+  const ASSET_VERSION = '20260826-1';
 
   const rawStrokes = [];
   let activeStroke = null;
@@ -247,21 +248,37 @@
     return renderWithCairo(simplifyCurrentDrawing());
   };
 
+  function loadRuntimeScript() {
+    if (typeof QuickDrawCairoModule === 'function') return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const existing = document.querySelector('script[data-quickdraw-cairo-runtime]');
+      if (existing) {
+        existing.addEventListener('load', resolve, { once: true });
+        existing.addEventListener('error', () => reject(new Error('Cairo runtime script 로드 실패')), { once: true });
+        return;
+      }
+      const script = document.createElement('script');
+      script.dataset.quickdrawCairoRuntime = '1';
+      script.src = `${WASM_BASE}.js?v=${ASSET_VERSION}`;
+      script.async = true;
+      script.addEventListener('load', resolve, { once: true });
+      script.addEventListener('error', () => reject(new Error(`${script.src} 로드 실패`)), { once: true });
+      document.head.appendChild(script);
+    });
+  }
+
   async function initializeCairo() {
     try {
-      if (typeof QuickDrawCairoModule !== 'function') {
-        throw new Error('vendor/quickdraw-cairo.js를 찾지 못했습니다. WASM 빌드 산출물이 필요합니다.');
-      }
+      await loadRuntimeScript();
+      if (typeof QuickDrawCairoModule !== 'function') throw new Error('QuickDrawCairoModule 함수가 생성되지 않았습니다.');
       cairoModule = await QuickDrawCairoModule({
         locateFile(path) {
-          if (path.endsWith('.wasm')) return `${WASM_BASE}.wasm?v=20260826-1`;
+          if (path.endsWith('.wasm')) return `${WASM_BASE}.wasm?v=${ASSET_VERSION}`;
           return path;
         }
       });
       const versionPtr = Number(cairoModule._qd_cairo_version());
-      if (versionPtr && typeof cairoModule.UTF8ToString === 'function') {
-        cairoVersion = cairoModule.UTF8ToString(versionPtr);
-      }
+      if (versionPtr && typeof cairoModule.UTF8ToString === 'function') cairoVersion = cairoModule.UTF8ToString(versionPtr);
       document.documentElement.dataset.quickDrawCairo = 'ready';
       return cairoModule;
     } catch (error) {
