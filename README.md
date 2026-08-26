@@ -530,6 +530,48 @@ Quick Draw 이미지 원본 바이트는 포함하지 않습니다.
 
 ---
 
+## 코드 구조
+
+JavaScript는 모두 `js/` 아래에 있고, `index.html`이 읽는 순서가 곧 의존 순서입니다.
+
+| 파일 | 역할 |
+| --- | --- |
+| `hooks.js` | 확장 지점(인스펙터 추가 UI, gradient 전략, 프로파일러 훅) |
+| `state.js` | DOM 핸들, Quick Draw 종류 표, 공용 상태 |
+| `values.js` | 값 모델, 원소별·행렬 커널, 결과 버퍼 arena |
+| `runtime-variables.js` | 상태를 가지는 `변수`와 반복 번호 스택 |
+| `spatial-ops.js` | `배열 모양 바꾸기`, `슬라이딩 창 펼치기`의 순전파·역전파 |
+| `blocks.js` | **블록 카탈로그**: 모든 블록의 정의 한 곳 |
+| `graph-cache.js` | 그래프 구조와 topological order 캐시 |
+| `user-block-runtime.js` | 사용자 블록 실행 계획 컴파일 |
+| `autodiff*.js` | 역전파와 실행 전략(공간 fusion → 컴파일 → 해석 실행) |
+| `evaluate*.js` | 그래프 계산, 반복 실행, 진행 표시 |
+| `workspace-ui.js` / `viewport.js` | 블록·연결선·인스펙터 / 이동·확대·드래그 |
+| `user-blocks.js` | 묶기, 내 블록 팔레트, 내부 구조 편집 |
+| `dataset.js` / `drawing.js` | Quick Draw 로딩 / 그림판과 손그림 테스트 |
+| `selected-evaluation.js` | 선택 계산과 결과 표시 |
+| `file-io.js` / `autosave.js` | `.mmlab`·`.mmlweights` / 자동 저장 |
+| `profiler.js` | 진단 전용. 없어도 동작은 완전히 같습니다 |
+| `boot.js` | 버튼 연결과 시작 순서 |
+
+### 한 가지 규칙: 함수는 한 곳에서만 정의한다
+
+예전에는 나중에 로드되는 파일이 이미 있는 전역 함수를 다시 대입해서
+(`evaluateNode = function ...`) 동작을 확장했습니다. 그러면 읽은 코드가 실제로
+실행되는 코드가 아니게 됩니다. 지금은 그런 덮어쓰기가 없습니다.
+
+- 블록의 미분은 `switch` 문이 아니라 블록 정의 안의 `vjp`에 있습니다. 블록을
+  추가할 때 다른 파일을 고칠 일이 없습니다.
+- gradient의 빠른 경로는 `registerGradientStrategy`로 등록하고 우선순위대로
+  시도합니다.
+- 인스펙터에 UI를 더할 때는 `INSPECTOR_EXTENSIONS`에 넣습니다.
+- 편집 동작은 `notifyWorkspaceChanged()`로 한 번만 알리고, 자동 저장이 그걸
+  듣습니다.
+- 프로파일러는 `PROFILER_HOOKS`를 채웁니다. 훅이 비어 있으면 호출부는 분기
+  하나만 지나갑니다.
+
+---
+
 ## 실행
 
 정적 HTML / CSS / JavaScript 프로젝트입니다.

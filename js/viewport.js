@@ -1,5 +1,7 @@
-// Pan and zoom support for the math-block workspace.
-// Node positions stay in world coordinates; only the viewport transform changes.
+// Pan, zoom and node dragging for the workspace.
+// Node positions stay in world coordinates; only the viewport transform changes,
+// so workspacePoint/portCenter convert pointer and DOM positions back to world
+// space for everything else in the app.
 
 const WORKSPACE_MIN_ZOOM = 0.35;
 const WORKSPACE_MAX_ZOOM = 2.5;
@@ -13,6 +15,25 @@ function workspaceLocalPoint(clientX, clientY) {
 
 function clampWorkspaceZoom(value) {
   return Math.min(WORKSPACE_MAX_ZOOM, Math.max(WORKSPACE_MIN_ZOOM, Number(value) || 1));
+}
+
+function workspacePoint(event) {
+  const local = workspaceLocalPoint(event.clientX, event.clientY);
+  return {
+    x: (local.x - workspaceView.x) / workspaceView.zoom,
+    y: (local.y - workspaceView.y) / workspaceView.zoom
+  };
+}
+
+function portCenter(el) {
+  const wr = workspace.getBoundingClientRect();
+  const r = el.getBoundingClientRect();
+  const localX = r.left - wr.left + r.width / 2;
+  const localY = r.top - wr.top + r.height / 2;
+  return {
+    x: (localX - workspaceView.x) / workspaceView.zoom,
+    y: (localY - workspaceView.y) / workspaceView.zoom
+  };
 }
 
 function applyWorkspaceView() {
@@ -65,26 +86,6 @@ function restoreWorkspaceViewSnapshot(saved) {
   applyWorkspaceView();
   updateWires();
 }
-
-// Convert pointer positions and port centers back into world coordinates.
-workspacePoint = function(event) {
-  const local = workspaceLocalPoint(event.clientX, event.clientY);
-  return {
-    x: (local.x - workspaceView.x) / workspaceView.zoom,
-    y: (local.y - workspaceView.y) / workspaceView.zoom
-  };
-};
-
-portCenter = function(el) {
-  const wr = workspace.getBoundingClientRect();
-  const r = el.getBoundingClientRect();
-  const localX = r.left - wr.left + r.width / 2;
-  const localY = r.top - wr.top + r.height / 2;
-  return {
-    x: (localX - workspaceView.x) / workspaceView.zoom,
-    y: (localY - workspaceView.y) / workspaceView.zoom
-  };
-};
 
 function installViewportControls() {
   if (document.getElementById('workspaceViewportControls')) return;
@@ -139,6 +140,14 @@ function stopNodeDrag() {
   if (!activeNodeDrag) return;
   activeNodeDrag.nodeEl.classList.remove('dragging');
   activeNodeDrag = null;
+}
+
+// Called by resetWorkspace: drop any gesture in flight along with the graph.
+function resetWorkspaceViewState() {
+  workspaceTouches.clear();
+  workspaceGesture = null;
+  stopNodeDrag();
+  resetWorkspaceView();
 }
 
 function startPinchGesture() {
@@ -304,15 +313,6 @@ workspace.addEventListener('wheel', event => {
   const factor = Math.exp(-event.deltaY * 0.002);
   setWorkspaceZoom(workspaceView.zoom * factor, anchor);
 }, { passive: false });
-
-const resetWorkspaceWithoutViewport = resetWorkspace;
-resetWorkspace = function() {
-  resetWorkspaceWithoutViewport();
-  workspaceTouches.clear();
-  workspaceGesture = null;
-  stopNodeDrag();
-  resetWorkspaceView();
-};
 
 installViewportControls();
 applyWorkspaceView();

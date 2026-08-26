@@ -1,61 +1,34 @@
-const workspace = document.getElementById('workspace');
-const nodesLayer = document.getElementById('nodes');
-const wiresSvg = document.getElementById('wires');
-const emptyState = document.getElementById('emptyState');
-const workspaceStatus = document.getElementById('workspaceStatus');
-const connectionHint = document.getElementById('connectionHint');
-const evaluateBtn = document.getElementById('evaluateBtn');
-const resetWorkspaceBtn = document.getElementById('resetWorkspaceBtn');
-
-const inspectorEmpty = document.getElementById('inspectorEmpty');
-const inspectorContent = document.getElementById('inspectorContent');
-const inspectorTitle = document.getElementById('inspectorTitle');
-const inspectorDescription = document.getElementById('inspectorDescription');
-const inspectorFormula = document.getElementById('inspectorFormula');
-const inspectorValue = document.getElementById('inspectorValue');
-const inspectorControls = document.getElementById('inspectorControls');
-const deleteNodeBtn = document.getElementById('deleteNodeBtn');
-
-const groupSelectBtn = document.getElementById('groupSelectBtn');
-const createGroupBtn = document.getElementById('createGroupBtn');
-const cancelGroupBtn = document.getElementById('cancelGroupBtn');
-const myBlocksPalette = document.getElementById('myBlocksPalette');
-const myBlocksEmpty = document.getElementById('myBlocksEmpty');
-
-const drawCanvas = document.getElementById('drawCanvas');
-const drawCtx = drawCanvas.getContext('2d', { willReadFrequently: true });
-const previewCanvas = document.getElementById('previewCanvas');
-const previewCtx = previewCanvas.getContext('2d');
-const clearDrawBtn = document.getElementById('clearDrawBtn');
-
-const DATA_CLASS_OPTIONS = [
-  ['cat', '고양이'], ['fish', '물고기'], ['house', '집'], ['tree', '나무'],
-  ['car', '자동차'], ['apple', '사과'], ['clock', '시계'], ['star', '별'],
-  ['umbrella', '우산'], ['airplane', '비행기'], ['face', '얼굴'], ['flower', '꽃'],
-  ['cup', '컵'], ['bicycle', '자전거'], ['guitar', '기타']
-];
-
-let nextNodeId = 1;
-let selectedNodeId = null;
-let pendingOutput = null;
-let drawing = false;
-let lastPoint = { x: 0, y: 0 };
-let groupSelectionMode = false;
-const groupSelectedIds = new Set();
-
-const graph = { nodes: new Map(), connections: [] };
-const USER_BLOCKS = new Map();
-const USER_BLOCK_STORAGE_KEY = 'machine-learning-math-project.user-blocks.v1';
+// The value model and its numeric kernels.
+//
+// A value is either a plain JavaScript number or an array value:
+//   { kind: 'array', data: Float32Array, shape: number[] }
+// Array values are IMMUTABLE by rule. Nothing in the runtime writes into a
+// buffer it did not just allocate, which is what lets reshape share a buffer and
+// lets a gradient be handed to several consumers without copying.
 
 function arrayValue(data, shape = [data.length]) {
   return { kind: 'array', data: data instanceof Float32Array ? data : new Float32Array(data), shape: [...shape] };
 }
-// Internal constructor for the math kernels below. The caller always hands over a
+
+// Internal constructor for the kernels below. The caller always hands over a
 // freshly allocated buffer, and shape arrays are never mutated anywhere in the
 // runtime, so both can be adopted directly instead of being copied on every
 // single operation.
 function fastArrayValue(data, shape) {
   return { kind: 'array', data, shape };
+}
+
+function isArrayValue(value) { return Boolean(value && value.kind === 'array'); }
+
+function asArrayValue(value) {
+  if (!isArrayValue(value)) throw new Error('배열 입력이 필요합니다.');
+  return value;
+}
+
+function copyValue(value) {
+  if (typeof value === 'number') return value;
+  if (isArrayValue(value)) return arrayValue(new Float32Array(value.data), value.shape);
+  return value;
 }
 
 // ---------- 결과 버퍼 아레나 ----------
@@ -74,9 +47,9 @@ function fastArrayValue(data, shape) {
 // that pass an input buffer straight through — 펼치기, 둘 다 계산, 값 보기,
 // 사용자 블록 — need no special handling.
 //
-// Only the kernels in this file and the matrix kernels in app-node-fast.js draw
-// from the arena. Anything whose result outlives one iteration (block caches,
-// 변수 초기값, copyValue, dataset images) must keep allocating its own buffer.
+// Only the kernels in this file draw from the arena. Anything whose result
+// outlives one iteration (block caches, 변수 초기값, copyValue, dataset images)
+// must keep allocating its own buffer.
 let RESULT_ARENA = null;
 const MAX_POOLED_BUFFERS_PER_SIZE = 16;
 const RETAINED_BUFFERS = new Set();
@@ -119,9 +92,7 @@ function endResultArenaIteration(iterationResult) {
 
   RETAINED_BUFFERS.clear();
   markRetainedBuffer(iterationResult);
-  if (typeof RUNTIME_VARIABLES !== 'undefined') {
-    for (const entry of RUNTIME_VARIABLES.values()) markRetainedBuffer(entry.value);
-  }
+  for (const entry of RUNTIME_VARIABLES.values()) markRetainedBuffer(entry.value);
   if (pendingVariableUpdates) {
     for (const entry of pendingVariableUpdates.values()) markRetainedBuffer(entry.value);
   }
@@ -161,16 +132,10 @@ function withResultArena(arena, run) {
     RESULT_ARENA = previous;
   }
 }
-function isArrayValue(value) { return Boolean(value && value.kind === 'array'); }
-function asArrayValue(value) {
-  if (!isArrayValue(value)) throw new Error('배열 입력이 필요합니다.');
-  return value;
-}
-function copyValue(value) {
-  if (typeof value === 'number') return value;
-  if (isArrayValue(value)) return arrayValue(new Float32Array(value.data), value.shape);
-  return value;
-}
+
+// ---------- 일반 원소별 연산 ----------
+// Used by user-defined blocks and by any operation without a dedicated kernel.
+
 function elementwiseUnary(value, fn) {
   if (typeof value === 'number') return fn(value);
   const arr = asArrayValue(value);
@@ -179,6 +144,7 @@ function elementwiseUnary(value, fn) {
   for (let i = 0; i < data.length; i++) data[i] = fn(source[i], i);
   return fastArrayValue(data, arr.shape);
 }
+
 function elementwiseBinary(a, b, fn) {
   if (typeof a === 'number' && typeof b === 'number') return fn(a, b);
   // Each mixed case gets its own loop. Wrapping fn in another closure here used
@@ -207,8 +173,6 @@ function elementwiseBinary(a, b, fn) {
 // single SGD step on a 15x784 weight matrix runs tens of thousands of elements
 // through them, so they are written as plain typed loops instead of going
 // through elementwiseBinary/elementwiseUnary with a per-element callback.
-// elementwiseBinary and elementwiseUnary remain for user-defined blocks and any
-// operation without a dedicated kernel.
 
 function addValues(a, b) {
   if (typeof a === 'number') {
@@ -375,7 +339,47 @@ function logValues(v) {
   for (let i = 0; i < out.length; i++) out[i] = Math.log(d[i]);
   return fastArrayValue(out, a.shape);
 }
-function sumArray(arr) { let s = 0; for (const v of arr.data) s += v; return s; }
+
+function sumArray(arr) {
+  const data = arr.data;
+  let sum = 0;
+  for (let i = 0; i < data.length; i++) sum += data[i];
+  return sum;
+}
+
+function dotValues(a, b) {
+  const aa = asArrayValue(a), bb = asArrayValue(b);
+  if (aa.data.length !== bb.data.length) throw new Error('내적할 두 벡터의 길이가 다릅니다.');
+  let s = 0;
+  for (let i = 0; i < aa.data.length; i++) s += aa.data[i] * bb.data[i];
+  return s;
+}
+
+function argmaxValue(value) {
+  const array = asArrayValue(value);
+  if (array.shape.length !== 1) throw new Error('분류 점수는 벡터여야 합니다.');
+  if (!array.data.length) throw new Error('빈 벡터에서는 가장 큰 점수를 찾을 수 없습니다.');
+  let bestIndex = 0;
+  let bestValue = array.data[0];
+  for (let i = 1; i < array.data.length; i++) {
+    if (array.data[i] > bestValue) {
+      bestValue = array.data[i];
+      bestIndex = i;
+    }
+  }
+  return bestIndex;
+}
+
+function arrayMaximumValue(value) {
+  const array = asArrayValue(value);
+  if (!array.data.length) throw new Error('빈 배열에서는 최댓값을 구할 수 없습니다.');
+  let maximum = array.data[0];
+  for (let i = 1; i < array.data.length; i++) maximum = Math.max(maximum, array.data[i]);
+  return maximum;
+}
+
+// ---------- gradient shape helpers ----------
+
 function zerosLike(v) {
   if (typeof v === 'number') return 0;
   if (isArrayValue(v)) {
@@ -387,6 +391,7 @@ function zerosLike(v) {
   }
   return null;
 }
+
 function fillLike(v, scalar) {
   if (typeof v === 'number') return scalar;
   const a = asArrayValue(v);
@@ -394,6 +399,7 @@ function fillLike(v, scalar) {
   data.fill(scalar);
   return fastArrayValue(data, a.shape);
 }
+
 function unbroadcast(grad, original) {
   if (typeof original === 'number' && isArrayValue(grad)) return sumArray(grad);
   if (isArrayValue(original) && typeof grad === 'number') return fillLike(original, grad);
@@ -402,19 +408,16 @@ function unbroadcast(grad, original) {
   if (isArrayValue(original) && isArrayValue(grad)) return fastArrayValue(grad.data, original.shape);
   return grad;
 }
+
 function accumulateGrad(map, key, grad) {
   if (grad == null) return;
   // Values are immutable by rule, so the first gradient for a node can be stored
   // as-is; addValues allocates a fresh array for every later accumulation.
   map.set(key, map.has(key) ? addValues(map.get(key), grad) : grad);
 }
-function dotValues(a, b) {
-  const aa = asArrayValue(a), bb = asArrayValue(b);
-  if (aa.data.length !== bb.data.length) throw new Error('내적할 두 벡터의 길이가 다릅니다.');
-  let s = 0;
-  for (let i = 0; i < aa.data.length; i++) s += aa.data[i] * bb.data[i];
-  return s;
-}
+
+// ---------- random ----------
+
 function deterministicRandomVector(length, seed) {
   let state = (Number(seed) || 1) >>> 0;
   const out = new Float32Array(length);
@@ -424,4 +427,115 @@ function deterministicRandomVector(length, seed) {
   }
   return arrayValue(out, [length]);
 }
-function classOptions() { return DATA_CLASS_OPTIONS.map(([value, label]) => ({ value, label })); }
+
+function randomArray(shape, seed, scale = 1) {
+  const length = shape.reduce((a, b) => a * b, 1);
+  let state = (Number(seed) || 1) >>> 0;
+  const out = new Float32Array(length);
+  const s = Number(scale);
+  for (let i = 0; i < length; i++) {
+    state = (1664525 * state + 1013904223) >>> 0;
+    out[i] = ((state / 4294967296) * 2 - 1) * s;
+  }
+  return arrayValue(out, shape);
+}
+
+// ---------- 행렬 커널 ----------
+
+function matrixVectorValues(matrix, vector) {
+  const m = asArrayValue(matrix);
+  const v = asArrayValue(vector);
+  if (m.shape.length !== 2) throw new Error('첫 번째 입력은 행렬이어야 합니다.');
+  if (v.shape.length !== 1) throw new Error('두 번째 입력은 벡터여야 합니다.');
+  const rows = m.shape[0];
+  const cols = m.shape[1];
+  const md = m.data;
+  const vd = v.data;
+  if (vd.length !== cols) throw new Error(`행렬의 열 ${cols}개와 벡터 길이 ${vd.length}가 다릅니다.`);
+
+  const out = takeResultBuffer(rows);
+  for (let r = 0; r < rows; r++) {
+    const base = r * cols;
+    let sum = 0;
+    let c = 0;
+    for (; c + 7 < cols; c += 8) {
+      sum += md[base + c] * vd[c];
+      sum += md[base + c + 1] * vd[c + 1];
+      sum += md[base + c + 2] * vd[c + 2];
+      sum += md[base + c + 3] * vd[c + 3];
+      sum += md[base + c + 4] * vd[c + 4];
+      sum += md[base + c + 5] * vd[c + 5];
+      sum += md[base + c + 6] * vd[c + 6];
+      sum += md[base + c + 7] * vd[c + 7];
+    }
+    for (; c < cols; c++) sum += md[base + c] * vd[c];
+    out[r] = sum;
+  }
+  return arrayValue(out, [rows]);
+}
+
+function transposeMatrixVectorValues(matrix, vector) {
+  const m = asArrayValue(matrix);
+  const v = asArrayValue(vector);
+  if (m.shape.length !== 2 || v.shape.length !== 1) throw new Error('전치 행렬 계산의 모양이 맞지 않습니다.');
+  const rows = m.shape[0];
+  const cols = m.shape[1];
+  const md = m.data;
+  const vd = v.data;
+  if (vd.length !== rows) throw new Error('전치 행렬과 벡터의 크기가 맞지 않습니다.');
+
+  const out = takeResultBuffer(cols);
+  for (let c = 0; c < cols; c++) {
+    let sum = 0;
+    let r = 0;
+    for (; r + 7 < rows; r += 8) {
+      sum += md[r * cols + c] * vd[r];
+      sum += md[(r + 1) * cols + c] * vd[r + 1];
+      sum += md[(r + 2) * cols + c] * vd[r + 2];
+      sum += md[(r + 3) * cols + c] * vd[r + 3];
+      sum += md[(r + 4) * cols + c] * vd[r + 4];
+      sum += md[(r + 5) * cols + c] * vd[r + 5];
+      sum += md[(r + 6) * cols + c] * vd[r + 6];
+      sum += md[(r + 7) * cols + c] * vd[r + 7];
+    }
+    for (; r < rows; r++) sum += md[r * cols + c] * vd[r];
+    out[c] = sum;
+  }
+  return arrayValue(out, [cols]);
+}
+
+function outerProductValues(a, b) {
+  const aa = asArrayValue(a);
+  const bb = asArrayValue(b);
+  if (aa.shape.length !== 1 || bb.shape.length !== 1) throw new Error('외적에는 벡터 두 개가 필요합니다.');
+  const ad = aa.data;
+  const bd = bb.data;
+  const cols = bd.length;
+  const out = takeResultBuffer(ad.length * cols);
+  for (let r = 0; r < ad.length; r++) {
+    const scale = ad[r];
+    const base = r * cols;
+    for (let c = 0; c < cols; c++) out[base + c] = scale * bd[c];
+  }
+  return arrayValue(out, [ad.length, cols]);
+}
+
+// The three matrix kernels dominate training time, so the profiler measures them
+// individually. Decorating them here — once, next to their definitions — keeps
+// the measurement out of the modules that merely call them.
+function timedKernel(name, kernel) {
+  return function(...args) {
+    const hook = PROFILER_HOOKS.kernel;
+    if (!hook || !hook.active()) return kernel(...args);
+    const started = performance.now();
+    try {
+      return kernel(...args);
+    } finally {
+      hook.record(name, performance.now() - started);
+    }
+  };
+}
+
+matrixVectorValues = timedKernel('행렬 × 벡터', matrixVectorValues);
+transposeMatrixVectorValues = timedKernel('전치 행렬 × 벡터', transposeMatrixVectorValues);
+outerProductValues = timedKernel('외적', outerProductValues);

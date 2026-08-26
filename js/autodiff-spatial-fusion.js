@@ -1,4 +1,4 @@
-// Training-only fusion for sliding-window unfold -> matrix x vector.
+// Training-time fusion for 슬라이딩 창 펼치기 → 행렬 × 벡터.
 //
 // The visible graph and math stay unchanged. For reverse-mode training, an
 // unfold2d whose consumers are all matvec blocks can be executed without ever
@@ -8,59 +8,14 @@
 // matvec nodes (for example four convolution filters), the normal engine first
 // accumulates their Float32 patch gradients and only then scatters them back to
 // the source image. The fused path reproduces that order.
+//
+// Window geometry comes from js/spatial-ops.js, the same helper the ordinary
+// 슬라이딩 창 펼치기 block uses, so the two paths can never drift apart.
 
-(function installSpatialTrainingFusion() {
-  const computeAllGraphGradientsBeforeSpatialFusion = computeAllGraphGradients;
-  let planVersion = '';
+(function installSpatialFusionGradientStrategy() {
   const plans = new Map();
+  let planVersion = '';
   let lastFusionCount = 0;
-
-  function positiveInt(value, fallback = 1) {
-    const n = Math.floor(Number(value));
-    return Number.isFinite(n) && n > 0 ? n : fallback;
-  }
-
-  function nonNegativeInt(value, fallback = 0) {
-    const n = Math.floor(Number(value));
-    return Number.isFinite(n) && n >= 0 ? n : fallback;
-  }
-
-  function unfoldConfig(node, input) {
-    const arr = asArrayValue(input);
-    if (arr.shape.length !== 2) throw new Error('슬라이딩 창 펼치기에는 2차원 배열이 필요합니다.');
-
-    const height = arr.shape[0];
-    const width = arr.shape[1];
-    const kernelRows = positiveInt(node.params.kernelRows, 3);
-    const kernelCols = positiveInt(node.params.kernelCols, 3);
-    const strideRows = positiveInt(node.params.strideRows, 1);
-    const strideCols = positiveInt(node.params.strideCols, 1);
-    const padding = nonNegativeInt(node.params.padding, 0);
-    const paddedHeight = height + padding * 2;
-    const paddedWidth = width + padding * 2;
-
-    if (kernelRows > paddedHeight || kernelCols > paddedWidth) {
-      throw new Error('슬라이딩 창이 패딩을 포함한 입력보다 큽니다.');
-    }
-
-    const outRows = Math.floor((paddedHeight - kernelRows) / strideRows) + 1;
-    const outCols = Math.floor((paddedWidth - kernelCols) / strideCols) + 1;
-    if (outRows < 1 || outCols < 1) throw new Error('슬라이딩 창의 출력 크기가 0입니다.');
-
-    return {
-      height,
-      width,
-      kernelRows,
-      kernelCols,
-      strideRows,
-      strideCols,
-      padding,
-      outRows,
-      outCols,
-      windowSize: kernelRows * kernelCols,
-      windowCount: outRows * outCols
-    };
-  }
 
   function validateVector(config, vector) {
     const v = asArrayValue(vector);
@@ -378,10 +333,6 @@
 
   // ---------- compiled reverse-mode plan ----------
 
-  function structureVersion(cache) {
-    return `${cache.nodeCount}:${cache.connectionCount}:${cache.hashA}:${cache.hashB}`;
-  }
-
   function compilePlan(outputId, structureCache) {
     const topo = cachedTopoForOutput(structureCache, outputId);
     const steps = [];
@@ -459,15 +410,26 @@
     };
   }
 
-  function getPlan(outputId, structureCache) {
-    const version = structureVersion(structureCache);
+  function planFor(outputId, structureCache) {
+    if (window.SPATIAL_FUSION_DISABLED === true) {
+      lastFusionCount = 0;
+      return null;
+    }
+
+    const version = graphStructureVersion(structureCache);
     if (planVersion !== version) {
       planVersion = version;
       plans.clear();
     }
-    if (plans.has(outputId)) return plans.get(outputId);
-    const plan = compilePlan(outputId, structureCache);
-    plans.set(outputId, plan);
+
+    let plan;
+    if (plans.has(outputId)) plan = plans.get(outputId);
+    else {
+      plan = compilePlan(outputId, structureCache);
+      plans.set(outputId, plan);
+    }
+
+    if (!plan) lastFusionCount = 0;
     return plan;
   }
 
@@ -561,20 +523,14 @@
     return gradients;
   }
 
-  computeAllGraphGradients = function(outputId) {
-    if (window.SPATIAL_FUSION_DISABLED === true) {
-      lastFusionCount = 0;
-      return computeAllGraphGradientsBeforeSpatialFusion(outputId);
-    }
-
-    const structureCache = ensureGraphStructureCache();
-    const plan = getPlan(outputId, structureCache);
-    if (!plan) {
-      lastFusionCount = 0;
-      return computeAllGraphGradientsBeforeSpatialFusion(outputId);
-    }
-    return executePlan(plan);
-  };
+  // Tried before the general compiled plan: when it applies it is strictly
+  // faster, and when it does not it returns null and the next strategy runs.
+  registerGradientStrategy({
+    name: 'spatial-fusion',
+    priority: 10,
+    plan: planFor,
+    execute: executePlan
+  });
 
   window.SPATIAL_TRAINING_FUSION = {
     get lastFusionCount() { return lastFusionCount; },
