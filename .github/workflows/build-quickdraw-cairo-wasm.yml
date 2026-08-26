@@ -63,6 +63,8 @@ jobs:
           [built-in options]
           c_args = []
           c_link_args = []
+          c_thread_count = 0
+          cpp_thread_count = 0
 
           [host_machine]
           system = 'emscripten'
@@ -87,8 +89,9 @@ jobs:
           tar -xf "pixman-${PIXMAN_VERSION}.tar.xz"
           tar -xf "cairo-${CAIRO_VERSION}.tar.xz"
 
-          # Build only pixman's portable CPU implementation. Optional platform
-          # integrations are deliberately absent from this cross environment.
+          # Build only pixman's portable CPU implementation. Setting Meson's
+          # Emscripten thread counts to zero prevents its threads dependency
+          # from injecting -pthread/PTHREAD_POOL_SIZE into generated .pc files.
           meson setup pixman-build "pixman-${PIXMAN_VERSION}" \
             --cross-file emscripten.cross \
             --prefix "$PREFIX" \
@@ -103,7 +106,7 @@ jobs:
 
           # This app only needs cairo_image_surface + paths/strokes. Disable every
           # font, compressed-file and platform surface backend so the resulting
-          # WASM contains no pthread/FreeType/Fontconfig/HarfBuzz baggage.
+          # WASM contains no FreeType/Fontconfig/HarfBuzz baggage.
           meson setup cairo-build "cairo-${CAIRO_VERSION}" \
             --cross-file emscripten.cross \
             --prefix "$PREFIX" \
@@ -137,9 +140,16 @@ jobs:
           pkg-config --modversion pixman-1
           pkg-config --modversion cairo
 
+          CAIRO_FLAGS="$(pkg-config --static --cflags --libs cairo)"
+          if printf '%s\n' "$CAIRO_FLAGS" | grep -Eq '(^|[[:space:]])-pthread([[:space:]]|$)|PTHREAD_POOL_SIZE'; then
+            echo 'Unexpected pthread flags in Cairo WASM link configuration:' >&2
+            printf '%s\n' "$CAIRO_FLAGS" >&2
+            exit 1
+          fi
+
           emcc \
             wasm/quickdraw-cairo/quickdraw_cairo_module.c \
-            $(pkg-config --static --cflags --libs cairo) \
+            $CAIRO_FLAGS \
             -O3 \
             -flto \
             --no-entry \
@@ -150,11 +160,12 @@ jobs:
             -sENVIRONMENT=web,node \
             -sFILESYSTEM=0 \
             -sEXPORTED_FUNCTIONS='["_qd_reset","_qd_begin_stroke","_qd_add_point","_qd_render","_qd_raster_ptr","_qd_raster_length","_qd_get_last_status","_qd_get_point_count","_qd_cairo_version"]' \
-            -sEXPORTED_RUNTIME_METHODS='["UTF8ToString"]' \
+            -sEXPORTED_RUNTIME_METHODS='["HEAPU8","UTF8ToString"]' \
             -o vendor/quickdraw-cairo.js
 
           test -s vendor/quickdraw-cairo.js
           test -s vendor/quickdraw-cairo.wasm
+          ! grep -q 'PThread' vendor/quickdraw-cairo.js
           ls -lh vendor/quickdraw-cairo.js vendor/quickdraw-cairo.wasm
 
       - name: Smoke-test generated Cairo runtime
@@ -188,6 +199,7 @@ jobs:
             if (nonzero < 10 || sum <= 0) throw new Error('Cairo raster is empty');
 
             const version = module.UTF8ToString(module._qd_cairo_version());
+            if (version !== '1.18.4') throw new Error(`unexpected Cairo version ${version}`);
             console.log(`Cairo ${version} · ${nonzero} nonzero pixels · sum ${sum}`);
           })().catch(error => {
             console.error(error);
