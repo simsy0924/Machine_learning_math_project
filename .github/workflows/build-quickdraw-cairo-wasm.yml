@@ -1,0 +1,68 @@
+name: Build Quick Draw Cairo WASM
+
+on:
+  push:
+    branches:
+      - main
+      - feature/quickdraw-cairo-wasm
+    paths:
+      - 'wasm/quickdraw-cairo/**'
+      - '.github/workflows/build-quickdraw-cairo-wasm.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    container:
+      image: vitovan/pango-cairo-wasm:latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build Cairo rasterizer
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p vendor
+
+          emcc \
+            wasm/quickdraw-cairo/quickdraw_cairo_module.c \
+            $(pkg-config --libs --cflags glib-2.0 gobject-2.0 cairo pixman-1 freetype2 fontconfig expat) \
+            -O3 \
+            -flto \
+            --no-entry \
+            -sWASM=1 \
+            -sMODULARIZE=1 \
+            -sEXPORT_NAME=QuickDrawCairoModule \
+            -sALLOW_MEMORY_GROWTH=1 \
+            -sENVIRONMENT=web \
+            -sFILESYSTEM=0 \
+            -sEXPORTED_FUNCTIONS='["_qd_reset","_qd_begin_stroke","_qd_add_point","_qd_render","_qd_raster_ptr","_qd_raster_length","_qd_get_last_status","_qd_get_point_count","_qd_cairo_version"]' \
+            -sEXPORTED_RUNTIME_METHODS='["UTF8ToString"]' \
+            -o vendor/quickdraw-cairo.js
+
+          test -s vendor/quickdraw-cairo.js
+          test -s vendor/quickdraw-cairo.wasm
+          ls -lh vendor/quickdraw-cairo.js vendor/quickdraw-cairo.wasm
+
+      - name: Commit generated runtime
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add vendor/quickdraw-cairo.js vendor/quickdraw-cairo.wasm
+          if git diff --cached --quiet; then
+            echo 'Generated Cairo runtime is already up to date.'
+            exit 0
+          fi
+          git commit -m 'Build Quick Draw Cairo WASM runtime [skip ci]'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
