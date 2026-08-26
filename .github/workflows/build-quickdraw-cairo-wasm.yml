@@ -6,7 +6,7 @@ on:
       - main
       - feature/quickdraw-cairo-wasm
     paths:
-      - 'app-drawing-preprocess.js'
+      - 'js/drawing.js'
       - 'bench/quickdraw-cairo-check.mjs'
       - 'wasm/quickdraw-cairo/**'
       - '.github/workflows/build-quickdraw-cairo-wasm.yml'
@@ -220,7 +220,7 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          node --check app-drawing-preprocess.js
+          node --check js/drawing.js
           node --check bench/quickdraw-cairo-check.mjs
 
       - name: Commit generated runtime
