@@ -33,8 +33,6 @@ jobs:
 
           # GitHub Actions overrides the image ENTRYPOINT, so VitoVan's
           # /magic/entrypoint.sh never gets a chance to source these paths.
-          # Recreate only the environment setup here; the image already contains
-          # the compiled Cairo/pixman stack and an activated Emscripten SDK.
           export magicdir=/magic
           export magicprefix=/magic/build
           export EM_PKG_CONFIG_PATH="$magicprefix/lib/pkgconfig"
@@ -47,9 +45,13 @@ jobs:
           pkg-config --modversion cairo
           mkdir -p vendor
 
+          # Only the Cairo image backend and its direct static dependencies are
+          # needed. Do not link glib/gobject here: their pkg-config flags add
+          # pthread support, which would force SharedArrayBuffer + worker/COOP-
+          # COEP requirements that are unnecessary for this tiny rasterizer.
           emcc \
             wasm/quickdraw-cairo/quickdraw_cairo_module.c \
-            $(pkg-config --libs --cflags glib-2.0 gobject-2.0 cairo pixman-1 freetype2 fontconfig expat) \
+            $(pkg-config --libs --cflags cairo pixman-1 freetype2 fontconfig expat) \
             -O3 \
             -flto \
             --no-entry \
