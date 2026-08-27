@@ -56,6 +56,13 @@ button:disabled { opacity: .4; cursor: default; }
 .workspace-head { padding: 14px 16px; border-bottom: 1px solid var(--border); align-items: flex-start; }
 .workspace-head p { margin: 4px 0 0; }
 .workspace { position: relative; flex: 1; min-height: 650px; overflow: hidden; background-color: #fafafb; background-image: radial-gradient(#d6d8dd 1px, transparent 1px); background-size: 20px 20px; }
+/* Nothing inside the canvas should get a browser-drawn overlay. Both properties
+   inherit down to the nodes and the wires:
+   - tap highlight: tapping a wire paints a translucent box over the whole
+     bounding rect of the curve, not over the curve itself;
+   - text selection: cutting a wire is two quick presses, which a browser would
+     otherwise read as a double-click and start selecting with. */
+.workspace { -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
 .nodes, .wires { position: absolute; inset: 0; width: 100%; height: 100%; }
 /* The nodes layer covers the whole workspace, so it only takes pointer events
    where a node actually is; elsewhere clicks reach the wires underneath. */
