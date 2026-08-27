@@ -404,6 +404,7 @@ function decorateEditorNodes() {
 function redrawEditorWorkspace() {
   renderWorkspaceGraph();
   pendingOutput = null;
+  selectedConnection = null;
   selectedNodeId = null;
   renderInspector();
   syncWorkspaceState();
@@ -530,6 +531,7 @@ function restoreOuterWorkspace(finishedState) {
   nextNodeId = finishedState.outerNextNodeId;
   selectedNodeId = finishedState.outerSelectedNodeId;
   pendingOutput = null;
+  selectedConnection = null;
 
   renderWorkspaceGraph();
   setEditingControlsDisabled(false, finishedState);

@@ -20,6 +20,14 @@ cancelGroupBtn.addEventListener('click', cancelGroupSelection);
 workspace.addEventListener('click', event => {
   if (event.target === workspace || event.target === nodesLayer || event.target === emptyState) cancelConnection();
 });
+// Delete / Backspace cuts the selected wire. Ignored while a form control has
+// focus, where those keys still have to edit text.
+window.addEventListener('keydown', event => {
+  if (event.key !== 'Delete' && event.key !== 'Backspace') return;
+  if (event.target?.closest?.('input, select, textarea, [contenteditable="true"]')) return;
+  if (disconnectSelectedConnection()) event.preventDefault();
+});
+
 window.addEventListener('resize', updateWires);
 
 loadUserBlocks();

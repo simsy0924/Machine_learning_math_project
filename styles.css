@@ -57,8 +57,16 @@ button:disabled { opacity: .4; cursor: default; }
 .workspace-head p { margin: 4px 0 0; }
 .workspace { position: relative; flex: 1; min-height: 650px; overflow: hidden; background-color: #fafafb; background-image: radial-gradient(#d6d8dd 1px, transparent 1px); background-size: 20px 20px; }
 .nodes, .wires { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* The nodes layer covers the whole workspace, so it only takes pointer events
+   where a node actually is; elsewhere clicks reach the wires underneath. */
+.nodes { pointer-events: none; }
+.node { pointer-events: auto; }
 .wires { overflow: visible; pointer-events: none; }
 .wire { fill: none; stroke: #676d76; stroke-width: 3; }
+.wire.selected { stroke: #c23b3b; stroke-width: 4; }
+/* Invisible fat copy of each wire, purely to make a 3px curve easy to hit. */
+.wire-hit { fill: none; stroke: transparent; stroke-width: 18; stroke-linecap: round; pointer-events: stroke; cursor: pointer; }
+.wire-hit:hover + .wire { stroke: #c23b3b; }
 .empty-state { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; text-align: center; color: #80858e; pointer-events: none; }
 .empty-state strong { color: #6b7078; }
 .empty-state span { margin-top: 5px; font-size: 12px; }
@@ -86,6 +94,7 @@ button:disabled { opacity: .4; cursor: default; }
 .port.input { left: -22px; }
 .port.output { right: -22px; background: #555b65; }
 .port.hot { box-shadow: 0 0 0 5px rgba(77, 130, 200, .17); border-color: #2d72ca; }
+.port.input.connected { background: #555b65; }
 
 .inspector-panel { display: flex; flex-direction: column; gap: 12px; background: transparent; border: 0; box-shadow: none; padding: 0; }
 .inspector-card, .draw-card, .dataset-card { background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 14px; box-shadow: var(--shadow); }
@@ -93,6 +102,12 @@ button:disabled { opacity: .4; cursor: default; }
 .control-row { display: grid; gap: 5px; margin: 10px 0; }
 .control-row label { font-size: 11px; font-weight: 800; color: #646a72; }
 .control-row input, .control-row select { width: 100%; border: 1px solid #cfd2d7; border-radius: 9px; padding: 8px; background: #fff; }
+#inspectorConnections:not(:empty) { display: grid; gap: 6px; margin-top: 12px; padding-top: 10px; border-top: 1px solid #eceef0; }
+.connection-list-title { font-size: 10px; font-weight: 800; color: #767c85; }
+.connection-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 3px 5px; border-radius: 8px; font-size: 12px; }
+.connection-row.selected { background: #fdeeee; }
+.connection-row-label { overflow-wrap: anywhere; color: #4e535c; }
+.connection-cut { flex: none; padding: 4px 7px; font-size: 11px; }
 .formula-box, .value-box { margin-top: 10px; padding: 10px; border-radius: 10px; background: #f6f7f8; }
 .formula-box span, .value-box span { display: block; margin-bottom: 5px; font-size: 10px; font-weight: 800; color: #767c85; }
 .formula-box code { font-size: 13px; overflow-wrap: anywhere; }

@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>수학 블록 실험실</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=20260827-1" />
   <link rel="stylesheet" href="user-block-viewer.css?v=20260824-4" />
 </head>
 <body>
@@ -93,7 +93,7 @@
         <div id="myBlocksPalette"></div>
       </section>
 
-      <div class="help-card"><strong>조작 방법</strong><p>블록 전체를 잡고 이동할 수 있습니다. 연결은 오른쪽 ● → 다른 블록 왼쪽 ○ 순서입니다.</p></div>
+      <div class="help-card"><strong>조작 방법</strong><p>블록 전체를 잡고 이동할 수 있습니다. 연결은 오른쪽 ● → 다른 블록 왼쪽 ○ 순서입니다.</p><p>연결을 끊으려면 연결선을 누른 뒤 한 번 더 누르거나 Delete 키를 누르세요. 채워진 입력 ○를 눌러도 끊어집니다.</p></div>
     </aside>
 
     <section class="workspace-panel">
@@ -118,7 +118,7 @@
         <div class="section-head"><h2>선택한 블록</h2><button id="deleteNodeBtn" class="danger ghost" disabled>삭제</button></div>
         <div id="inspectorEmpty" class="muted">작업공간의 블록을 선택하세요.</div>
         <div id="inspectorContent" hidden>
-          <h3 id="inspectorTitle"></h3><p id="inspectorDescription" class="muted"></p><div id="inspectorControls"></div>
+          <h3 id="inspectorTitle"></h3><p id="inspectorDescription" class="muted"></p><div id="inspectorControls"></div><div id="inspectorConnections"></div>
           <div class="formula-box"><span>수학식</span><code id="inspectorFormula">-</code></div>
           <div class="value-box"><span>현재 값</span><pre id="inspectorValue">계산 전</pre></div>
         </div>
@@ -152,28 +152,28 @@
     <a href="https://github.com/googlecreativelab/quickdraw-dataset" target="_blank" rel="noopener noreferrer">Dataset documentation</a>
   </footer>
 
-  <script src="js/hooks.js?v=20260826-2"></script> <!-- extension points every module registers with -->
-  <script src="js/state.js?v=20260826-2"></script> <!-- DOM handles and shared state -->
-  <script src="js/values.js?v=20260826-2"></script> <!-- value model, kernels, result-buffer arena -->
-  <script src="js/runtime-variables.js?v=20260826-2"></script> <!-- stateful 변수 and loop indices -->
-  <script src="js/spatial-ops.js?v=20260826-2"></script> <!-- reshape / sliding-window unfold -->
-  <script src="js/blocks.js?v=20260826-2"></script> <!-- the block catalogue: forward + derivative -->
-  <script src="js/graph-cache.js?v=20260826-2"></script> <!-- cached graph structure and topological order -->
-  <script src="js/user-block-runtime.js?v=20260826-2"></script> <!-- compiled 사용자 블록 execution -->
-  <script src="js/autodiff.js?v=20260826-2"></script> <!-- reverse-mode autodiff and its strategies -->
-  <script src="js/autodiff-compiled.js?v=20260826-2"></script>
-  <script src="js/autodiff-spatial-fusion.js?v=20260826-2"></script>
-  <script src="js/evaluate-compiled.js?v=20260826-2"></script> <!-- compiled 반복 bodies -->
-  <script src="js/evaluate.js?v=20260826-2"></script> <!-- graph evaluation -->
-  <script src="js/workspace-ui.js?v=20260826-2"></script> <!-- nodes, wires, inspector -->
-  <script src="js/viewport.js?v=20260826-2"></script> <!-- pan / zoom / drag -->
-  <script src="js/user-blocks.js?v=20260826-2"></script> <!-- 묶기, palette, internal editor -->
-  <script src="js/dataset.js?v=20260826-2"></script> <!-- Quick Draw loading -->
-  <script src="js/drawing.js?v=20260826-2"></script> <!-- drawing pad and hand-drawing test -->
-  <script src="js/selected-evaluation.js?v=20260826-2"></script> <!-- 선택 계산 -->
-  <script src="js/file-io.js?v=20260826-2"></script> <!-- .mmlab / .mmlweights -->
-  <script src="js/autosave.js?v=20260826-2"></script>
-  <script src="js/profiler.js?v=20260826-2"></script> <!-- diagnostics only -->
-  <script src="js/boot.js?v=20260826-2"></script> <!-- wiring and startup -->
+  <script src="js/hooks.js?v=20260827-1"></script> <!-- extension points every module registers with -->
+  <script src="js/state.js?v=20260827-1"></script> <!-- DOM handles and shared state -->
+  <script src="js/values.js?v=20260827-1"></script> <!-- value model, kernels, result-buffer arena -->
+  <script src="js/runtime-variables.js?v=20260827-1"></script> <!-- stateful 변수 and loop indices -->
+  <script src="js/spatial-ops.js?v=20260827-1"></script> <!-- reshape / sliding-window unfold -->
+  <script src="js/blocks.js?v=20260827-1"></script> <!-- the block catalogue: forward + derivative -->
+  <script src="js/graph-cache.js?v=20260827-1"></script> <!-- cached graph structure and topological order -->
+  <script src="js/user-block-runtime.js?v=20260827-1"></script> <!-- compiled 사용자 블록 execution -->
+  <script src="js/autodiff.js?v=20260827-1"></script> <!-- reverse-mode autodiff and its strategies -->
+  <script src="js/autodiff-compiled.js?v=20260827-1"></script>
+  <script src="js/autodiff-spatial-fusion.js?v=20260827-1"></script>
+  <script src="js/evaluate-compiled.js?v=20260827-1"></script> <!-- compiled 반복 bodies -->
+  <script src="js/evaluate.js?v=20260827-1"></script> <!-- graph evaluation -->
+  <script src="js/workspace-ui.js?v=20260827-1"></script> <!-- nodes, wires, inspector -->
+  <script src="js/viewport.js?v=20260827-1"></script> <!-- pan / zoom / drag -->
+  <script src="js/user-blocks.js?v=20260827-1"></script> <!-- 묶기, palette, internal editor -->
+  <script src="js/dataset.js?v=20260827-1"></script> <!-- Quick Draw loading -->
+  <script src="js/drawing.js?v=20260827-1"></script> <!-- drawing pad and hand-drawing test -->
+  <script src="js/selected-evaluation.js?v=20260827-1"></script> <!-- 선택 계산 -->
+  <script src="js/file-io.js?v=20260827-1"></script> <!-- .mmlab / .mmlweights -->
+  <script src="js/autosave.js?v=20260827-1"></script>
+  <script src="js/profiler.js?v=20260827-1"></script> <!-- diagnostics only -->
+  <script src="js/boot.js?v=20260827-1"></script> <!-- wiring and startup -->
 </body>
 </html>

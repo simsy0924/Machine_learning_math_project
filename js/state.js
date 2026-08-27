@@ -19,6 +19,7 @@ const inspectorDescription = document.getElementById('inspectorDescription');
 const inspectorFormula = document.getElementById('inspectorFormula');
 const inspectorValue = document.getElementById('inspectorValue');
 const inspectorControls = document.getElementById('inspectorControls');
+const inspectorConnections = document.getElementById('inspectorConnections');
 const deleteNodeBtn = document.getElementById('deleteNodeBtn');
 
 const groupSelectBtn = document.getElementById('groupSelectBtn');
@@ -56,6 +57,10 @@ function koreanClassName(name) {
 let nextNodeId = 1;
 let selectedNodeId = null;
 let pendingOutput = null;
+// The wire the user picked, as { to, inputIndex }. An input port holds at most
+// one connection, so that pair names one wire; keeping the pair instead of the
+// connection object survives the array being rebuilt on every edit.
+let selectedConnection = null;
 let groupSelectionMode = false;
 const groupSelectedIds = new Set();
 
