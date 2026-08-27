@@ -341,10 +341,6 @@ const BLOCKS = {
       const fb = elementwiseBinary(a, b, (x, y) => x < y ? 1 : x > y ? 0 : 0.5);
       return [unbroadcast(multiplyValues(upstream, fa), a), unbroadcast(multiplyValues(upstream, fb), b)];
     }),
-  square: op1('제곱', 'x²', squareValues,
-    ([a], output, upstream) => [multiplyValues(upstream, multiplyValues(a, 2))]),
-  abs: op1('절댓값', '|x|', absValues,
-    ([a], output, upstream) => [multiplyValues(upstream, elementwiseUnary(a, x => x > 0 ? 1 : x < 0 ? -1 : 0))]),
   exp: op1('지수', 'eˣ', expValues,
     ([a], output, upstream) => [multiplyValues(upstream, output)]),
   log: op1('로그', 'ln(x)', logValues,
@@ -354,15 +350,6 @@ const BLOCKS = {
     title: '합', kind: 'operation', inputs: ['x'], description: '배열의 원소를 모두 더한다.', formula: () => 'Σxᵢ',
     compute: (n, [x]) => typeof x === 'number' ? x : sumArray(asArrayValue(x)),
     vjp: ([a], output, upstream) => [fillLike(a, typeof upstream === 'number' ? upstream : sumArray(asArrayValue(upstream)))]
-  },
-
-  mean: {
-    title: '평균', kind: 'operation', inputs: ['x'], description: '배열의 산술평균을 구한다.', formula: () => '(1/n)Σxᵢ',
-    compute: (n, [x]) => { if (typeof x === 'number') return x; const a = asArrayValue(x); return a.data.length ? sumArray(a) / a.data.length : 0; },
-    vjp: ([a], output, upstream) => {
-      const n = typeof a === 'number' ? 1 : asArrayValue(a).data.length;
-      return [fillLike(a, (typeof upstream === 'number' ? upstream : sumArray(asArrayValue(upstream))) / n)];
-    }
   },
 
   dot: {
