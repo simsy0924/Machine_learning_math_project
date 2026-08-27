@@ -229,6 +229,7 @@ async function rebuildWorkspaceFromSnapshot(project) {
   nextNodeId = largestId + 1;
   selectedNodeId = null;
   pendingOutput = null;
+  selectedConnection = null;
 
   RUNTIME_VARIABLES.clear();
   for (const saved of project.runtimeVariables) {

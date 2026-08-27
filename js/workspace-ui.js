@@ -44,6 +44,10 @@ function invalidatePreviews() {
 
 // ---------- nodes ----------
 
+// Which input ports are currently drawn as connected. Kept so the marking pass
+// below can skip the DOM while nothing about the wiring has changed.
+let markedInputPortKeys = new Set();
+
 function renderNode(node) {
   const def = getBlockDef(node.type);
   const el = document.createElement('div');
@@ -51,9 +55,13 @@ function renderNode(node) {
   el.dataset.nodeId = node.id;
   el.style.left = `${node.x}px`;
   el.style.top = `${node.y}px`;
-  const inputsHtml = def.inputs.map((label, index) => `<div class="port-row"><span class="port input" data-node-id="${node.id}" data-port-index="${index}" title="입력 ${label}"></span><span class="port-label">${label}</span></div>`).join('');
+  const inputsHtml = def.inputs.map((label, index) => {
+    const safeLabel = escapeHtml(label);
+    return `<div class="port-row"><span class="port input" data-node-id="${node.id}" data-port-index="${index}" data-port-label="${safeLabel}" title="입력 ${safeLabel}"></span><span class="port-label">${safeLabel}</span></div>`;
+  }).join('');
   el.innerHTML = `<div class="node-head"><span>${escapeHtml(def.title)}</span><span class="node-kind">${kindLabel(def.kind)}</span></div><div class="node-body">${inputsHtml}${def.inputs.length ? '' : '<span class="muted">입력 없음</span>'}<div class="node-preview">계산 전</div><div class="port-row output-row"><span class="port-label">출력</span><span class="port output" data-node-id="${node.id}" title="출력"></span></div></div>`;
   nodesLayer.appendChild(el);
+  markedInputPortKeys.clear(); // these ports are new, so they carry no marks yet
 
   el.querySelector('.port.output').addEventListener('click', event => {
     event.stopPropagation();
@@ -61,7 +69,7 @@ function renderNode(node) {
   });
   el.querySelectorAll('.port.input').forEach(port => port.addEventListener('click', event => {
     event.stopPropagation();
-    if (!groupSelectionMode) finishConnection(node.id, Number(port.dataset.portIndex));
+    if (!groupSelectionMode) clickInputPort(node.id, Number(port.dataset.portIndex));
   }));
 }
 
@@ -97,6 +105,9 @@ function removeNodes(ids) {
     nodesLayer.querySelector(`[data-node-id="${id}"]`)?.remove();
   }
   graph.connections = graph.connections.filter(c => !ids.has(c.from) && !ids.has(c.to));
+  if (selectedConnection && (ids.has(selectedConnection.to) || !findConnection(selectedConnection.to, selectedConnection.inputIndex))) {
+    selectedConnection = null;
+  }
   notifyWorkspaceChanged();
 }
 
@@ -117,12 +128,36 @@ function selectNode(id) {
 
 // ---------- connections ----------
 
+const DEFAULT_CONNECTION_HINT = '블록을 놓고 수학식을 직접 만드세요.';
+
+function setConnectionHint(text) {
+  if (!groupSelectionMode) connectionHint.textContent = text;
+}
+
 function beginConnection(nodeId, portEl) {
-  clearHotPorts();
+  cancelConnection();
   pendingOutput = nodeId;
   portEl.classList.add('hot');
   document.querySelectorAll('.port.input').forEach(p => p.classList.add('hot'));
-  connectionHint.textContent = '연결할 블록의 왼쪽 입력 ○를 누르세요.';
+  setConnectionHint('연결할 블록의 왼쪽 입력 ○를 누르세요.');
+}
+
+// One input port holds at most one wire, so (to, inputIndex) identifies it.
+function findConnection(toNodeId, inputIndex) {
+  return graph.connections.find(c => c.to === toNodeId && c.inputIndex === inputIndex) || null;
+}
+
+function isSelectedConnection(connection) {
+  return Boolean(selectedConnection)
+    && selectedConnection.to === connection.to
+    && selectedConnection.inputIndex === connection.inputIndex;
+}
+
+// Clicking an input port finishes the wire being drawn, or — when no wire is in
+// flight — cuts the one that port already holds.
+function clickInputPort(toNodeId, inputIndex) {
+  if (pendingOutput != null) finishConnection(toNodeId, inputIndex);
+  else disconnectInput(toNodeId, inputIndex);
 }
 
 function finishConnection(toNodeId, inputIndex) {
@@ -136,14 +171,65 @@ function finishConnection(toNodeId, inputIndex) {
   notifyWorkspaceChanged();
 }
 
+// Cut the wire feeding one input. Returns whether anything was connected.
+function disconnectInput(toNodeId, inputIndex) {
+  if (!findConnection(toNodeId, inputIndex)) return false;
+  graph.connections = graph.connections.filter(c => !(c.to === toNodeId && c.inputIndex === inputIndex));
+  selectedConnection = null;
+  updateWires();
+  invalidatePreviews();
+  notifyWorkspaceChanged();
+  setConnectionHint('연결선을 끊었습니다. 오른쪽 ●부터 다시 연결할 수 있습니다.');
+  return true;
+}
+
+function disconnectSelectedConnection() {
+  if (!selectedConnection) return false;
+  return disconnectInput(selectedConnection.to, selectedConnection.inputIndex);
+}
+
+// Picking a wire is deliberately a two-step gesture: the first click marks it so
+// the user can see which one is about to go, the second cuts it.
+function selectConnection(toNodeId, inputIndex) {
+  const connection = findConnection(toNodeId, inputIndex);
+  if (!connection) return;
+  cancelConnection();
+  selectedConnection = { to: connection.to, inputIndex: connection.inputIndex };
+  updateWires();
+  renderInspector();
+  setConnectionHint('연결선을 선택했습니다. 한 번 더 누르거나 Delete 키를 누르면 끊어집니다.');
+}
+
+function clickWire(toNodeId, inputIndex) {
+  if (isSelectedConnection({ to: toNodeId, inputIndex })) disconnectInput(toNodeId, inputIndex);
+  else selectConnection(toNodeId, inputIndex);
+}
+
+function clearConnectionSelection() {
+  if (!selectedConnection) return;
+  selectedConnection = null;
+  updateWires();
+  renderInspector();
+}
+
 function cancelConnection() {
   pendingOutput = null;
   clearHotPorts();
-  if (!groupSelectionMode) connectionHint.textContent = '블록을 놓고 수학식을 직접 만드세요.';
+  clearConnectionSelection();
+  setConnectionHint(DEFAULT_CONNECTION_HINT);
 }
 
 function clearHotPorts() {
   document.querySelectorAll('.port.hot').forEach(el => el.classList.remove('hot'));
+}
+
+function wirePath(className, geometry, connection) {
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('class', className);
+  path.setAttribute('d', geometry);
+  path.dataset.to = connection.to;
+  path.dataset.inputIndex = connection.inputIndex;
+  return path;
 }
 
 function updateWires() {
@@ -154,12 +240,40 @@ function updateWires() {
     const toEl = nodesLayer.querySelector(`[data-node-id="${c.to}"] .port.input[data-port-index="${c.inputIndex}"]`);
     if (!fromEl || !toEl) continue;
     const a = portCenter(fromEl), b = portCenter(toEl);
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('class', 'wire');
     const bend = Math.max(60, Math.abs(b.x - a.x) * 0.45);
-    path.setAttribute('d', `M ${a.x} ${a.y} C ${a.x + bend} ${a.y}, ${b.x - bend} ${b.y}, ${b.x} ${b.y}`);
-    wiresSvg.appendChild(path);
+    const geometry = `M ${a.x} ${a.y} C ${a.x + bend} ${a.y}, ${b.x - bend} ${b.y}, ${b.x} ${b.y}`;
+    // A transparent, much thicker copy of the wire sits under the visible one:
+    // a 3px stroke is far too thin to hit with a finger or a quick click.
+    wiresSvg.append(wirePath('wire-hit', geometry, c), wirePath(isSelectedConnection(c) ? 'wire selected' : 'wire', geometry, c));
   }
+  markConnectedInputPorts();
+}
+
+// A filled input port is one that already holds a wire, and so one that can be
+// clicked to disconnect. updateWires runs on every frame of a node drag, so the
+// ports are only walked when the set of connected inputs actually changed.
+function markConnectedInputPorts() {
+  const connected = new Set();
+  for (const c of graph.connections) connected.add(`${c.to}:${c.inputIndex}`);
+
+  let unchanged = connected.size === markedInputPortKeys.size;
+  if (unchanged) {
+    for (const key of connected) {
+      if (!markedInputPortKeys.has(key)) {
+        unchanged = false;
+        break;
+      }
+    }
+  }
+  if (unchanged) return;
+
+  for (const port of nodesLayer.querySelectorAll('.port.input')) {
+    const isConnected = connected.has(`${port.dataset.nodeId}:${port.dataset.portIndex}`);
+    const label = port.dataset.portLabel || '';
+    port.classList.toggle('connected', isConnected);
+    port.title = isConnected ? `입력 ${label} — 누르면 연결이 끊어집니다` : `입력 ${label}`;
+  }
+  markedInputPortKeys = connected;
 }
 
 // ---------- inspector ----------
@@ -169,7 +283,10 @@ function renderInspector() {
   inspectorEmpty.hidden = Boolean(node);
   inspectorContent.hidden = !node;
   deleteNodeBtn.disabled = !node;
-  if (!node) return;
+  if (!node) {
+    inspectorConnections.replaceChildren();
+    return;
+  }
 
   const def = getBlockDef(node.type);
   inspectorTitle.textContent = def.title;
@@ -216,7 +333,47 @@ function renderInspector() {
     inspectorControls.appendChild(row);
   }
 
+  renderInspectorConnections(node, def);
   for (const extend of INSPECTOR_EXTENSIONS) extend(node, def);
+}
+
+// The wires reaching this block, each with a button that cuts it. Clicking a
+// thin wire is awkward on a touch screen, so the inspector offers the same cut
+// as a plain list.
+function renderInspectorConnections(node, def) {
+  inspectorConnections.replaceChildren();
+
+  const connected = [];
+  for (let inputIndex = 0; inputIndex < def.inputs.length; inputIndex++) {
+    const connection = findConnection(node.id, inputIndex);
+    if (connection) connected.push({ inputIndex, connection });
+  }
+  if (!connected.length) return;
+
+  const heading = document.createElement('span');
+  heading.className = 'connection-list-title';
+  heading.textContent = '연결된 입력';
+  inspectorConnections.appendChild(heading);
+
+  for (const { inputIndex, connection } of connected) {
+    const source = graph.nodes.get(connection.from);
+    const row = document.createElement('div');
+    row.className = 'connection-row';
+    if (isSelectedConnection(connection)) row.classList.add('selected');
+
+    const label = document.createElement('span');
+    label.className = 'connection-row-label';
+    label.textContent = `${def.inputs[inputIndex]} ← ${source ? getBlockDef(source.type).title : '알 수 없는 블록'}`;
+
+    const cut = document.createElement('button');
+    cut.type = 'button';
+    cut.className = 'ghost danger connection-cut';
+    cut.textContent = '연결 끊기';
+    cut.addEventListener('click', () => disconnectInput(node.id, inputIndex));
+
+    row.append(label, cut);
+    inspectorConnections.appendChild(row);
+  }
 }
 
 // ---------- workspace-wide state ----------

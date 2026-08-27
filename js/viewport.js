@@ -234,6 +234,16 @@ workspace.addEventListener('pointerdown', event => {
     return;
   }
 
+  // Wires sit below the nodes layer, so a hit here means empty space over a wire.
+  const wireEl = event.target.closest?.('.wire-hit');
+  if (wireEl && wiresSvg.contains(wireEl)) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (isTouch) workspaceTouches.delete(event.pointerId);
+    if (!groupSelectionMode) clickWire(Number(wireEl.dataset.to), Number(wireEl.dataset.inputIndex));
+    return;
+  }
+
   event.preventDefault();
   event.stopPropagation();
   cancelConnection();
