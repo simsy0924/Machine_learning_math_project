@@ -308,22 +308,6 @@ function negateValue(v) {
   return fastArrayValue(out, a.shape);
 }
 
-function squareValues(v) {
-  if (typeof v === 'number') return v * v;
-  const a = asArrayValue(v), d = a.data;
-  const out = takeResultBuffer(d.length);
-  for (let i = 0; i < out.length; i++) out[i] = d[i] * d[i];
-  return fastArrayValue(out, a.shape);
-}
-
-function absValues(v) {
-  if (typeof v === 'number') return Math.abs(v);
-  const a = asArrayValue(v), d = a.data;
-  const out = takeResultBuffer(d.length);
-  for (let i = 0; i < out.length; i++) out[i] = Math.abs(d[i]);
-  return fastArrayValue(out, a.shape);
-}
-
 function expValues(v) {
   if (typeof v === 'number') return Math.exp(v);
   const a = asArrayValue(v), d = a.data;
