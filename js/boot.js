@@ -28,6 +28,16 @@ window.addEventListener('keydown', event => {
   if (disconnectSelectedConnection()) event.preventDefault();
 });
 
+// The manual-backprop editor temporarily replaces the workspace hint. Its save
+// and cancel buttons are created lazily, so use delegation and restore the normal
+// hint after their own click handlers have completed. If Cancel is rejected in
+// the confirmation dialog the editor is still active and the hint is kept.
+document.addEventListener('click', event => {
+  const id = event.target?.id;
+  if (id !== 'manualBackpropEditorSave' && id !== 'manualBackpropEditorCancel') return;
+  if (!window.isManualBackpropWorkspaceEditing?.()) connectionHint.textContent = DEFAULT_CONNECTION_HINT;
+});
+
 window.addEventListener('resize', updateWires);
 
 loadUserBlocks();
