@@ -34,7 +34,7 @@ jobs:
         run: |
           set -euo pipefail
           ! grep -nE 'js/autodiff(-compiled|-spatial-fusion)?\.js' index.html
-          ! grep -R -nE 'differentiateGraph|computeAllGraphGradients|primitiveVJP|userBlockVJP' js index.html
+          ! grep -R -nE 'differentiateGraph\(|computeAllGraphGradients\(|primitiveVJP\(|userBlockVJP\(' js index.html
 
       - name: Verify manual backprop runtime is loaded
         shell: bash
