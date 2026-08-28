@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>Manual backprop browser smoke</title>
+</head>
+<body>
+  <div id="result">RUNNING</div>
+  <iframe id="app" src="../index.html" style="width:1200px;height:800px"></iframe>
+  <script>
+    const result = document.getElementById('result');
+    const frame = document.getElementById('app');
+
+    frame.addEventListener('load', () => {
+      const script = frame.contentDocument.createElement('script');
+      script.textContent = `
+        (async () => {
+          const finish = text => { parent.document.getElementById('result').textContent = text; };
+          try {
+            if (typeof differentiateGraph !== 'undefined') {
+              throw new Error('differentiateGraph must not exist');
+            }
+            if (document.querySelector('[data-block="derivative"]')) {
+              throw new Error('derivative must not be present in the palette');
+            }
+
+            let legacyStopped = false;
+            try {
+              BLOCKS.derivative.compute({ params: { variable: 'x' } }, [1]);
+            } catch (error) {
+              legacyStopped = /자동미분은 제거/.test(String(error.message));
+            }
+            if (!legacyStopped) throw new Error('legacy derivative placeholder unexpectedly computed');
+
+            resetWorkspace();
+            localStorage.removeItem(MANUAL_BACKPROP_STORAGE_KEY);
+            MANUAL_BACKPROP_BUILTINS.clear();
+
+            const numberNode = value => {
+              const node = addBlock('number');
+              node.params.value = value;
+              return node;
+            };
+            const scalarVariable = (name, value = 0) => {
+              const node = addBlock('variable');
+              node.params.name = name;
+              node.params.mode = 'scalar';
+              node.params.value = value;
+              return node;
+            };
+            const connect = (from, to, inputIndex) => {
+              graph.connections = graph.connections.filter(c => !(c.to === to.id && c.inputIndex === inputIndex));
+              graph.connections.push({ from: from.id, to: to.id, inputIndex });
+            };
+
+            const a = numberNode(3);
+            const b = numberNode(4);
+            const g = scalarVariable('g', 2);
+            const ga = scalarVariable('ga', 0);
+            const gb = scalarVariable('gb', 0);
+            const multiply = addBlock('multiply');
+            connect(a, multiply, 0);
+            connect(b, multiply, 1);
+
+            // Author dL/da = g*b and dL/db = g*a with ordinary multiply blocks.
+            openManualBackpropEditor(multiply);
+            const gradA = addBlock('multiply');
+            const gradB = addBlock('multiply');
+            graph.connections.push(
+              { from: MANUAL_BACKPROP_UPSTREAM_ID, to: gradA.id, inputIndex: 0 },
+              { from: manualBackpropInputSourceId(1), to: gradA.id, inputIndex: 1 },
+              { from: MANUAL_BACKPROP_UPSTREAM_ID, to: gradB.id, inputIndex: 0 },
+              { from: manualBackpropInputSourceId(0), to: gradB.id, inputIndex: 1 }
+            );
+            manualBackpropEditorState.gradientOutputNodeIds = [gradA.id, gradB.id];
+            saveManualBackpropEditor();
+
+            multiply.params.manualBackpropMode = 'backward';
+            multiply.params.manualBackpropUpstream = 'g';
+            multiply.params.manualBackpropGradient0 = 'ga';
+            multiply.params.manualBackpropGradient1 = 'gb';
+
+            const firstGradient = evaluateNode(multiply.id, new Map(), new Set());
+            const gaValue = readRuntimeVariable(ga);
+            const gbValue = readRuntimeVariable(gb);
+            if (firstGradient !== 8 || gaValue !== 8 || gbValue !== 6) {
+              throw new Error('built-in manual backward mismatch: ' + JSON.stringify({ firstGradient, gaValue, gbValue }));
+            }
+
+            // Reuse the exact same authored math as a one-shot custom-block backward definition.
+            const customId = 'manual-backprop-smoke-custom';
+            USER_BLOCKS.set(customId, {
+              id: customId,
+              name: 'SmokeMultiply',
+              nodes: [{ id: 1, type: 'multiply', params: {} }],
+              connections: [],
+              externalInputs: [
+                { nodeId: 1, inputIndex: 0, label: 'a' },
+                { nodeId: 1, inputIndex: 1, label: 'b' }
+              ],
+              outputNodeId: 1,
+              formula: 'a × b',
+              manualBackprop: cloneManualJson(manualBackpropDefinitionForType('multiply'))
+            });
+
+            const cga = scalarVariable('cga', 0);
+            const cgb = scalarVariable('cgb', 0);
+            const custom = addBlock('custom:' + customId);
+            connect(a, custom, 0);
+            connect(b, custom, 1);
+            custom.params.manualBackpropMode = 'backward';
+            custom.params.manualBackpropUpstream = 'g';
+            custom.params.manualBackpropGradient0 = 'cga';
+            custom.params.manualBackpropGradient1 = 'cgb';
+
+            const customFirstGradient = evaluateNode(custom.id, new Map(), new Set());
+            const cgaValue = readRuntimeVariable(cga);
+            const cgbValue = readRuntimeVariable(cgb);
+            if (customFirstGradient !== 8 || cgaValue !== 8 || cgbValue !== 6) {
+              throw new Error('custom manual backward mismatch: ' + JSON.stringify({ customFirstGradient, cgaValue, cgbValue }));
+            }
+
+            finish('PASS');
+          } catch (error) {
+            console.error(error);
+            finish('FAIL: ' + (error && error.stack ? error.stack : error));
+          }
+        })();
+      `;
+      frame.contentDocument.body.appendChild(script);
+    });
+  </script>
+</body>
+</html>
