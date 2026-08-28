@@ -1,9 +1,9 @@
-// General math primitives needed to express manual reverse calculations.
+// General math primitives and small compatibility helpers for manual training.
 //
 // These are ordinary transforms, not automatic-differentiation operations.
-// In particular, fold2d is the linear adjoint/complement of sliding-window
-// extraction: it places every patch element back at its source position and
-// sums values where windows overlap.
+// In particular, fold2d is the linear complement of sliding-window extraction:
+// it places every patch element back at its source position and sums values
+// where windows overlap.
 
 function fold2dValues(node, patches, like) {
   const patchArray = asArrayValue(patches);
@@ -56,8 +56,7 @@ BLOCKS.fold2d = {
   compute: (node, [patches, like]) => fold2dValues(node, patches, like)
 };
 
-// The base HTML predates this complementary transform. Add it beside unfold2d
-// without making index.html duplicate the block catalogue.
+// The base HTML predates this complementary transform. Add it beside unfold2d.
 const unfoldPaletteButton = document.querySelector('[data-block="unfold2d"]');
 if (unfoldPaletteButton && !document.querySelector('[data-block="fold2d"]')) {
   const button = document.createElement('button');
@@ -66,3 +65,55 @@ if (unfoldPaletteButton && !document.querySelector('[data-block="fold2d"]')) {
   button.textContent = '슬라이딩 창 합치기';
   unfoldPaletteButton.insertAdjacentElement('afterend', button);
 }
+
+// Without a 미분 block there is no reliable way for the weight exporter to infer
+// which state variables are model parameters and which are gradient accumulators.
+// Make that educational distinction explicit on 변수 blocks instead.
+const collectLegacyTrainableVariableNames = collectTrainableVariableNames;
+collectTrainableVariableNames = function collectManualTrainableVariableNames() {
+  const explicit = [];
+  for (const node of graph.nodes.values()) {
+    if (node.type !== 'variable') continue;
+    if (String(node.params.trainable || '') !== 'yes') continue;
+    const name = String(node.params.name || '').trim();
+    if (name) explicit.push(name);
+  }
+  if (explicit.length) return [...new Set(explicit)];
+
+  // Old, not-yet-converted projects may still contain legacy derivative nodes.
+  // Read those raw node records directly; the manual runtime intentionally no
+  // longer exposes derivative as an executable block type.
+  const updateTargets = collectSetVariableTargets();
+  const legacy = [];
+  for (const node of graph.nodes.values()) {
+    if (node.type !== 'derivative') continue;
+    const name = String(node.params.variable || '').trim();
+    if (name && updateTargets.has(name) && findVariableNode(name)) legacy.push(name);
+  }
+  if (legacy.length) return [...new Set(legacy)];
+
+  // Keep the old helper as a last compatibility attempt, but it may return an
+  // empty list in a fully manual graph.
+  try { return collectLegacyTrainableVariableNames(); }
+  catch { return []; }
+};
+
+INSPECTOR_EXTENSIONS.push(node => {
+  if (inspectorContent.hidden || node.type !== 'variable') return;
+
+  const row = document.createElement('div');
+  row.className = 'control-row';
+  const label = document.createElement('label');
+  label.textContent = '가중치 저장 분류';
+  const select = document.createElement('select');
+  select.append(new Option('미지정', 'auto'));
+  select.append(new Option('학습 파라미터', 'yes'));
+  select.append(new Option('보조/누적 변수', 'no'));
+  select.value = String(node.params.trainable || 'auto');
+  select.addEventListener('input', () => {
+    node.params.trainable = select.value;
+    notifyWorkspaceChanged();
+  });
+  row.append(label, select);
+  inspectorControls.appendChild(row);
+});
