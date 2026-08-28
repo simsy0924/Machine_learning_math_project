@@ -1,0 +1,44 @@
+name: Manual backprop smoke check
+
+on:
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'js/**'
+      - '.github/workflows/manual-backprop-smoke.yml'
+  push:
+    branches:
+      - manual-backprop
+    paths:
+      - 'index.html'
+      - 'js/**'
+      - '.github/workflows/manual-backprop-smoke.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  static-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          find js -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+
+      - name: Verify automatic differentiation is not loaded
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -nE 'js/autodiff(-compiled|-spatial-fusion)?\.js' index.html
+          ! grep -R -nE 'differentiateGraph|computeAllGraphGradients|primitiveVJP|userBlockVJP' js index.html
+
+      - name: Verify manual backprop runtime is loaded
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -n 'js/manual-backprop.js' index.html
+          grep -n 'js/user-block-forward.js' index.html
