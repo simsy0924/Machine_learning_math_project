@@ -1,10 +1,10 @@
 // Graph evaluation: one synchronous evaluator, one progressive (async) one.
 //
 // evaluateNode is the plain recursive evaluator used for a single value.
-// evaluateGraph and evaluateSelectedStatefulBranch use the progressive
-// evaluator, which yields to the browser about every 80 ms so a long 반복 shows
-// live progress instead of freezing the page. Both understand the same three
-// special blocks — 반복, 값 바꾸기, 미분 — and produce the same numbers.
+// evaluateGraph and evaluateSelectedStatefulBranch use the progressive evaluator,
+// which yields to the browser about every 80 ms so a long 반복 shows live
+// progress instead of freezing the page. The only special execution blocks are
+// 반복 and 값 바꾸기. Manual backprop is ordinary user-authored math evaluation.
 
 // Greater than zero while 선택 계산 is running, which selects the leaf plan the
 // compiled repeat executor builds (see js/evaluate-compiled.js).
@@ -102,14 +102,6 @@ function evaluateNode(nodeId, memo = new Map(), visiting = new Set()) {
   visiting.add(nodeId);
 
   try {
-    if (def.special === 'derivative') {
-      const connection = graphInputConnection(nodeId, 0);
-      if (!connection) throw new Error("입력 '식'이 연결되지 않았습니다.");
-      const value = differentiateGraph(connection.from, String(node.params.variable || 'x'));
-      memo.set(nodeId, value);
-      return value;
-    }
-
     if (def.special === 'setVariable') {
       const connection = graphInputConnection(nodeId, 0);
       if (!connection) throw new Error("입력 '새 값'이 연결되지 않았습니다.");
@@ -400,14 +392,6 @@ async function evaluateNodeProgressive(nodeId, memo = new Map(), visiting = new 
   visiting.add(nodeId);
 
   try {
-    if (def.special === 'derivative') {
-      const connection = cachedGraphInput(structureCache, nodeId, 0);
-      if (!connection) throw new Error("입력 '식'이 연결되지 않았습니다.");
-      const value = differentiateGraph(connection.from, String(node.params.variable || 'x'));
-      memo.set(nodeId, value);
-      return value;
-    }
-
     if (def.special === 'setVariable') {
       const connection = cachedGraphInput(structureCache, nodeId, 0);
       if (!connection) throw new Error("입력 '새 값'이 연결되지 않았습니다.");
@@ -437,7 +421,6 @@ async function evaluateNodeProgressive(nodeId, memo = new Map(), visiting = new 
 // The 계산 button: evaluate every block in the workspace.
 async function evaluateGraph() {
   if (evaluateBtn.disabled) return;
-
   const oldButtonText = evaluateBtn.textContent;
   evaluateBtn.disabled = true;
   evaluateBtn.textContent = '계산 중…';
