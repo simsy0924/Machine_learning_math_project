@@ -1,6 +1,23 @@
 // Wire the buttons and start the app. Loaded last, so every function it
 // references already exists and the startup order is visible in one place.
 
+// Old autosaves and .mmlab files may still contain a derivative node. Keep that
+// node type loadable as a non-computing migration placeholder so the rest of an
+// old workspace can be recovered and converted by hand. It is absent from the
+// palette and never calls an automatic differentiation engine.
+BLOCKS.derivative = {
+  title: '미분 (사용 중단)',
+  kind: 'calculus',
+  inputs: ['식'],
+  description: '이전 버전의 자동미분 블록입니다. 자동미분은 제거되었습니다. 수동 역전파 정의로 교체하세요.',
+  formula: node => `legacy ∂(식)/∂${node.params.variable || 'x'}`,
+  controls: [{ key: 'variable', label: '기존 미분 변수', type: 'text', default: 'x' }],
+  compute: () => {
+    throw new Error('자동미분은 제거되었습니다. 이 미분 블록을 수동 역전파 정의로 교체하세요.');
+  }
+};
+if (typeof UNSUPPORTED_IN_USER_BLOCK !== 'undefined') UNSUPPORTED_IN_USER_BLOCK.add('derivative');
+
 for (const button of document.querySelectorAll('[data-block]')) {
   button.addEventListener('click', () => addBlock(button.dataset.block));
 }
