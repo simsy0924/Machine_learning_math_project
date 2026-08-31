@@ -153,6 +153,11 @@ function runLeafPlanSteps(plan) {
 }
 
 function executeLeafPlan(plan) {
+  // One leaf-plan execution is one immutable mathematical step. 사용자 블록
+  // caches may share pure intermediate values inside this step, but never reuse
+  // arena-backed results across step boundaries.
+  beginUserBlockExecutionGeneration();
+
   const hook = PROFILER_HOOKS.leafStep;
   if (!hook) return runLeafPlanSteps(plan);
 
