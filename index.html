@@ -4,15 +4,15 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>수학 블록 실험실</title>
-  <link rel="stylesheet" href="styles.css?v=20260827-2" />
-  <link rel="stylesheet" href="user-block-viewer.css?v=20260824-4" />
+  <link rel="stylesheet" href="styles.css?v=20260828-2" />
+  <link rel="stylesheet" href="user-block-viewer.css?v=20260828-2" />
 </head>
 <body>
   <header class="topbar">
     <div>
       <p class="eyebrow">Machine Learning Math Project</p>
       <h1>수학 블록 실험실</h1>
-      <p class="subtitle">수학 블록을 직접 연결하고, 묶고, 미분하며 구조를 만들어 갑니다.</p>
+      <p class="subtitle">수학 블록을 직접 연결하고, 묶고, 역전파 식까지 직접 구성하며 구조를 만들어 갑니다.</p>
     </div>
     <div class="top-actions">
       <button id="importProjectBtn">불러오기</button>
@@ -75,12 +75,12 @@
         </div>
       </section>
 
-      <section class="palette-group"><h3>미분</h3><button class="palette-block calculus" data-block="derivative">미분</button></section>
       <section class="palette-group"><h3>확인</h3><button class="palette-block sink" data-block="display">값 보기</button></section>
 
       <section class="palette-group"><h3>행렬 · 실행</h3>
         <button class="palette-block generator" data-block="matrix">행렬 만들기</button>
         <button class="palette-block operation" data-block="matvec">행렬 × 벡터</button>
+        <button class="palette-block operation" data-block="transposeMatvec">전치 행렬 × 벡터</button>
         <button class="palette-block operation" data-block="setVariable">값 바꾸기</button>
         <button class="palette-block operation" data-block="sequence">둘 다 계산</button>
         <button class="palette-block operation" data-block="repeat">반복</button>
@@ -152,28 +152,27 @@
     <a href="https://github.com/googlecreativelab/quickdraw-dataset" target="_blank" rel="noopener noreferrer">Dataset documentation</a>
   </footer>
 
-  <script src="js/hooks.js?v=20260827-2"></script> <!-- extension points every module registers with -->
-  <script src="js/state.js?v=20260827-2"></script> <!-- DOM handles and shared state -->
-  <script src="js/values.js?v=20260827-2"></script> <!-- value model, kernels, result-buffer arena -->
-  <script src="js/runtime-variables.js?v=20260827-2"></script> <!-- stateful 변수 and loop indices -->
-  <script src="js/spatial-ops.js?v=20260827-2"></script> <!-- reshape / sliding-window unfold -->
-  <script src="js/blocks.js?v=20260827-2"></script> <!-- the block catalogue: forward + derivative -->
-  <script src="js/graph-cache.js?v=20260827-2"></script> <!-- cached graph structure and topological order -->
-  <script src="js/user-block-runtime.js?v=20260827-2"></script> <!-- compiled 사용자 블록 execution -->
-  <script src="js/autodiff.js?v=20260827-2"></script> <!-- reverse-mode autodiff and its strategies -->
-  <script src="js/autodiff-compiled.js?v=20260827-2"></script>
-  <script src="js/autodiff-spatial-fusion.js?v=20260827-2"></script>
-  <script src="js/evaluate-compiled.js?v=20260827-2"></script> <!-- compiled 반복 bodies -->
-  <script src="js/evaluate.js?v=20260827-2"></script> <!-- graph evaluation -->
-  <script src="js/workspace-ui.js?v=20260827-2"></script> <!-- nodes, wires, inspector -->
-  <script src="js/viewport.js?v=20260827-2"></script> <!-- pan / zoom / drag -->
-  <script src="js/user-blocks.js?v=20260827-2"></script> <!-- 묶기, palette, internal editor -->
-  <script src="js/dataset.js?v=20260827-2"></script> <!-- Quick Draw loading -->
-  <script src="js/drawing.js?v=20260827-2"></script> <!-- drawing pad and hand-drawing test -->
-  <script src="js/selected-evaluation.js?v=20260827-2"></script> <!-- 선택 계산 -->
-  <script src="js/file-io.js?v=20260827-2"></script> <!-- .mmlab / .mmlweights -->
-  <script src="js/autosave.js?v=20260827-2"></script>
-  <script src="js/profiler.js?v=20260827-2"></script> <!-- diagnostics only -->
-  <script src="js/boot.js?v=20260827-2"></script> <!-- wiring and startup -->
+  <script src="js/hooks.js?v=20260828-2"></script> <!-- extension points every module registers with -->
+  <script src="js/state.js?v=20260828-2"></script> <!-- DOM handles and shared state -->
+  <script src="js/values.js?v=20260828-2"></script> <!-- value model, kernels, result-buffer arena -->
+  <script src="js/runtime-variables.js?v=20260828-2"></script> <!-- stateful 변수 and loop indices -->
+  <script src="js/spatial-ops.js?v=20260828-2"></script> <!-- reshape / sliding-window unfold -->
+  <script src="js/blocks.js?v=20260828-2"></script> <!-- the forward math block catalogue -->
+  <script src="js/graph-cache.js?v=20260828-2"></script> <!-- cached graph structure and topological order -->
+  <script src="js/user-block-forward.js?v=20260828-2"></script> <!-- forward-only 사용자 블록 execution -->
+  <script src="js/evaluate-compiled.js?v=20260828-2"></script> <!-- compiled 반복 bodies -->
+  <script src="js/evaluate.js?v=20260828-2"></script> <!-- graph evaluation -->
+  <script src="js/workspace-ui.js?v=20260828-2"></script> <!-- nodes, wires, inspector -->
+  <script src="js/viewport.js?v=20260828-2"></script> <!-- pan / zoom / drag -->
+  <script src="js/user-blocks.js?v=20260828-2"></script> <!-- 묶기, palette, internal editor -->
+  <script src="js/dataset.js?v=20260828-2"></script> <!-- Quick Draw loading -->
+  <script src="js/drawing.js?v=20260828-2"></script> <!-- drawing pad and hand-drawing test -->
+  <script src="js/selected-evaluation.js?v=20260828-2"></script> <!-- 선택 계산 -->
+  <script src="js/file-io.js?v=20260828-2"></script> <!-- .mmlab / .mmlweights -->
+  <script src="js/manual-backprop.js?v=20260828-2"></script> <!-- user-authored local backward formulas; no autodiff -->
+  <script src="js/manual-math-extensions.js?v=20260828-2"></script> <!-- fold2d + manual-training compatibility -->
+  <script src="js/autosave.js?v=20260828-2"></script>
+  <script src="js/profiler.js?v=20260828-2"></script> <!-- diagnostics only -->
+  <script src="js/boot.js?v=20260828-2"></script> <!-- wiring and startup -->
 </body>
 </html>

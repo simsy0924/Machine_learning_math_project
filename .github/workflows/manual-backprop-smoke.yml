@@ -1,0 +1,84 @@
+name: Manual backprop smoke check
+
+on:
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'js/**'
+      - 'bench/manual-backprop-browser-smoke.html'
+      - '.github/workflows/manual-backprop-smoke.yml'
+  push:
+    branches:
+      - manual-backprop
+    paths:
+      - 'index.html'
+      - 'js/**'
+      - 'bench/manual-backprop-browser-smoke.html'
+      - '.github/workflows/manual-backprop-smoke.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  static-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          find js -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+
+      - name: Verify automatic differentiation is not loaded
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -nE 'js/autodiff(-compiled|-spatial-fusion)?\.js' index.html
+          ! grep -R -nE 'differentiateGraph\(|computeAllGraphGradients\(|primitiveVJP\(|userBlockVJP\(' js index.html
+
+      - name: Verify manual runtimes are loaded
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -n 'js/manual-backprop.js' index.html
+          grep -n 'js/user-block-forward.js' index.html
+          grep -n 'js/manual-math-extensions.js' index.html
+
+      - name: Run manual backprop in headless Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/mmlab-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+
+          for attempt in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:8765/index.html >/dev/null; then
+              break
+            fi
+            sleep 0.25
+          done
+
+          BROWSER="$(command -v google-chrome || true)"
+          if [ -z "$BROWSER" ]; then BROWSER="$(command -v google-chrome-stable || true)"; fi
+          if [ -z "$BROWSER" ]; then BROWSER="$(command -v chromium || true)"; fi
+          if [ -z "$BROWSER" ]; then BROWSER="$(command -v chromium-browser || true)"; fi
+          if [ -z "$BROWSER" ]; then
+            echo 'No Chromium-based browser found on runner.' >&2
+            exit 1
+          fi
+
+          "$BROWSER" \
+            --headless=new \
+            --no-sandbox \
+            --disable-gpu \
+            --disable-dev-shm-usage \
+            --virtual-time-budget=5000 \
+            --dump-dom \
+            http://127.0.0.1:8765/bench/manual-backprop-browser-smoke.html \
+            > /tmp/manual-backprop-smoke-dom.html
+
+          cat /tmp/manual-backprop-smoke-dom.html
+          grep -q '<div id="result">PASS</div>' /tmp/manual-backprop-smoke-dom.html

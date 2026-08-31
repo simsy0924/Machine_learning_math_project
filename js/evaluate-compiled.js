@@ -2,17 +2,12 @@
 //
 // A leaf repeat is one whose body contains no further repeat, so its body runs
 // unchanged tens of thousands of times. Compiling it once into a flat list of
-// steps removes the recursion, the Map memoization, the graph lookups and the
-// per-node input array from every iteration.
+// steps removes recursion, Map memoization, graph lookups and per-node input
+// allocation from every iteration.
 //
-// Two execution orders exist, because 선택 계산 and 학습 need different things
-// from a 미분 block:
-//
-//   'selected' — the plain topological order. Everything the branch reaches is
-//                evaluated, which is what a test/inspection run expects.
-//   'training' — a 미분 block's expression input is treated as metadata rather
-//                than a step, because differentiateGraph runs that pass itself.
-//                Without this the loss would be evaluated twice per SGD step.
+// Backpropagation is now an ordinary user-authored graph. A block configured for
+// manual backward execution is therefore compiled exactly like any other normal
+// math block; there is no special derivative execution path here.
 
 function selectedLeafOrder(outputId, structureCache) {
   const topo = cachedTopoForOutput(structureCache, outputId);
@@ -26,44 +21,9 @@ function selectedLeafOrder(outputId, structureCache) {
   return topo;
 }
 
-function trainingLeafOrder(outputId, structureCache) {
-  const seen = new Set();
-  const visiting = new Set();
-  const order = [];
-
-  const visit = id => {
-    if (seen.has(id)) return;
-    if (visiting.has(id)) throw new Error('순환 연결은 계산할 수 없습니다.');
-
-    const node = graph.nodes.get(id);
-    if (!node) throw new Error('존재하지 않는 블록입니다.');
-    const def = getBlockDef(node.type);
-    if (def.special === 'repeat') throw new Error('빠른 학습 반복 안에는 중첩 반복을 직접 넣을 수 없습니다.');
-
-    visiting.add(id);
-    if (def.special === 'derivative') {
-      const connection = cachedGraphInput(structureCache, id, 0);
-      if (!connection) throw new Error("입력 '식'이 연결되지 않았습니다.");
-      // Do not visit connection.from here: differentiateGraph owns that pass.
-    } else {
-      for (let inputIndex = 0; inputIndex < def.inputs.length; inputIndex++) {
-        const connection = cachedGraphInput(structureCache, id, inputIndex);
-        if (!connection) throw new Error(`입력 '${def.inputs[inputIndex]}'이 연결되지 않았습니다.`);
-        visit(connection.from);
-      }
-    }
-    visiting.delete(id);
-    seen.add(id);
-    order.push(id);
-  };
-
-  visit(outputId);
-  return order;
-}
-
 const LEAF_PLAN_ORDERS = {
   selected: selectedLeafOrder,
-  training: trainingLeafOrder
+  training: selectedLeafOrder
 };
 
 function compileLeafPlan(mode, outputId, structureCache) {
@@ -104,8 +64,6 @@ function compileLeafPlan(mode, outputId, structureCache) {
       step.kind = 'setVariable';
       step.variableName = variableName;
       step.variableSignature = variableSignature(variableNode);
-    } else if (def.special === 'derivative') {
-      step.kind = 'derivative';
     }
 
     steps.push(step);
@@ -175,8 +133,6 @@ function runLeafPlanSteps(plan) {
       value = readCompiledVariable(step);
     } else if (step.kind === 'setVariable') {
       value = writeCompiledVariable(step, values[step.inputIds[0]]);
-    } else if (step.kind === 'derivative') {
-      value = differentiateGraph(step.inputIds[0], String(step.node.params.variable || 'x'));
     } else {
       const inputs = step.inputs;
       for (let i = 0; i < step.inputIds.length; i++) inputs[i] = values[step.inputIds[i]];
