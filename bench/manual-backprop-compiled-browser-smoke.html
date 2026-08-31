@@ -19,6 +19,9 @@
             if (typeof manualBackpropExecutionPlanFor !== 'function') {
               throw new Error('compiled manual backprop runtime is not loaded');
             }
+            if (typeof userBlockForwardTraceFor !== 'function') {
+              throw new Error('user-block forward trace runtime is not loaded');
+            }
 
             const noY = {
               nodes: [
@@ -98,7 +101,7 @@
             forwardCalls = 0;
             executeManualBackpropNode('multiply', fakeBase, backwardNode, [3, 4]);
             if (forwardCalls !== 1) {
-              throw new Error('y-dependent definition must compute forward exactly once: ' + forwardCalls);
+              throw new Error('y-dependent built-in definition must compute forward exactly once: ' + forwardCalls);
             }
             if (readRuntimeVariable(ga) !== 24 || readRuntimeVariable(gb) !== 24) {
               throw new Error('y-dependent compiled gradients mismatch');
@@ -107,6 +110,136 @@
             if (previousMultiplyBackward) MANUAL_BACKPROP_BUILTINS.set('multiply', previousMultiplyBackward);
             else MANUAL_BACKPROP_BUILTINS.delete('multiply');
 
+            // Same custom definition called twice in one leaf-generation: the
+            // internal a*2 part is identical and must run only once.
+            const originalMultiplyCompute = BLOCKS.multiply.compute;
+            let multiplyCalls = 0;
+            BLOCKS.multiply.compute = (node, inputs) => {
+              multiplyCalls++;
+              return originalMultiplyCompute(node, inputs);
+            };
+
+            const sharedId = 'compiled-shared-subexpr';
+            const sharedDefinition = {
+              id: sharedId,
+              name: 'SharedSubexpr',
+              nodes: [
+                { id: 1, type: 'multiply', params: {} },
+                { id: 2, type: 'number', params: { value: 2 } },
+                { id: 3, type: 'add', params: {} }
+              ],
+              connections: [
+                { from: 2, to: 1, inputIndex: 1 },
+                { from: 1, to: 3, inputIndex: 0 }
+              ],
+              externalInputs: [
+                { nodeId: 1, inputIndex: 0, label: 'a' },
+                { nodeId: 3, inputIndex: 1, label: 'b' }
+              ],
+              outputNodeId: 3,
+              formula: '2a+b'
+            };
+            USER_BLOCKS.set(sharedId, sharedDefinition);
+            beginUserBlockExecutionGeneration();
+            const sharedA = evaluateUserDefinition(sharedDefinition, [3, 4]);
+            const sharedB = evaluateUserDefinition(sharedDefinition, [3, 5]);
+            if (sharedA !== 10 || sharedB !== 11) {
+              throw new Error('shared-subexpression forward values mismatch');
+            }
+            if (multiplyCalls !== 1) {
+              throw new Error('identical internal forward subexpression was recomputed: ' + multiplyCalls);
+            }
+
+            // Forward y=(a*b)*c. Only dc is requested. Its authored backward is
+            // dc=g*(a*b), so a*b must come from the prior forward trace. The da/db
+            // branches are intentionally present but have blank destinations and
+            // therefore must not execute at all.
+            const productId = 'compiled-forward-trace';
+            const productDefinition = {
+              id: productId,
+              name: 'Product3',
+              nodes: [
+                { id: 1, type: 'multiply', params: {} },
+                { id: 2, type: 'multiply', params: {} }
+              ],
+              connections: [
+                { from: 1, to: 2, inputIndex: 0 }
+              ],
+              externalInputs: [
+                { nodeId: 1, inputIndex: 0, label: 'a' },
+                { nodeId: 1, inputIndex: 1, label: 'b' },
+                { nodeId: 2, inputIndex: 1, label: 'c' }
+              ],
+              outputNodeId: 2,
+              formula: 'abc',
+              manualBackprop: {
+                nodes: [
+                  { id: 1, type: 'multiply', params: {} },
+                  { id: 2, type: 'multiply', params: {} },
+                  { id: 3, type: 'multiply', params: {} },
+                  { id: 4, type: 'multiply', params: {} }
+                ],
+                connections: [
+                  { from: manualBackpropInputSourceId(0), to: 1, inputIndex: 0 },
+                  { from: manualBackpropInputSourceId(1), to: 1, inputIndex: 1 },
+                  { from: MANUAL_BACKPROP_UPSTREAM_ID, to: 2, inputIndex: 0 },
+                  { from: 1, to: 2, inputIndex: 1 },
+                  { from: MANUAL_BACKPROP_UPSTREAM_ID, to: 3, inputIndex: 0 },
+                  { from: manualBackpropInputSourceId(2), to: 3, inputIndex: 1 },
+                  { from: 3, to: 4, inputIndex: 0 },
+                  { from: manualBackpropInputSourceId(1), to: 4, inputIndex: 1 }
+                ],
+                gradientOutputNodeIds: [4, 3, 2]
+              }
+            };
+            USER_BLOCKS.set(productId, productDefinition);
+
+            resetWorkspace();
+            const gg = scalarVariable('gg', 5);
+            const gc = scalarVariable('gc', 0);
+            multiplyCalls = 0;
+            beginUserBlockExecutionGeneration();
+            const productForward = evaluateUserDefinition(productDefinition, [2, 3, 4]);
+            if (productForward !== 24) throw new Error('product forward mismatch');
+            if (multiplyCalls !== 2) throw new Error('product forward must use two multiplies');
+
+            const productBackwardNode = {
+              params: {
+                manualBackpropUpstream: 'gg',
+                manualBackpropGradient0: '',
+                manualBackpropGradient1: '',
+                manualBackpropGradient2: 'gc'
+              }
+            };
+            const productBase = FORWARD_GET_BLOCK_DEF('custom:' + productId);
+            executeManualBackpropNode(
+              'custom:' + productId,
+              productBase,
+              productBackwardNode,
+              [2, 3, 4]
+            );
+
+            if (readRuntimeVariable(gc) !== 30) {
+              throw new Error('forward-trace backward gradient mismatch: ' + readRuntimeVariable(gc));
+            }
+            if (multiplyCalls !== 3) {
+              throw new Error('backward did not reuse forward a*b or pruned dead gradients: ' + multiplyCalls);
+            }
+
+            const productPlan = manualBackpropExecutionPlanFor(
+              productDefinition.manualBackprop,
+              3,
+              [false, false, true],
+              productDefinition
+            );
+            if (!productPlan.usesForwardTrace) throw new Error('matching forward expression was not recognized');
+            if (productPlan.steps.filter(step => step.kind === 'compute').length !== 1) {
+              throw new Error('dead/cached backward steps were not removed');
+            }
+
+            BLOCKS.multiply.compute = originalMultiplyCompute;
+            USER_BLOCKS.delete(sharedId);
+            USER_BLOCKS.delete(productId);
             finish('PASS');
           } catch (error) {
             console.error(error);
