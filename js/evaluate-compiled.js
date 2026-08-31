@@ -125,18 +125,25 @@ function writeCompiledVariable(step, value) {
 
 function runLeafPlanSteps(plan) {
   const values = plan.values;
+  const nodeHook = PROFILER_HOOKS.leafNode;
+  const profileNodes = Boolean(nodeHook?.active?.(plan.mode));
 
   for (const step of plan.steps) {
     let value;
+    const started = profileNodes ? performance.now() : 0;
 
-    if (step.kind === 'variable') {
-      value = readCompiledVariable(step);
-    } else if (step.kind === 'setVariable') {
-      value = writeCompiledVariable(step, values[step.inputIds[0]]);
-    } else {
-      const inputs = step.inputs;
-      for (let i = 0; i < step.inputIds.length; i++) inputs[i] = values[step.inputIds[i]];
-      value = step.def.compute(step.node, inputs);
+    try {
+      if (step.kind === 'variable') {
+        value = readCompiledVariable(step);
+      } else if (step.kind === 'setVariable') {
+        value = writeCompiledVariable(step, values[step.inputIds[0]]);
+      } else {
+        const inputs = step.inputs;
+        for (let i = 0; i < step.inputIds.length; i++) inputs[i] = values[step.inputIds[i]];
+        value = step.def.compute(step.node, inputs);
+      }
+    } finally {
+      if (profileNodes) nodeHook.record(step.node.type, step.node, performance.now() - started);
     }
 
     values[step.id] = value;
@@ -146,10 +153,10 @@ function runLeafPlanSteps(plan) {
 }
 
 function executeLeafPlan(plan) {
-  const hook = PROFILER_HOOKS.selectedLeafStep;
+  const hook = PROFILER_HOOKS.leafStep;
   if (!hook) return runLeafPlanSteps(plan);
 
-  const token = hook.begin();
+  const token = hook.begin(plan.mode);
   if (token == null) return runLeafPlanSteps(plan);
   try {
     return runLeafPlanSteps(plan);

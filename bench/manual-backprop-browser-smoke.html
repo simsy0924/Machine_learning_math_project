@@ -16,6 +16,16 @@
       script.textContent = `
         (async () => {
           const finish = text => { parent.document.getElementById('result').textContent = text; };
+          const waitFor = (test, timeoutMs = 5000) => new Promise((resolve, reject) => {
+            const started = performance.now();
+            const poll = () => {
+              if (test()) return resolve();
+              if (performance.now() - started > timeoutMs) return reject(new Error('timeout while waiting for browser smoke condition'));
+              setTimeout(poll, 10);
+            };
+            poll();
+          });
+
           try {
             if (typeof differentiateGraph !== 'undefined') {
               throw new Error('differentiateGraph must not exist');
@@ -119,6 +129,31 @@
             if (customFirstGradient !== 8 || cgaValue !== 8 || cgbValue !== 6) {
               throw new Error('custom manual backward mismatch: ' + JSON.stringify({ customFirstGradient, cgaValue, cgbValue }));
             }
+
+            // Training profiler: one compiled leaf repeat iteration is one sampled
+            // learning step now. 70 iterations must sample step 0 and step 64.
+            resetWorkspace();
+            const x = scalarVariable('x', 0);
+            const one = numberNode(1);
+            const plus = addBlock('add');
+            connect(x, plus, 0);
+            connect(one, plus, 1);
+            const setX = addBlock('setVariable');
+            setX.params.variable = 'x';
+            connect(plus, setX, 0);
+            const repeat = addBlock('repeat');
+            repeat.params.count = 70;
+            repeat.params.start = 0;
+            repeat.params.indexVariable = 'i';
+            connect(setX, repeat, 0);
+
+            evaluateBtn.click();
+            const profileResult = document.getElementById('trainingProfilerPanelResult');
+            await waitFor(() => /샘플 간격 64 step/.test(profileResult.textContent));
+            const profileText = profileResult.textContent;
+            if (!/샘플 2회/.test(profileText)) throw new Error('training profiler did not sample two iterations: ' + profileText);
+            if (!/느린 블록 종류/.test(profileText)) throw new Error('training profiler block breakdown missing: ' + profileText);
+            if (/gradient backward VJP|gradient 전체/.test(profileText)) throw new Error('legacy autodiff profiler labels remain: ' + profileText);
 
             finish('PASS');
           } catch (error) {
