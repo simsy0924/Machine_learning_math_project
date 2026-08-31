@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>Compiled manual backprop smoke</title>
+</head>
+<body>
+  <div id="result">RUNNING</div>
+  <iframe id="app" src="../index.html" style="width:1200px;height:800px"></iframe>
+  <script>
+    const frame = document.getElementById('app');
+
+    frame.addEventListener('load', () => {
+      const script = frame.contentDocument.createElement('script');
+      script.textContent = `
+        (() => {
+          const finish = text => { parent.document.getElementById('result').textContent = text; };
+          try {
+            if (typeof manualBackpropExecutionPlanFor !== 'function') {
+              throw new Error('compiled manual backprop runtime is not loaded');
+            }
+
+            const noY = {
+              nodes: [
+                { id: 1, type: 'multiply', params: {} },
+                { id: 2, type: 'multiply', params: {} }
+              ],
+              connections: [
+                { from: MANUAL_BACKPROP_UPSTREAM_ID, to: 1, inputIndex: 0 },
+                { from: manualBackpropInputSourceId(1), to: 1, inputIndex: 1 },
+                { from: MANUAL_BACKPROP_UPSTREAM_ID, to: 2, inputIndex: 0 },
+                { from: manualBackpropInputSourceId(0), to: 2, inputIndex: 1 }
+              ],
+              gradientOutputNodeIds: [1, 2]
+            };
+
+            const plan1 = manualBackpropExecutionPlanFor(noY, 2);
+            const plan2 = manualBackpropExecutionPlanFor(noY, 2);
+            if (plan1 !== plan2) throw new Error('manual backward plan was not cached');
+            if (plan1.usesForwardOutput) throw new Error('no-y definition incorrectly requires forward output');
+
+            const rawGradients = executeCompiledManualBackpropPlan(plan1, [3, 4], undefined, 2);
+            if (rawGradients[0] !== 8 || rawGradients[1] !== 6) {
+              throw new Error('compiled gradients mismatch: ' + JSON.stringify(rawGradients));
+            }
+
+            resetWorkspace();
+            const scalarVariable = (name, value = 0) => {
+              const node = addBlock('variable');
+              node.params.name = name;
+              node.params.mode = 'scalar';
+              node.params.value = value;
+              return node;
+            };
+            const g = scalarVariable('g', 2);
+            const ga = scalarVariable('ga', 0);
+            const gb = scalarVariable('gb', 0);
+
+            const previousMultiplyBackward = MANUAL_BACKPROP_BUILTINS.get('multiply');
+            MANUAL_BACKPROP_BUILTINS.set('multiply', noY);
+
+            let forwardCalls = 0;
+            const fakeBase = {
+              title: 'fake multiply',
+              compute() {
+                forwardCalls++;
+                return 12;
+              }
+            };
+            const backwardNode = {
+              params: {
+                manualBackpropUpstream: 'g',
+                manualBackpropGradient0: 'ga',
+                manualBackpropGradient1: 'gb'
+              }
+            };
+
+            for (let i = 0; i < 100; i++) {
+              executeManualBackpropNode('multiply', fakeBase, backwardNode, [3, 4]);
+            }
+
+            if (forwardCalls !== 0) {
+              throw new Error('owner forward was recomputed even though y is unused: ' + forwardCalls);
+            }
+            if (readRuntimeVariable(ga) !== 8 || readRuntimeVariable(gb) !== 6) {
+              throw new Error('named gradient writes mismatch');
+            }
+
+            const usesY = {
+              nodes: [{ id: 1, type: 'multiply', params: {} }],
+              connections: [
+                { from: MANUAL_BACKPROP_OUTPUT_ID, to: 1, inputIndex: 0 },
+                { from: MANUAL_BACKPROP_UPSTREAM_ID, to: 1, inputIndex: 1 }
+              ],
+              gradientOutputNodeIds: [1, 1]
+            };
+            MANUAL_BACKPROP_BUILTINS.set('multiply', usesY);
+            forwardCalls = 0;
+            executeManualBackpropNode('multiply', fakeBase, backwardNode, [3, 4]);
+            if (forwardCalls !== 1) {
+              throw new Error('y-dependent definition must compute forward exactly once: ' + forwardCalls);
+            }
+            if (readRuntimeVariable(ga) !== 24 || readRuntimeVariable(gb) !== 24) {
+              throw new Error('y-dependent compiled gradients mismatch');
+            }
+
+            if (previousMultiplyBackward) MANUAL_BACKPROP_BUILTINS.set('multiply', previousMultiplyBackward);
+            else MANUAL_BACKPROP_BUILTINS.delete('multiply');
+
+            finish('PASS');
+          } catch (error) {
+            console.error(error);
+            finish('FAIL: ' + (error && error.stack ? error.stack : error));
+          }
+        })();
+      `;
+      frame.contentDocument.body.appendChild(script);
+    });
+  </script>
+</body>
+</html>
