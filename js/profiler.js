@@ -1,10 +1,11 @@
 // Sampled profilers for the two long-running paths: 계산 (training) and
 // 선택 계산 (bulk evaluation).
 //
-// Diagnostic only: nothing here changes math, gradients or update order. Both
-// profilers work by filling in PROFILER_HOOKS, which the rest of the app checks
-// for null on entry — so with this file removed the app behaves identically.
-// Only every 64th step is timed in detail, so a long run is not distorted.
+// Automatic differentiation no longer exists, so the training profiler measures
+// the thing that actually represents one learning step now: one compiled leaf
+// 반복 iteration. Every 64th iteration is timed in detail, including each plan
+// node, regardless of whether that node is forward math, hand-written backward
+// math, a newly added transform, a custom block, a variable read or an update.
 
 (function installProfilers() {
   const SAMPLE_EVERY = 64;
@@ -34,35 +35,41 @@
     }
   }
 
-  // ================= 학습 계산 프로파일 =================
-
-  let run = null;
-  let gradientCallCount = 0;
-  let sampleStepActive = false;
-  let sampleStepStart = 0;
-  let insideGradient = false;
-
-  const trainingSampling = () => Boolean(run?.active && sampleStepActive);
-
-  function record(map, key, ms) {
+  function record(map, key, ms, extra = null) {
     let bucket = map.get(key);
     if (!bucket) {
-      bucket = { ms: 0, calls: 0 };
+      bucket = { ms: 0, calls: 0, ...(extra || {}) };
       map.set(key, bucket);
     }
     bucket.ms += ms;
     bucket.calls++;
+    return bucket;
   }
 
+  function sortedBuckets(map) {
+    return Array.from(map.entries()).sort((a, b) => b[1].ms - a[1].ms);
+  }
+
+  // ================= 학습 계산 프로파일 =================
+
+  let run = null;
+  let trainingLeafCallCount = 0;
+  let trainingSampleActive = false;
+
+  const trainingSampling = () => Boolean(run?.active && trainingSampleActive);
+
   function trainingResultElement() {
-    inspectorPanel('trainingProfilerPanel', '학습 계산 프로파일', '계산 버튼으로 학습을 실행하면 병목을 샘플링해서 보여줍니다.');
+    inspectorPanel(
+      'trainingProfilerPanel',
+      '학습 계산 프로파일',
+      '계산 버튼으로 반복 학습을 실행하면 실제 수학 블록 병목을 샘플링해서 보여줍니다.'
+    );
     return document.getElementById('trainingProfilerPanelResult');
   }
 
   function resetRun() {
-    gradientCallCount = 0;
-    sampleStepActive = false;
-    insideGradient = false;
+    trainingLeafCallCount = 0;
+    trainingSampleActive = false;
     run = {
       active: true,
       sawDisabled: false,
@@ -71,11 +78,9 @@
       total: 0,
       sampledSteps: 0,
       sampledStepMs: 0,
-      sampledGradientPasses: 0,
-      sampledGradientMs: 0,
-      forwardByType: new Map(),
-      outsideByType: new Map(),
-      backwardByType: new Map(),
+      sampledNodeMs: 0,
+      byType: new Map(),
+      byNode: new Map(),
       kernels: new Map()
     };
 
@@ -83,27 +88,45 @@
     if (target) target.textContent = `학습 실행 중 · ${SAMPLE_EVERY} step마다 1회 샘플링`;
   }
 
-  function closeSampleStep(now = performance.now()) {
-    if (!run?.active || !sampleStepActive) return;
-    run.sampledStepMs += Math.max(0, now - sampleStepStart);
-    run.sampledSteps++;
-    sampleStepActive = false;
-    insideGradient = false;
+  function recordTrainingNode(type, node, ms) {
+    if (!run) return;
+    run.sampledNodeMs += ms;
+
+    const key = String(type || node?.type || 'unknown');
+    const typeEntry = record(run.byType, key, ms, { type: key, nodeIds: new Set() });
+    if (node?.id != null) typeEntry.nodeIds.add(node.id);
+
+    const nodeKey = `${node?.id ?? '?'}:${key}`;
+    record(run.byNode, nodeKey, ms, {
+      id: node?.id,
+      type: key,
+      backward: node?.params?.manualBackpropMode === 'backward'
+    });
   }
 
-  function sortedBuckets(map) {
-    return Array.from(map.entries()).sort((a, b) => b[1].ms - a[1].ms);
-  }
-
-  function formatBucketLines(title, map, divisor, limit = 8) {
-    const rows = sortedBuckets(map).slice(0, limit);
-    if (!rows.length || divisor <= 0) return [];
-    const total = rows.reduce((sum, [, bucket]) => sum + bucket.ms, 0);
-    const lines = [title];
-    rows.forEach(([key, bucket], index) => {
+  function formatTrainingTypeLines(divisor, limit = 10) {
+    if (divisor <= 0) return [];
+    const rows = sortedBuckets(run.byType).slice(0, limit);
+    if (!rows.length) return [];
+    const measured = Array.from(run.byType.values()).reduce((sum, bucket) => sum + bucket.ms, 0);
+    const lines = ['느린 블록 종류'];
+    rows.forEach(([, bucket], index) => {
       const per = bucket.ms / divisor;
-      const share = total > 0 ? bucket.ms / total * 100 : 0;
-      lines.push(`${index + 1}. ${blockLabel(key)} · ${per.toFixed(3)} ms/sample · ${share.toFixed(1)}% · ${bucket.calls}회`);
+      const share = measured > 0 ? bucket.ms / measured * 100 : 0;
+      const count = bucket.nodeIds?.size || 0;
+      lines.push(`${index + 1}. ${blockLabel(bucket.type)}${count > 1 ? ` (${count}개)` : ''} · ${per.toFixed(3)} ms/step · 노드 시간 ${share.toFixed(1)}%`);
+    });
+    return lines;
+  }
+
+  function formatTrainingNodeLines(divisor, limit = 10) {
+    if (divisor <= 0) return [];
+    const rows = sortedBuckets(run.byNode).slice(0, limit);
+    if (!rows.length) return [];
+    const lines = ['느린 개별 블록'];
+    rows.forEach(([, bucket], index) => {
+      const suffix = bucket.backward ? ' · 역전파 실행' : '';
+      lines.push(`${index + 1}. #${bucket.id ?? '?'} ${blockLabel(bucket.type)}${suffix} · ${(bucket.ms / divisor).toFixed(3)} ms/step`);
     });
     return lines;
   }
@@ -112,34 +135,39 @@
     const target = trainingResultElement();
     if (!target || !run) return;
 
-    const completed = run.completed || gradientCallCount;
+    const completed = run.completed || trainingLeafCallCount;
     const wallMs = Math.max(0, performance.now() - run.startedAt);
     const wallPerStep = completed > 0 ? wallMs / completed : 0;
     const sampledStepPer = run.sampledSteps > 0 ? run.sampledStepMs / run.sampledSteps : 0;
-    const gradientPer = run.sampledGradientPasses > 0 ? run.sampledGradientMs / run.sampledGradientPasses : 0;
-    const outsideGradient = Math.max(0, sampledStepPer - gradientPer);
+    const sampledNodePer = run.sampledSteps > 0 ? run.sampledNodeMs / run.sampledSteps : 0;
+    const insideOther = Math.max(0, sampledStepPer - sampledNodePer);
+    const outsideLeaf = Math.max(0, wallPerStep - sampledStepPer);
     const measuredRate = wallPerStep > 0 ? 1000 / wallPerStep : 0;
 
     const lines = [
       `샘플 간격 ${SAMPLE_EVERY} step · 샘플 ${run.sampledSteps.toLocaleString('ko-KR')}회`,
       `완료 step ${completed.toLocaleString('ko-KR')}${run.total ? ` / ${run.total.toLocaleString('ko-KR')}` : ''}`,
       `전체 벽시계 ${wallPerStep.toFixed(3)} ms/step · 약 ${Math.round(measuredRate).toLocaleString('ko-KR')} step/s`,
-      `샘플 step ${sampledStepPer.toFixed(3)} ms/step`,
-      `gradient 전체 ${gradientPer.toFixed(3)} ms/step`,
-      `gradient 밖 비용(대략) ${outsideGradient.toFixed(3)} ms/step`
+      `샘플 반복 실행 ${sampledStepPer.toFixed(3)} ms/step`,
+      `노드 실행 합 ${sampledNodePer.toFixed(3)} ms/step`,
+      `step 내부 기타 비용 ${insideOther.toFixed(3)} ms/step`,
+      `반복 제어·상태 반영·UI 등 ${outsideLeaf.toFixed(3)} ms/step`
     ];
 
     const kernelRows = sortedBuckets(run.kernels);
     if (kernelRows.length && run.sampledSteps > 0) {
       lines.push('', '핵심 수치 커널');
-      kernelRows.forEach(([name, bucket], index) => {
-        lines.push(`${index + 1}. ${name} · ${(bucket.ms / run.sampledSteps).toFixed(3)} ms/sample · ${bucket.calls}회`);
+      kernelRows.slice(0, 10).forEach(([name, bucket], index) => {
+        lines.push(`${index + 1}. ${name} · ${(bucket.ms / run.sampledSteps).toFixed(3)} ms/step · ${bucket.calls}회`);
       });
     }
 
-    lines.push('', ...formatBucketLines('gradient forward 블록', run.forwardByType, run.sampledGradientPasses));
-    lines.push('', ...formatBucketLines('gradient backward VJP', run.backwardByType, run.sampledGradientPasses));
-    lines.push('', ...formatBucketLines('gradient 밖 블록', run.outsideByType, run.sampledSteps));
+    lines.push('', ...formatTrainingTypeLines(run.sampledSteps));
+    lines.push('', ...formatTrainingNodeLines(run.sampledSteps));
+
+    if (!run.sampledSteps && completed > 0) {
+      lines.push('', `상세 샘플이 없습니다. ${SAMPLE_EVERY} step보다 짧은 반복이거나 컴파일되지 않은 경로일 수 있습니다.`);
+    }
 
     const pre = document.createElement('pre');
     pre.style.whiteSpace = 'pre-wrap';
@@ -151,7 +179,7 @@
 
   function finishRun() {
     if (!run?.active) return;
-    closeSampleStep();
+    trainingSampleActive = false;
     run.active = false;
     renderRun();
   }
@@ -183,7 +211,7 @@
 
   let selectedActive = false;
   let selectedSampleActive = false;
-  let leafCallCount = 0;
+  let selectedLeafCallCount = 0;
   let profile = null;
   let lastProfile = null;
 
@@ -203,6 +231,7 @@
   }
 
   function recordSelectedNode(node, elapsedMs) {
+    if (!profile) return;
     profile.sampledNodeMs += elapsedMs;
 
     const type = String(node?.type || 'unknown');
@@ -242,7 +271,7 @@
     summary.style.marginTop = '6px';
     summary.style.fontSize = '12px';
     summary.style.lineHeight = '1.55';
-    summary.textContent = `64 step 간격 ${p.sampledSteps}회 샘플 · 전체 ${wallPerStep.toFixed(3)} ms/step · 샘플 순수 실행 ${leafPerStep.toFixed(3)} ms/step · 노드 compute 합 ${nodePerStep.toFixed(3)} ms/step`;
+    summary.textContent = `${SAMPLE_EVERY} step 간격 ${p.sampledSteps}회 샘플 · 전체 ${wallPerStep.toFixed(3)} ms/step · 샘플 순수 실행 ${leafPerStep.toFixed(3)} ms/step · 노드 compute 합 ${nodePerStep.toFixed(3)} ms/step`;
     wrapper.appendChild(summary);
 
     const outside = document.createElement('div');
@@ -276,74 +305,71 @@
 
   // ================= hook installation =================
 
+  // The old per-block wrapper remains useful for 선택 계산's interpreted path.
+  // Training is timed at the compiled-plan step level instead, so newly added
+  // blocks and variable/update steps cannot disappear from the profile.
   PROFILER_HOOKS.blockCompute = {
-    active: () => trainingSampling() || selectedSampling(),
+    active: selectedSampling,
     record(type, node, ms) {
-      if (trainingSampling()) record(insideGradient ? run.forwardByType : run.outsideByType, type, ms);
       if (selectedSampling()) recordSelectedNode(node || { type }, ms);
     }
   };
 
   PROFILER_HOOKS.kernel = {
     active: trainingSampling,
-    record: (name, ms) => record(run.kernels, name, ms)
+    record: (name, ms) => {
+      if (run) record(run.kernels, name, ms);
+    }
   };
 
-  // Reverse-mode cost grouped by mathematical primitive type.
-  PROFILER_HOOKS.vjp = {
-    active: () => trainingSampling() && insideGradient,
-    record: (type, ms) => record(run.backwardByType, type, ms)
+  PROFILER_HOOKS.leafNode = {
+    active: mode => mode === 'training' && trainingSampling(),
+    record: recordTrainingNode
   };
 
-  // One computeAllGraphGradients call corresponds to one fresh SGD state in the
-  // current shared-gradient design, so its call boundary is the sampled step
-  // boundary. The interval from one gradient start to the next includes the rest
-  // of the update plus the next step's pre-gradient work.
-  PROFILER_HOOKS.gradientPass = {
-    begin() {
-      if (!run?.active) return null;
-
-      const now = performance.now();
-      closeSampleStep(now);
-      gradientCallCount++;
-
-      const shouldSample = ((gradientCallCount - 1) % SAMPLE_EVERY) === 0;
-      if (shouldSample) {
-        sampleStepActive = true;
-        sampleStepStart = now;
-        insideGradient = true;
+  PROFILER_HOOKS.leafStep = {
+    begin(mode) {
+      if (mode === 'training' && run?.active) {
+        const index = trainingLeafCallCount++;
+        if ((index % SAMPLE_EVERY) !== 0) return null;
+        trainingSampleActive = true;
+        return { kind: 'training', startedAt: performance.now() };
       }
-      return shouldSample ? performance.now() : null;
+
+      if (mode === 'selected' && selectedActive && profile) {
+        const index = selectedLeafCallCount++;
+        if ((index % SAMPLE_EVERY) !== 0) return null;
+        selectedSampleActive = true;
+        return { kind: 'selected', startedAt: performance.now() };
+      }
+
+      return null;
     },
-    end(started) {
-      if (started != null && run?.active) {
-        run.sampledGradientMs += performance.now() - started;
-        run.sampledGradientPasses++;
+    end(token) {
+      if (!token) return;
+      const elapsed = performance.now() - token.startedAt;
+      if (token.kind === 'training') {
+        if (run?.active) {
+          run.sampledStepMs += elapsed;
+          run.sampledSteps++;
+        }
+        trainingSampleActive = false;
+      } else if (token.kind === 'selected') {
+        if (profile) {
+          profile.sampledLeafMs += elapsed;
+          profile.sampledSteps++;
+        }
+        selectedSampleActive = false;
       }
-      if (run?.active) insideGradient = false;
     }
   };
 
   // Keep the progress counters so the final wall-time rate can be compared with
   // the live step/s shown in the workspace.
-  PROFILER_HOOKS.progress = progress => {
-    if (!run?.active || !progress) return;
-    run.completed = Number(progress.completed) || 0;
-    run.total = Number(progress.total) || 0;
-  };
-
-  PROFILER_HOOKS.selectedLeafStep = {
-    begin() {
-      if (!selectedActive || !profile) return null;
-      if ((leafCallCount++ % SAMPLE_EVERY) !== 0) return null;
-      selectedSampleActive = true;
-      return performance.now();
-    },
-    end(started) {
-      profile.sampledLeafMs += performance.now() - started;
-      profile.sampledSteps++;
-      selectedSampleActive = false;
-    }
+  PROFILER_HOOKS.progress = progressState => {
+    if (!run?.active || !progressState) return;
+    run.completed = Number(progressState.completed) || 0;
+    run.total = Number(progressState.total) || 0;
   };
 
   PROFILER_HOOKS.selectedRun = {
@@ -351,14 +377,14 @@
       if (selectedActive) return null;
       selectedActive = true;
       selectedSampleActive = false;
-      leafCallCount = 0;
+      selectedLeafCallCount = 0;
       profile = newProfile();
       return { outermost: true, startedAt: performance.now() };
     },
     end(token, result) {
       if (!token?.outermost || !profile) return;
       profile.wallMs = performance.now() - token.startedAt;
-      profile.completedSteps = Number(result?.progress?.completed) || leafCallCount;
+      profile.completedSteps = Number(result?.progress?.completed) || selectedLeafCallCount;
     },
     finish(token) {
       if (!token?.outermost) return;
