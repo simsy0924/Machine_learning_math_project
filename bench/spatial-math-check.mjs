@@ -1,5 +1,10 @@
 #!/usr/bin/env node
 // Correctness checks for reshape + sliding-window unfold using the real browser app.
+//
+// There is no automatic differentiation, so the backward side is checked the
+// way a user writes it: 슬라이딩 창 합치기 (fold2d) is the hand-written backward
+// of 슬라이딩 창 펼치기, and the graph check below runs a full manual backward
+// chain through the real 역전파 실행 path.
 
 import http from 'node:http';
 import fs from 'node:fs';
@@ -66,7 +71,7 @@ function loadChromium() {
   );
 }
 
-function checkInPage() {
+async function checkInPage() {
   function assert(condition, message) {
     if (!condition) throw new Error(message);
   }
@@ -111,8 +116,16 @@ function checkInPage() {
     5, 6, 8, 9
   ]), '2×2 unfold 값이 틀렸습니다.');
 
+  // fold2d is what a user writes as the backward of unfold2d: every patch value
+  // goes back to the position it came from and overlapping windows are summed.
+  assert(BLOCKS.fold2d, 'fold2d 블록이 등록되지 않았습니다.');
+  assert(document.querySelector('[data-block="fold2d"]'), 'fold2d 팔레트 버튼이 없습니다.');
   const ones = arrayValue(new Float32Array(16).fill(1), [4, 4]);
-  const inputGradient = primitiveVJP('unfold2d', [image], unfolded, ones)[0];
+  const foldNode = {
+    params: { kernelRows: 2, kernelCols: 2, strideRows: 1, strideCols: 1, padding: 0 }
+  };
+  const inputGradient = BLOCKS.fold2d.compute(foldNode, [ones, image]);
+  assert(inputGradient.shape[0] === 3 && inputGradient.shape[1] === 3, 'fold2d 출력 모양이 틀렸습니다.');
   assert(arraysEqual(Array.from(inputGradient.data), [
     1, 2, 1,
     2, 4, 2,
@@ -124,22 +137,111 @@ function checkInPage() {
   assert(padded.shape[0] === 9 && padded.shape[1] === 9, 'padding unfold 출력 모양이 틀렸습니다.');
   assert(arraysEqual(Array.from(padded.data.slice(0, 9)), [0, 0, 0, 0, 1, 2, 0, 4, 5]), 'padding 값이 틀렸습니다.');
 
-  // Full graph autodiff check: sum(unfold(x) @ k).
+  // Full graph check: L = sum(unfold(x) @ k), with the backward chain written
+  // out of ordinary blocks and executed through 역전파 실행, exactly as it would
+  // be in the workspace.
   resetWorkspace();
-  const x = addBlock('variable');
-  Object.assign(x.params, { name: 'x', mode: 'matrix', rows: 3, cols: 3, init: 'constant', value: 0 });
-  const k = addBlock('variable');
-  Object.assign(k.params, { name: 'k', mode: 'vector', length: 4, init: 'constant', value: 0 });
-  const unfold = addBlock('unfold2d');
-  Object.assign(unfold.params, { kernelRows: 2, kernelCols: 2, strideRows: 1, strideCols: 1, padding: 0 });
-  const matvec = addBlock('matvec');
-  const loss = addBlock('sum');
-  graph.connections.push(
-    { from: x.id, to: unfold.id, inputIndex: 0 },
-    { from: unfold.id, to: matvec.id, inputIndex: 0 },
-    { from: k.id, to: matvec.id, inputIndex: 1 },
-    { from: matvec.id, to: loss.id, inputIndex: 0 }
-  );
+  const source0 = manualBackpropInputSourceId(0);
+  const source1 = manualBackpropInputSourceId(1);
+
+  // dL/dx = g·1 for every element. equal(x, x) is the ones array of x's shape.
+  MANUAL_BACKPROP_BUILTINS.set('sum', {
+    nodes: [
+      { id: 1, type: 'equal', params: {} },
+      { id: 2, type: 'multiply', params: {} }
+    ],
+    connections: [
+      { from: source0, to: 1, inputIndex: 0 },
+      { from: source0, to: 1, inputIndex: 1 },
+      { from: MANUAL_BACKPROP_UPSTREAM_ID, to: 2, inputIndex: 0 },
+      { from: 1, to: 2, inputIndex: 1 }
+    ],
+    gradientOutputNodeIds: [2]
+  });
+
+  // y = Ax -> dA = g ⊗ x, dx = Aᵀg
+  MANUAL_BACKPROP_BUILTINS.set('matvec', {
+    nodes: [
+      { id: 1, type: 'outerProduct', params: {} },
+      { id: 2, type: 'transposeMatvec', params: {} }
+    ],
+    connections: [
+      { from: MANUAL_BACKPROP_UPSTREAM_ID, to: 1, inputIndex: 0 },
+      { from: source1, to: 1, inputIndex: 1 },
+      { from: source0, to: 2, inputIndex: 0 },
+      { from: MANUAL_BACKPROP_UPSTREAM_ID, to: 2, inputIndex: 1 }
+    ],
+    gradientOutputNodeIds: [1, 2]
+  });
+
+  // y = unfold(x) -> dx = fold(g, x), with the same window geometry.
+  MANUAL_BACKPROP_BUILTINS.set('unfold2d', {
+    nodes: [{
+      id: 1,
+      type: 'fold2d',
+      params: { kernelRows: 2, kernelCols: 2, strideRows: 1, strideCols: 1, padding: 0 }
+    }],
+    connections: [
+      { from: MANUAL_BACKPROP_UPSTREAM_ID, to: 1, inputIndex: 0 },
+      { from: source0, to: 1, inputIndex: 1 }
+    ],
+    gradientOutputNodeIds: [1]
+  });
+
+  const make = (type, params) => {
+    const node = addBlock(type);
+    if (params) Object.assign(node.params, params);
+    return node;
+  };
+  const wire = (from, to, inputIndex = 0) => {
+    graph.connections.push({ from: from.id, to: to.id, inputIndex });
+  };
+
+  const x = make('variable', { name: 'x', mode: 'matrix', rows: 3, cols: 3, init: 'constant', value: 0 });
+  const k = make('variable', { name: 'k', mode: 'vector', length: 4, init: 'constant', value: 0 });
+  const unfold = make('unfold2d', { kernelRows: 2, kernelCols: 2, strideRows: 1, strideCols: 1, padding: 0 });
+  wire(x, unfold, 0);
+  const matvec = make('matvec');
+  wire(unfold, matvec, 0);
+  wire(k, matvec, 1);
+  const loss = make('sum');
+  wire(matvec, loss, 0);
+
+  make('variable', { name: 'gL', mode: 'scalar', value: 1 });
+  for (const name of ['gm', 'gA', 'gk', 'gx']) {
+    make('variable', { name, mode: 'scalar', value: 0 });
+  }
+
+  const backwardBlock = (type, params, inputs) => {
+    const node = make(type, { manualBackpropMode: 'backward', ...params });
+    inputs.forEach((from, inputIndex) => wire(from, node, inputIndex));
+    return node;
+  };
+
+  const backward = [
+    backwardBlock('sum', {
+      manualBackpropUpstream: 'gL',
+      manualBackpropGradient0: 'gm'
+    }, [matvec]),
+    backwardBlock('matvec', {
+      manualBackpropUpstream: 'gm',
+      manualBackpropGradient0: 'gA',
+      manualBackpropGradient1: 'gk'
+    }, [unfold, k]),
+    backwardBlock('unfold2d', {
+      manualBackpropUpstream: 'gA',
+      manualBackpropGradient0: 'gx'
+    }, [x])
+  ];
+
+  // 둘 다 계산 pins the order: forward first, then each backward block.
+  let body = loss;
+  for (const node of backward) {
+    const sequence = make('sequence');
+    wire(body, sequence, 0);
+    wire(node, sequence, 1);
+    body = sequence;
+  }
 
   writeRuntimeVariable('x', arrayValue(new Float32Array([
     1, 2, 3,
@@ -148,21 +250,27 @@ function checkInPage() {
   ]), [3, 3]), true);
   writeRuntimeVariable('k', arrayValue(new Float32Array([1, 0, 0, 1]), [4]), true);
 
-  const gradK = differentiateGraph(loss.id, 'k');
-  const gradX = differentiateGraph(loss.id, 'x');
+  await evaluateGraph();
+  const failed = [...graph.nodes.values()].find(node => node.lastError);
+  if (failed) throw new Error(`${failed.type}: ${failed.lastError}`);
+
+  const gradK = RUNTIME_VARIABLES.get('gk').value;
+  const gradX = RUNTIME_VARIABLES.get('gx').value;
   assert(arraysEqual(Array.from(gradK.data), [12, 16, 24, 28]), '커널 gradient가 틀렸습니다.');
   assert(arraysEqual(Array.from(gradX.data), [
     1, 1, 0,
     1, 2, 1,
     0, 1, 1
   ]), '입력까지 전달되는 합성곱 gradient가 틀렸습니다.');
+  assert(gradX.shape[0] === 3 && gradX.shape[1] === 3, '입력 gradient 모양이 틀렸습니다.');
 
   return {
     reshape: 'OK',
     unfold: 'OK',
+    fold: 'OK',
     overlapGradient: 'OK',
     padding: 'OK',
-    graphAutodiff: 'OK'
+    graphManualBackprop: 'OK'
   };
 }
 

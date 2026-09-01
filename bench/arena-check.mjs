@@ -134,6 +134,10 @@ function runInPage(classes) {
   };
 
   // ---- graph 2: training with a user-defined block inside the loss ----
+  // The whole backward chain is user-authored here, so this graph also covers
+  // the paths that hold pooled buffers across the forward/backward boundary:
+  // the 사용자 블록 forward trace, its reused intermediate values, and the
+  // gradient variables that manual backward blocks write immediately.
   build.userBlockTraining = () => {
     resetWorkspace();
     const dataset = add('dataset');
@@ -154,8 +158,8 @@ function runInPage(classes) {
     link(W, z, 0);
     link(x, z, 1);
 
-    // softmax(z) grouped into a user block, so the loss differentiates through
-    // evaluateUserDefinition / userBlockVJP rather than the compiled path.
+    // softmax(z) grouped into a user block through the real 블록 묶기 path, so
+    // the backward below runs against a definition the UI produced.
     const zMax = add('arrayMax');
     link(z, zMax, 0);
     const shifted = add('subtract');
@@ -175,6 +179,28 @@ function runInPage(classes) {
     const softmax = [...graph.nodes.values()].find(node => node.type.startsWith('custom:'));
     if (!softmax) throw new Error('사용자 블록을 만들지 못했습니다.');
 
+    // dz = p ⊙ (g - g·p), written by hand. It reads the block's forward output
+    // y = p, so the executor serves y out of the 사용자 블록 forward trace.
+    const softmaxDefinition = USER_BLOCKS.get(softmax.type.slice(7));
+    if (!softmaxDefinition) throw new Error('사용자 블록 정의를 찾지 못했습니다.');
+    softmaxDefinition.manualBackprop = {
+      nodes: [
+        { id: 1, type: 'dot', params: {} },
+        { id: 2, type: 'subtract', params: {} },
+        { id: 3, type: 'multiply', params: {} }
+      ],
+      connections: [
+        { from: MANUAL_BACKPROP_UPSTREAM_ID, to: 1, inputIndex: 0 },
+        { from: MANUAL_BACKPROP_OUTPUT_ID, to: 1, inputIndex: 1 },
+        { from: MANUAL_BACKPROP_UPSTREAM_ID, to: 2, inputIndex: 0 },
+        { from: 1, to: 2, inputIndex: 1 },
+        { from: MANUAL_BACKPROP_OUTPUT_ID, to: 3, inputIndex: 0 },
+        { from: 2, to: 3, inputIndex: 1 }
+      ],
+      // Both external ports are fed from z; only the second one stores dz.
+      gradientOutputNodeIds: [3, 3]
+    };
+
     const logP = add('log');
     link(softmax, logP, 0);
     const y = add('sampleOneHot');
@@ -189,9 +215,51 @@ function runInPage(classes) {
     link(crossEntropy, loss, 0);
     link(minusOne, loss, 1);
 
+    add('variable', { name: 'gL', mode: 'scalar', value: 1 });
+    for (const name of ['gce', 'gylogp', 'glogp', 'gp', 'gz', 'gW']) {
+      add('variable', { name, mode: 'scalar', value: 0 });
+    }
+
+    const backwardBlock = (type, params, inputs) => {
+      const node = add(type, { manualBackpropMode: 'backward', ...params });
+      inputs.forEach((from, inputIndex) => link(from, node, inputIndex));
+      return node;
+    };
+
+    // Backward, in the order this file chooses, from the loss back to W.
+    const backward = [
+      backwardBlock('multiply', {
+        manualBackpropUpstream: 'gL',
+        manualBackpropGradient0: 'gce',
+        manualBackpropGradient1: ''
+      }, [crossEntropy, minusOne]),
+      backwardBlock('sum', {
+        manualBackpropUpstream: 'gce',
+        manualBackpropGradient0: 'gylogp'
+      }, [yLogP]),
+      backwardBlock('multiply', {
+        manualBackpropUpstream: 'gylogp',
+        manualBackpropGradient0: '',
+        manualBackpropGradient1: 'glogp'
+      }, [y, logP]),
+      backwardBlock('log', {
+        manualBackpropUpstream: 'glogp',
+        manualBackpropGradient0: 'gp'
+      }, [softmax]),
+      backwardBlock(softmax.type, {
+        manualBackpropUpstream: 'gp',
+        manualBackpropGradient0: '',
+        manualBackpropGradient1: 'gz'
+      }, [z, z]),
+      backwardBlock('matvec', {
+        manualBackpropUpstream: 'gz',
+        manualBackpropGradient0: 'gW',
+        manualBackpropGradient1: ''
+      }, [W, x])
+    ];
+
     const lr = add('number', { value: 0.05 });
-    const gradient = add('derivative', { variable: 'W' });
-    link(loss, gradient, 0);
+    const gradient = add('variable', { name: 'gW', mode: 'scalar', value: 0 });
     const scaled = add('multiply');
     link(lr, scaled, 0);
     link(gradient, scaled, 1);
@@ -201,8 +269,16 @@ function runInPage(classes) {
     const assign = add('setVariable', { variable: 'W' });
     link(updated, assign, 0);
 
+    let body = loss;
+    for (const node of [...backward, assign]) {
+      const sequence = add('sequence');
+      link(body, sequence, 0);
+      link(node, sequence, 1);
+      body = sequence;
+    }
+
     const repeat = add('repeat', { count: 150, start: 0, indexVariable: 'i' });
-    link(assign, repeat, 0);
+    link(body, repeat, 0);
     return repeat;
   };
 
@@ -276,7 +352,70 @@ function runInPage(classes) {
     return outerRepeat;
   };
 
+  // Backward formulas for the built-in blocks graph 2 uses. Each one is
+  // ordinary math a user types into the 역전파 직접 정의 editor.
+  function installManualBackwardDefinitions() {
+    const source0 = manualBackpropInputSourceId(0);
+    const source1 = manualBackpropInputSourceId(1);
+
+    // y = a·b -> da = g·b, db = g·a
+    MANUAL_BACKPROP_BUILTINS.set('multiply', {
+      nodes: [
+        { id: 1, type: 'multiply', params: {} },
+        { id: 2, type: 'multiply', params: {} }
+      ],
+      connections: [
+        { from: MANUAL_BACKPROP_UPSTREAM_ID, to: 1, inputIndex: 0 },
+        { from: source1, to: 1, inputIndex: 1 },
+        { from: MANUAL_BACKPROP_UPSTREAM_ID, to: 2, inputIndex: 0 },
+        { from: source0, to: 2, inputIndex: 1 }
+      ],
+      gradientOutputNodeIds: [1, 2]
+    });
+
+    // y = Σxᵢ -> dx = g·1, with equal(x, x) as the ones array of x's shape
+    MANUAL_BACKPROP_BUILTINS.set('sum', {
+      nodes: [
+        { id: 1, type: 'equal', params: {} },
+        { id: 2, type: 'multiply', params: {} }
+      ],
+      connections: [
+        { from: source0, to: 1, inputIndex: 0 },
+        { from: source0, to: 1, inputIndex: 1 },
+        { from: MANUAL_BACKPROP_UPSTREAM_ID, to: 2, inputIndex: 0 },
+        { from: 1, to: 2, inputIndex: 1 }
+      ],
+      gradientOutputNodeIds: [2]
+    });
+
+    // y = ln(x) -> dx = g / x
+    MANUAL_BACKPROP_BUILTINS.set('log', {
+      nodes: [{ id: 1, type: 'divide', params: {} }],
+      connections: [
+        { from: MANUAL_BACKPROP_UPSTREAM_ID, to: 1, inputIndex: 0 },
+        { from: source0, to: 1, inputIndex: 1 }
+      ],
+      gradientOutputNodeIds: [1]
+    });
+
+    // y = Ax -> dA = g ⊗ x, dx = Aᵀg
+    MANUAL_BACKPROP_BUILTINS.set('matvec', {
+      nodes: [
+        { id: 1, type: 'outerProduct', params: {} },
+        { id: 2, type: 'transposeMatvec', params: {} }
+      ],
+      connections: [
+        { from: MANUAL_BACKPROP_UPSTREAM_ID, to: 1, inputIndex: 0 },
+        { from: source1, to: 1, inputIndex: 1 },
+        { from: source0, to: 2, inputIndex: 0 },
+        { from: MANUAL_BACKPROP_UPSTREAM_ID, to: 2, inputIndex: 1 }
+      ],
+      gradientOutputNodeIds: [1, 2]
+    });
+  }
+
   return (async () => {
+    installManualBackwardDefinitions();
     for (const box of document.querySelectorAll('#classPicker input[type=checkbox]')) {
       box.checked = classes.includes(box.value);
     }
@@ -299,8 +438,6 @@ function runInPage(classes) {
           const repeat = make();
           RUNTIME_VARIABLES.clear();
           pendingVariableUpdates = null;
-          sharedAutodiffContextKey = null;
-          sharedAutodiffByOutput = new Map();
 
           selectNode(repeat.id);
           await evaluateGraph();

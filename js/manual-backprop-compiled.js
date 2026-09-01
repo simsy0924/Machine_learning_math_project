@@ -13,6 +13,36 @@
 const MANUAL_BACKPROP_EXECUTION_PLANS = new WeakMap();
 const MANUAL_BACKPROP_VARIABLE_NODE_CACHE = new Map();
 
+// Plans are grouped by the forward definition that owns them. Built-in blocks
+// have no owner object, so they share this sentinel.
+const MANUAL_BACKPROP_BUILTIN_OWNER = Object.freeze({ builtin: true });
+
+// Everything a backward block instance needs besides its input values is fixed
+// by its params: which variable holds g, which variables receive each input
+// gradient, and therefore which gradient branches run at all. Re-deriving that
+// per step meant building `manualBackpropGradient${i}` keys, trimming strings
+// and allocating two arrays tens of thousands of times, so it is cached on the
+// node and revalidated by comparing the raw params it was built from.
+const MANUAL_BACKPROP_NODE_CALLS = new WeakMap();
+const MANUAL_BACKPROP_GRADIENT_PARAM_KEYS = [];
+const MANUAL_BACKPROP_CUSTOM_IDS = new Map();
+
+function manualBackpropGradientParamKey(index) {
+  let key = MANUAL_BACKPROP_GRADIENT_PARAM_KEYS[index];
+  if (key === undefined) {
+    key = `manualBackpropGradient${index}`;
+    MANUAL_BACKPROP_GRADIENT_PARAM_KEYS[index] = key;
+  }
+  return key;
+}
+
+function manualBackpropCustomIdFor(type) {
+  if (MANUAL_BACKPROP_CUSTOM_IDS.has(type)) return MANUAL_BACKPROP_CUSTOM_IDS.get(type);
+  const id = type.startsWith('custom:') ? type.slice(7) : null;
+  MANUAL_BACKPROP_CUSTOM_IDS.set(type, id);
+  return id;
+}
+
 function manualBackpropVariableNodeCached(name) {
   const key = String(name || '');
   const cached = MANUAL_BACKPROP_VARIABLE_NODE_CACHE.get(key);
@@ -248,6 +278,24 @@ function compileManualBackpropExecutionPlan(
   };
 }
 
+// A plan is identified by its definition, its owner forward definition and the
+// set of gradients actually stored. Every training step asks for the same plan
+// again, so the lookup key is a small integer (a bit per required gradient plus
+// a length marker) instead of a string that has to be rebuilt each time.
+function manualBackpropRequiredMaskKey(mask, inputCount) {
+  if (inputCount > 30) {
+    let key = `${inputCount}`;
+    for (let i = 0; i < inputCount; i++) key += mask[i] ? '1' : '0';
+    return key;
+  }
+
+  let bits = 1 << inputCount;
+  for (let i = 0; i < inputCount; i++) {
+    if (mask[i]) bits |= 1 << i;
+  }
+  return bits;
+}
+
 function manualBackpropExecutionPlanFor(
   definition,
   inputCount,
@@ -255,14 +303,19 @@ function manualBackpropExecutionPlanFor(
   forwardDefinition = null
 ) {
   const mask = requiredMask || new Array(inputCount).fill(true);
-  const maskKey = mask.map(Boolean).map(value => value ? '1' : '0').join('');
-  const ownerKey = forwardDefinition ? String(forwardDefinition.id || 'custom') : 'builtin';
-  const key = `${inputCount}|${maskKey}|${ownerKey}`;
+  const owner = forwardDefinition || MANUAL_BACKPROP_BUILTIN_OWNER;
+  const key = manualBackpropRequiredMaskKey(mask, inputCount);
 
-  let plans = MANUAL_BACKPROP_EXECUTION_PLANS.get(definition);
+  let plansByOwner = MANUAL_BACKPROP_EXECUTION_PLANS.get(definition);
+  if (!plansByOwner) {
+    plansByOwner = new Map();
+    MANUAL_BACKPROP_EXECUTION_PLANS.set(definition, plansByOwner);
+  }
+
+  let plans = plansByOwner.get(owner);
   if (!plans) {
     plans = new Map();
-    MANUAL_BACKPROP_EXECUTION_PLANS.set(definition, plans);
+    plansByOwner.set(owner, plans);
   }
 
   let plan = plans.get(key);
@@ -318,32 +371,81 @@ function executeCompiledManualBackpropPlan(
 // Replace only the execution strategy. The saved formulas, editor, explicit
 // gradient variables and user-controlled reverse order are exactly the same as
 // manual-backprop.js; no derivative is inferred here.
-executeManualBackpropNode = function executeManualBackpropNodeCompiled(type, baseDefinition, node, inputs) {
-  const definition = manualBackpropDefinitionForType(type);
-  if (!definition) {
-    throw new Error(`'${baseDefinition.title}' 블록의 역전파 정의가 없습니다. 먼저 인스펙터에서 직접 정의해 주세요.`);
+// Resolve the parts of a backward call that only depend on the node's params,
+// reusing the previous answer while those params are untouched.
+function manualBackpropNodeCall(type, node, inputCount) {
+  const params = node.params;
+  const rawUpstream = params.manualBackpropUpstream;
+  const cached = MANUAL_BACKPROP_NODE_CALLS.get(node);
+
+  if (cached && cached.type === type && cached.inputCount === inputCount && cached.rawUpstream === rawUpstream) {
+    let unchanged = true;
+    for (let i = 0; i < inputCount; i++) {
+      if (cached.rawTargets[i] !== params[manualBackpropGradientParamKey(i)]) {
+        unchanged = false;
+        break;
+      }
+    }
+    if (unchanged) return cached;
   }
 
-  const targetNames = new Array(inputs.length);
-  const requiredMask = new Array(inputs.length);
-  for (let i = 0; i < inputs.length; i++) {
-    const targetName = String(node.params[`manualBackpropGradient${i}`] || '').trim();
+  const rawTargets = new Array(inputCount);
+  const targetNames = new Array(inputCount);
+  const requiredMask = new Array(inputCount);
+  for (let i = 0; i < inputCount; i++) {
+    const raw = params[manualBackpropGradientParamKey(i)];
+    const targetName = String(raw || '').trim();
+    rawTargets[i] = raw;
     targetNames[i] = targetName;
     requiredMask[i] = Boolean(targetName);
   }
 
-  const forwardDefinition = String(type).startsWith('custom:')
-    ? USER_BLOCKS.get(String(type).slice(7)) || null
-    : null;
-  const plan = manualBackpropExecutionPlanFor(
-    definition,
-    inputs.length,
+  const call = {
+    type,
+    inputCount,
+    rawUpstream,
+    rawTargets,
+    targetNames,
     requiredMask,
-    forwardDefinition
-  );
+    upstreamName: String(rawUpstream || 'g').trim() || 'g',
+    customId: manualBackpropCustomIdFor(type),
+    // Filled in below and revalidated by identity: saving a backward definition
+    // or re-creating a 사용자 블록 replaces the object, which forces a recompile.
+    definition: null,
+    forwardDefinition: null,
+    plan: null
+  };
+  MANUAL_BACKPROP_NODE_CALLS.set(node, call);
+  return call;
+}
 
-  const upstreamName = String(node.params.manualBackpropUpstream || 'g').trim() || 'g';
-  const upstream = readManualBackpropRuntimeVariable(upstreamName);
+executeManualBackpropNode = function executeManualBackpropNodeCompiled(type, baseDefinition, node, inputs) {
+  const call = manualBackpropNodeCall(String(type), node, inputs.length);
+
+  const isCustom = call.customId != null;
+  const forwardDefinition = isCustom ? USER_BLOCKS.get(call.customId) || null : null;
+  const definition = isCustom
+    ? forwardDefinition?.manualBackprop || null
+    : MANUAL_BACKPROP_BUILTINS.get(call.type) || null;
+  if (!definition) {
+    throw new Error(`'${baseDefinition.title}' 블록의 역전파 정의가 없습니다. 먼저 인스펙터에서 직접 정의해 주세요.`);
+  }
+
+  let plan = call.plan;
+  if (!plan || call.definition !== definition || call.forwardDefinition !== forwardDefinition) {
+    plan = manualBackpropExecutionPlanFor(
+      definition,
+      inputs.length,
+      call.requiredMask,
+      forwardDefinition
+    );
+    call.definition = definition;
+    call.forwardDefinition = forwardDefinition;
+    call.plan = plan;
+  }
+
+  const targetNames = call.targetNames;
+  const upstream = readManualBackpropRuntimeVariable(call.upstreamName);
 
   let forwardTrace = null;
   if (forwardDefinition && (plan.usesForwardTrace || plan.usesForwardOutput)) {

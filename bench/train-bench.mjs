@@ -2,14 +2,20 @@
 // Reproducible training-speed benchmark for the math block workspace.
 //
 // It serves the repository over localhost, drives the real page in headless
-// Chromium, builds a fixed softmax-regression training graph out of ordinary
-// blocks, and runs it. Two numbers come back:
+// Chromium, builds a fixed training graph out of ordinary blocks plus
+// user-authored manual backward definitions, and runs it. Two numbers come
+// back:
 //
 //   - step/s   : how fast the training repeat runs
 //   - checksum : a bit-exact hash of the trained weights
 //
 // The checksum is the safety net for optimization work. Any change that only
 // removes overhead must leave it byte-for-byte identical.
+//
+// There is no automatic differentiation here: every gradient below is a
+// backward formula written out of the same math blocks the palette offers, in
+// an execution order this file states explicitly. That is exactly what the
+// workspace asks a user to do, so the benchmark measures the real hot path.
 
 import http from 'node:http';
 import fs from 'node:fs';
@@ -29,7 +35,11 @@ function parseArgs(argv) {
     warmup: 1,
     hidden: 0,
     classes: ['cat', 'fish', 'house'],
-    lr: 0.05,
+    // Plain per-sample SGD over a strict cat/fish/house cycle. At lr 0.05 the
+    // weights oscillate enough that the final model can score worse on held-out
+    // samples than the untrained one, which makes "did it learn?" unanswerable.
+    // 0.01 keeps the endpoint stable without changing what is measured.
+    lr: 0.01,
     seed: 1,
     headed: false,
     json: false
@@ -67,6 +77,7 @@ const CONTENT_TYPES = {
   '.mjs': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
+  '.wasm': 'application/wasm',
   '.bin': 'application/octet-stream'
 };
 
@@ -159,8 +170,133 @@ function benchmarkInPage(options) {
     return hashA.toString(16).padStart(8, '0') + hashB.toString(16).padStart(8, '0');
   }
 
+  const SOFTMAX_CE_ID = 'bench-softmax-cross-entropy';
+  const inputSource = manualBackpropInputSourceId;
+
+  // ---------- backward formulas, written by hand ----------
+
+  // Each definition below is the same JSON the 역전파 직접 정의 editor saves. It
+  // is ordinary math built from palette blocks; nothing derives it.
+  function installManualBackwardDefinitions() {
+    // y = a + b  ->  da = g·1, db = g·1
+    MANUAL_BACKPROP_BUILTINS.set('add', {
+      nodes: [
+        { id: 1, type: 'number', params: { value: 1 } },
+        { id: 2, type: 'multiply', params: {} }
+      ],
+      connections: [
+        { from: MANUAL_BACKPROP_UPSTREAM_ID, to: 2, inputIndex: 0 },
+        { from: 1, to: 2, inputIndex: 1 }
+      ],
+      gradientOutputNodeIds: [2, 2]
+    });
+
+    // y = Ax  ->  dA = g ⊗ x, dx = Aᵀg
+    MANUAL_BACKPROP_BUILTINS.set('matvec', {
+      nodes: [
+        { id: 1, type: 'outerProduct', params: {} },
+        { id: 2, type: 'transposeMatvec', params: {} }
+      ],
+      connections: [
+        { from: MANUAL_BACKPROP_UPSTREAM_ID, to: 1, inputIndex: 0 },
+        { from: inputSource(1), to: 1, inputIndex: 1 },
+        { from: inputSource(0), to: 2, inputIndex: 0 },
+        { from: MANUAL_BACKPROP_UPSTREAM_ID, to: 2, inputIndex: 1 }
+      ],
+      gradientOutputNodeIds: [1, 2]
+    });
+
+    // y = max(a, b) with a = 0  ->  db = g·[y = b], the hand-written ReLU rule.
+    // It reads the forward output y, so this definition also exercises the
+    // "backward needs the owner's forward value" path.
+    MANUAL_BACKPROP_BUILTINS.set('maximum', {
+      nodes: [
+        { id: 1, type: 'equal', params: {} },
+        { id: 2, type: 'multiply', params: {} }
+      ],
+      connections: [
+        { from: MANUAL_BACKPROP_OUTPUT_ID, to: 1, inputIndex: 0 },
+        { from: inputSource(1), to: 1, inputIndex: 1 },
+        { from: MANUAL_BACKPROP_UPSTREAM_ID, to: 2, inputIndex: 0 },
+        { from: 1, to: 2, inputIndex: 1 }
+      ],
+      gradientOutputNodeIds: [2, 2]
+    });
+  }
+
+  // Softmax + cross entropy as a 사용자 블록, with its own manual backward.
+  //
+  // Grouping in the UI keeps one external input port per internal input slot,
+  // so z arrives twice: once for max(z) and once for z - max(z). The backward
+  // formula recomputes p exactly as the forward graph does, which is what lets
+  // the executor reuse the forward intermediates instead of redoing them.
+  function installSoftmaxCrossEntropyBlock() {
+    USER_BLOCKS.set(SOFTMAX_CE_ID, {
+      id: SOFTMAX_CE_ID,
+      name: 'Softmax CE',
+      nodes: [
+        { id: 1, type: 'arrayMax', params: {} },
+        { id: 2, type: 'subtract', params: {} },
+        { id: 3, type: 'exp', params: {} },
+        { id: 4, type: 'sum', params: {} },
+        { id: 5, type: 'divide', params: {} },
+        { id: 6, type: 'log', params: {} },
+        { id: 7, type: 'multiply', params: {} },
+        { id: 8, type: 'sum', params: {} },
+        { id: 9, type: 'number', params: { value: -1 } },
+        { id: 10, type: 'multiply', params: {} }
+      ],
+      connections: [
+        { from: 1, to: 2, inputIndex: 1 },
+        { from: 2, to: 3, inputIndex: 0 },
+        { from: 3, to: 4, inputIndex: 0 },
+        { from: 3, to: 5, inputIndex: 0 },
+        { from: 4, to: 5, inputIndex: 1 },
+        { from: 5, to: 6, inputIndex: 0 },
+        { from: 6, to: 7, inputIndex: 1 },
+        { from: 7, to: 8, inputIndex: 0 },
+        { from: 8, to: 10, inputIndex: 0 },
+        { from: 9, to: 10, inputIndex: 1 }
+      ],
+      externalInputs: [
+        { nodeId: 1, inputIndex: 0, label: 'z' },
+        { nodeId: 2, inputIndex: 0, label: 'z' },
+        { nodeId: 7, inputIndex: 0, label: 'y' }
+      ],
+      outputNodeId: 10,
+      formula: 'L = -Σ y·ln(softmax(z))',
+      // dL/dz = softmax(z) - y, derived by hand and written as blocks.
+      manualBackprop: {
+        nodes: [
+          { id: 1, type: 'arrayMax', params: {} },
+          { id: 2, type: 'subtract', params: {} },
+          { id: 3, type: 'exp', params: {} },
+          { id: 4, type: 'sum', params: {} },
+          { id: 5, type: 'divide', params: {} },
+          { id: 6, type: 'subtract', params: {} }
+        ],
+        connections: [
+          { from: inputSource(0), to: 1, inputIndex: 0 },
+          { from: inputSource(1), to: 2, inputIndex: 0 },
+          { from: 1, to: 2, inputIndex: 1 },
+          { from: 2, to: 3, inputIndex: 0 },
+          { from: 3, to: 4, inputIndex: 0 },
+          { from: 3, to: 5, inputIndex: 0 },
+          { from: 4, to: 5, inputIndex: 1 },
+          { from: 5, to: 6, inputIndex: 0 },
+          { from: inputSource(2), to: 6, inputIndex: 1 }
+        ],
+        // Only the z gradient is ever stored; the other two destinations stay
+        // blank in the graph below, so those branches never execute.
+        gradientOutputNodeIds: [6, 6, 6]
+      }
+    });
+  }
+
   function buildTrainingGraph() {
     resetWorkspace();
+    installManualBackwardDefinitions();
+    installSoftmaxCrossEntropyBlock();
 
     const add = (type, params) => {
       const node = addBlock(type);
@@ -173,7 +309,7 @@ function benchmarkInPage(options) {
 
     const classCount = classes.length;
 
-    // sample -> x
+    // sample -> x, y
     const dataset = add('dataset');
     const index = add('variable', { name: 'i', mode: 'scalar', value: 0 });
     const sample = add('datasetSampleByIndex');
@@ -183,10 +319,12 @@ function benchmarkInPage(options) {
     link(sample, image, 0);
     const x = add('flatten');
     link(image, x, 0);
+    const target = add('sampleOneHot');
+    link(sample, target, 0);
 
-    // One affine layer: name·input + bias. The parameters are collected so the
-    // SGD update below can be generated for each of them.
-    const parameters = [];
+    // One affine layer: Wx + b. Both the forward nodes and the parameters are
+    // returned so the backward chain can be wired to the very same values.
+    const layers = [];
     const affine = (input, name, rows, cols, layerSeed) => {
       const weights = add('variable', {
         name: `W${name}`, mode: 'matrix', rows, cols,
@@ -203,80 +341,115 @@ function benchmarkInPage(options) {
       link(product, sum, 0);
       link(bias, sum, 1);
 
-      parameters.push(weights, bias);
-      return sum;
+      const layer = { name, weights, bias, input, product, sum };
+      layers.push(layer);
+      return layer;
     };
 
     // With --hidden N the graph becomes a two-layer network with a ReLU built
     // from the ordinary 최댓값 block, which is what the project is actually for.
     let features = x;
     let inputSize = 784;
+    let relu = null;
+    let zero = null;
     if (hidden > 0) {
-      const preActivation = affine(x, '1', hidden, 784, seed);
-      const zero = add('number', { value: 0 });
-      const relu = add('maximum');
+      const first = affine(x, '1', hidden, 784, seed);
+      zero = add('number', { value: 0 });
+      relu = add('maximum');
       link(zero, relu, 0);
-      link(preActivation, relu, 1);
+      link(first.sum, relu, 1);
       features = relu;
       inputSize = hidden;
     }
 
-    const z = affine(features, hidden > 0 ? '2' : '', classCount, inputSize, hidden > 0 ? seed + 1 : seed);
+    const last = affine(features, hidden > 0 ? '2' : '', classCount, inputSize, hidden > 0 ? seed + 1 : seed);
+    const z = last.sum;
 
-    // p = softmax(z), built from ordinary blocks and stabilized by max(z)
-    const zMax = add('arrayMax');
-    link(z, zMax, 0);
-    const shifted = add('subtract');
-    link(z, shifted, 0);
-    link(zMax, shifted, 1);
-    const expZ = add('exp');
-    link(shifted, expZ, 0);
-    const expSum = add('sum');
-    link(expZ, expSum, 0);
-    const p = add('divide');
-    link(expZ, p, 0);
-    link(expSum, p, 1);
+    const loss = add(`custom:${SOFTMAX_CE_ID}`);
+    link(z, loss, 0);
+    link(z, loss, 1);
+    link(target, loss, 2);
 
-    // loss = -Σ y·ln(p)
-    const logP = add('log');
-    link(p, logP, 0);
-    const y = add('sampleOneHot');
-    link(sample, y, 0);
-    const yLogP = add('multiply');
-    link(y, yLogP, 0);
-    link(logP, yLogP, 1);
-    const crossEntropy = add('sum');
-    link(yLogP, crossEntropy, 0);
-    const minusOne = add('number', { value: -1 });
-    const loss = add('multiply');
-    link(crossEntropy, loss, 0);
-    link(minusOne, loss, 1);
+    // Every gradient the backward chain writes needs a 변수 block to name it.
+    const gradientNames = ['gz', 'gh', ...layers.flatMap(layer => [
+      `gz${layer.name}`, `gp${layer.name}`, `gW${layer.name}`, `gb${layer.name}`
+    ])];
+    for (const name of gradientNames) add('variable', { name, mode: 'scalar', value: 0 });
+    add('variable', { name: 'gL', mode: 'scalar', value: 1 });
 
-    // SGD update for both parameters, committed together at the end of a step
-    const learningRate = add('number', { value: lr });
-    const updates = [];
-    for (const parameter of parameters) {
-      const name = parameter.params.name;
-      const gradient = add('derivative', { variable: name });
-      link(loss, gradient, 0);
-      const scaled = add('multiply');
-      link(learningRate, scaled, 0);
-      link(gradient, scaled, 1);
-      const updated = add('subtract');
-      link(parameter, updated, 0);
-      link(scaled, updated, 1);
-      const assign = add('setVariable', { variable: name });
-      link(updated, assign, 0);
-      updates.push(assign);
+    // ---------- backward pass, in the order this file chooses ----------
+    const backward = [];
+    const backwardBlock = (type, params, inputs) => {
+      const node = add(type, { manualBackpropMode: 'backward', ...params });
+      inputs.forEach((from, inputIndex) => link(from, node, inputIndex));
+      backward.push(node);
+      return node;
+    };
+
+    // dL/dz = p - y. Only the second z port stores a gradient.
+    backwardBlock(`custom:${SOFTMAX_CE_ID}`, {
+      manualBackpropUpstream: 'gL',
+      manualBackpropGradient0: '',
+      manualBackpropGradient1: 'gz',
+      manualBackpropGradient2: ''
+    }, [z, z, target]);
+
+    let upstream = 'gz';
+    for (let i = layers.length - 1; i >= 0; i--) {
+      const layer = layers[i];
+      const isFirst = i === 0;
+
+      // z = Wx + b  ->  dW-side gradient and db
+      backwardBlock('add', {
+        manualBackpropUpstream: upstream,
+        manualBackpropGradient0: `gp${layer.name}`,
+        manualBackpropGradient1: `gb${layer.name}`
+      }, [layer.product, layer.bias]);
+
+      // p = Wx  ->  dW = g ⊗ x, dx = Wᵀg. The first layer's dx would be the
+      // image gradient: its destination stays blank, so that branch is skipped.
+      backwardBlock('matvec', {
+        manualBackpropUpstream: `gp${layer.name}`,
+        manualBackpropGradient0: `gW${layer.name}`,
+        manualBackpropGradient1: isFirst ? '' : 'gh'
+      }, [layer.weights, layer.input]);
+
+      if (!isFirst) {
+        // h = max(0, z1)  ->  dz1 = g·[h = z1]
+        backwardBlock('maximum', {
+          manualBackpropUpstream: 'gh',
+          manualBackpropGradient0: '',
+          manualBackpropGradient1: `gz${layers[i - 1].name}`
+        }, [zero, layers[i - 1].sum]);
+        upstream = `gz${layers[i - 1].name}`;
+      }
     }
 
-    // 둘 다 계산 takes two inputs, so chain it to commit every parameter in one
-    // iteration.
-    let body = updates[0];
-    for (let i = 1; i < updates.length; i++) {
+    // ---------- SGD update ----------
+    const learningRate = add('number', { value: lr });
+    const updates = [];
+    for (const layer of layers) {
+      for (const [parameter, gradientName] of [[layer.weights, `gW${layer.name}`], [layer.bias, `gb${layer.name}`]]) {
+        const gradient = add('variable', { name: gradientName, mode: 'scalar', value: 0 });
+        const scaled = add('multiply');
+        link(learningRate, scaled, 0);
+        link(gradient, scaled, 1);
+        const updated = add('subtract');
+        link(parameter, updated, 0);
+        link(scaled, updated, 1);
+        const assign = add('setVariable', { variable: parameter.params.name });
+        link(updated, assign, 0);
+        updates.push(assign);
+      }
+    }
+
+    // 둘 다 계산 takes two inputs, so chain it to pin the forward pass, then
+    // every backward block in order, then the parameter updates.
+    let body = loss;
+    for (const node of [...backward, ...updates]) {
       const sequence = add('sequence');
       link(body, sequence, 0);
-      link(updates[i], sequence, 1);
+      link(node, sequence, 1);
       body = sequence;
     }
 
@@ -290,12 +463,17 @@ function benchmarkInPage(options) {
   // before the repeat block that trains the weights. Probe the loss separately
   // afterwards, on samples the training range never touched, to confirm the
   // benchmark graph actually learns something.
+  // The window is fixed rather than derived from --steps, so the same samples
+  // are scored no matter how long the run is and the before/after numbers stay
+  // comparable between invocations.
+  const HELD_OUT_FIRST_SAMPLE = 9500;
+
   function heldOutLoss(lossId, indexNode, sampleCount = 300) {
     const perClass = Math.floor(steps / classes.length);
-    if (perClass + sampleCount >= 10000) return null;
+    if (perClass >= HELD_OUT_FIRST_SAMPLE) return null;
 
     const signature = variableSignature(indexNode);
-    const first = (perClass + 500) * classes.length;
+    const first = HELD_OUT_FIRST_SAMPLE * classes.length;
     let total = 0;
 
     for (let i = 0; i < sampleCount; i++) {
@@ -305,12 +483,21 @@ function benchmarkInPage(options) {
     return total / sampleCount;
   }
 
+  // A block that threw leaves its message on the node. Without this check a
+  // broken graph still reports a step rate, because the repeat aborts on its
+  // first iteration and the wall clock simply looks fast.
+  function collectGraphErrors() {
+    const errors = [];
+    for (const node of graph.nodes.values()) {
+      if (node.lastError) errors.push(`${node.type}: ${node.lastError}`);
+    }
+    return errors;
+  }
+
   // Every run must start from the same state or the checksums diverge.
   function resetRuntimeState() {
     RUNTIME_VARIABLES.clear();
     pendingVariableUpdates = null;
-    sharedAutodiffContextKey = null;
-    sharedAutodiffByOutput = new Map();
   }
 
   return (async () => {
@@ -324,6 +511,12 @@ function benchmarkInPage(options) {
     }
 
     const { loss, index } = buildTrainingGraph();
+
+    // Loss before any training, so the report can prove the graph learned.
+    resetRuntimeState();
+    const untrainedChecksum = weightChecksum();
+    const untrainedLoss = heldOutLoss(loss.id, index);
+
     const results = [];
 
     // The first runs are discarded: the JIT has not warmed up on the compiled
@@ -334,21 +527,24 @@ function benchmarkInPage(options) {
       await evaluateGraph();
       const elapsedMs = performance.now() - started;
 
-      const lossNode = graph.nodes.get(loss.id);
-      if (lossNode?.lastError) throw new Error(`그래프 오류: ${lossNode.lastError}`);
+      const errors = collectGraphErrors();
+      if (errors.length) throw new Error(`그래프 오류:\n  ${errors.join('\n  ')}`);
       if (run < warmup) continue;
 
-      const checksum = weightChecksum();
       results.push({
         elapsedMs,
         stepsPerSecond: steps / (elapsedMs / 1000),
         msPerStep: elapsedMs / steps,
-        checksum,
+        checksum: weightChecksum(),
         heldOutLoss: heldOutLoss(loss.id, index)
       });
     }
 
-    return { classes: loaded, steps, warmup, hidden, results };
+    if (results[0].checksum === untrainedChecksum) {
+      throw new Error('학습 후 가중치가 초기값과 같습니다. 학습이 실행되지 않았습니다.');
+    }
+
+    return { classes: loaded, steps, warmup, hidden, untrainedLoss, results };
   })();
 }
 
@@ -392,6 +588,12 @@ async function main() {
       console.error('\n경고: 실행마다 체크섬이 다릅니다. 학습이 결정적이지 않습니다.');
       process.exitCode = 1;
     }
+
+    const trainedLoss = report.results[0].heldOutLoss;
+    if (report.untrainedLoss != null && trainedLoss != null && trainedLoss >= report.untrainedLoss) {
+      console.error('\n경고: held-out 손실이 줄지 않았습니다. 역전파가 실제로 학습하고 있지 않습니다.');
+      process.exitCode = 1;
+    }
   } finally {
     await browser.close();
     server.close();
@@ -418,7 +620,10 @@ function printReport(report, options, failures) {
   console.log(`  가중치 체크섬 ${report.results[0].checksum}`);
 
   const loss = report.results[0].heldOutLoss;
-  if (loss != null) console.log(`  학습 후 held-out 손실 ${loss.toFixed(6)}`);
+  if (loss != null) {
+    const before = report.untrainedLoss != null ? ` (학습 전 ${report.untrainedLoss.toFixed(6)})` : '';
+    console.log(`  학습 후 held-out 손실 ${loss.toFixed(6)}${before}`);
+  }
 
   if (failures.length) {
     console.log('\n페이지 오류:');

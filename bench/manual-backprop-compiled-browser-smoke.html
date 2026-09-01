@@ -89,6 +89,31 @@
               throw new Error('named gradient writes mismatch');
             }
 
+            // The gradient destinations, the upstream variable and the required
+            // branches are cached per node instance. Editing them in the
+            // inspector must take effect on the very next execution.
+            const gc2 = scalarVariable('gc2', 0);
+            backwardNode.params.manualBackpropGradient0 = '';
+            backwardNode.params.manualBackpropGradient1 = 'gc2';
+            executeManualBackpropNode('multiply', fakeBase, backwardNode, [3, 4]);
+            if (readRuntimeVariable(gc2) !== 6) {
+              throw new Error('edited gradient destination was not picked up: ' + readRuntimeVariable(gc2));
+            }
+            if (readRuntimeVariable(gb) !== 6) {
+              throw new Error('a destination cleared to blank must stop writing its old variable');
+            }
+
+            const g2 = scalarVariable('g2', 10);
+            backwardNode.params.manualBackpropUpstream = 'g2';
+            executeManualBackpropNode('multiply', fakeBase, backwardNode, [3, 4]);
+            if (readRuntimeVariable(gc2) !== 30) {
+              throw new Error('edited upstream variable was not picked up: ' + readRuntimeVariable(gc2));
+            }
+
+            backwardNode.params.manualBackpropUpstream = 'g';
+            backwardNode.params.manualBackpropGradient0 = 'ga';
+            backwardNode.params.manualBackpropGradient1 = 'gb';
+
             const usesY = {
               nodes: [{ id: 1, type: 'multiply', params: {} }],
               connections: [
