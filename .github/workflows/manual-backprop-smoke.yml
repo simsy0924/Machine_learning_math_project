@@ -38,7 +38,9 @@ jobs:
         run: |
           set -euo pipefail
           ! grep -nE 'js/autodiff(-compiled|-spatial-fusion)?\.js' index.html
-          ! grep -R -nE 'differentiateGraph\(|computeAllGraphGradients\(|primitiveVJP\(|userBlockVJP\(' js index.html
+          # bench/ is included: a check script that still calls a removed
+          # autodiff entry point silently stops checking anything.
+          ! grep -R -nE 'differentiateGraph\(|computeAllGraphGradients\(|primitiveVJP\(|userBlockVJP\(' js bench index.html
 
       - name: Verify manual runtimes are loaded
         shell: bash

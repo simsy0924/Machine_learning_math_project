@@ -35,7 +35,11 @@ function parseArgs(argv) {
     warmup: 1,
     hidden: 0,
     classes: ['cat', 'fish', 'house'],
-    lr: 0.05,
+    // Plain per-sample SGD over a strict cat/fish/house cycle. At lr 0.05 the
+    // weights oscillate enough that the final model can score worse on held-out
+    // samples than the untrained one, which makes "did it learn?" unanswerable.
+    // 0.01 keeps the endpoint stable without changing what is measured.
+    lr: 0.01,
     seed: 1,
     headed: false,
     json: false
@@ -459,12 +463,17 @@ function benchmarkInPage(options) {
   // before the repeat block that trains the weights. Probe the loss separately
   // afterwards, on samples the training range never touched, to confirm the
   // benchmark graph actually learns something.
+  // The window is fixed rather than derived from --steps, so the same samples
+  // are scored no matter how long the run is and the before/after numbers stay
+  // comparable between invocations.
+  const HELD_OUT_FIRST_SAMPLE = 9500;
+
   function heldOutLoss(lossId, indexNode, sampleCount = 300) {
     const perClass = Math.floor(steps / classes.length);
-    if (perClass + sampleCount >= 10000) return null;
+    if (perClass >= HELD_OUT_FIRST_SAMPLE) return null;
 
     const signature = variableSignature(indexNode);
-    const first = (perClass + 500) * classes.length;
+    const first = HELD_OUT_FIRST_SAMPLE * classes.length;
     let total = 0;
 
     for (let i = 0; i < sampleCount; i++) {

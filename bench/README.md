@@ -16,7 +16,7 @@ node bench/train-bench.mjs
 | `--warmup N` | `1` | 통계에서 제외할 워밍업 실행 횟수 |
 | `--hidden N` | `0` | `0`이면 한 층, `N > 0`이면 ReLU 은닉층 하나를 추가 |
 | `--classes a,b,c` | `cat,fish,house` | 사용할 Quick Draw 종류 |
-| `--lr X` | `0.05` | 학습률 |
+| `--lr X` | `0.01` | 학습률 |
 | `--seed N` | `1` | 가중치 초기화 시드 |
 | `--json` | | 결과를 JSON으로 출력 |
 | `--headed` | | 브라우저 창을 띄워서 확인 |
@@ -30,12 +30,12 @@ node bench/train-bench.mjs --steps 20000 --runs 5 --warmup 2
 ## 출력 읽는 법
 
 ```
-종류 cat, fish, house · step 20,000 · 은닉층 없음 · lr 0.05 · seed 1 · warmup 2회 제외
-  run 1: 20,557 step/s · 0.0486 ms/step
+종류 cat, fish, house · step 20,000 · 은닉층 없음 · lr 0.01 · seed 1 · warmup 2회 제외
+  run 1: 26,599 step/s · 0.0376 ms/step
   ...
-  중앙값 22,207 step/s · 최고 25,478 step/s
-  가중치 체크섬 65448dec01716d81
-  학습 후 held-out 손실 0.512683 (학습 전 1.110391)
+  중앙값 24,823 step/s · 최고 26,599 step/s
+  가중치 체크섬 b1c6f12369110dd2
+  학습 후 held-out 손실 0.356920 (학습 전 1.118071)
 ```
 
 - **step/s** — 컨테이너/CPU 상태에 따라 ±7% 정도 흔들립니다. 실행 간 비교는
@@ -43,9 +43,16 @@ node bench/train-bench.mjs --steps 20000 --runs 5 --warmup 2
 - **가중치 체크섬** — 학습이 끝난 뒤 모든 런타임 변수의 비트를 그대로 해싱한 값입니다.
   **오버헤드만 줄이는 최적화라면 이 값이 절대 변하면 안 됩니다.** 값이 바뀌었다면
   계산 결과가 달라진 것이므로 그 변경은 되돌려야 합니다.
-- **held-out 손실** — 학습 구간에 쓰이지 않은 샘플 300장의 평균 손실입니다.
-  학습 전에는 약 `1.11`, 20,000 step 뒤에는 약 `0.513`입니다. 벤치마크 그래프가
-  실제로 학습하고 있다는 확인용 값입니다.
+- **held-out 손실** — 학습에 절대 쓰이지 않는 고정 구간(종류별 9,500번 샘플부터)
+  300장의 평균 손실입니다. 창이 `--steps`와 무관하게 고정이라 실행 설정을 바꿔도
+  같은 기준으로 비교됩니다. 학습 전에는 약 `1.118`, 2,000 step만 돌려도 `0.43`
+  아래로 내려갑니다. 벤치마크 그래프가 실제로 학습하고 있다는 확인용 값입니다.
+
+기본 학습률은 `0.01`입니다. 한 샘플씩 갱신하면서 cat/fish/house를 순서대로 도는
+구조라 `0.05`에서는 가중치가 크게 흔들려, step 수에 따라 학습이 끝난 모델이
+학습 전보다 held-out 손실이 높아지는 지점이 생깁니다. 그러면 "학습이 되고 있는가"를
+판정할 수 없기 때문에 기본값을 낮췄습니다. 예전 설정은 `--lr 0.05`로 그대로
+재현할 수 있습니다.
 
 ### 조용히 실패하지 않습니다
 
@@ -65,17 +72,21 @@ node bench/train-bench.mjs --steps 20000 --runs 5 --warmup 2
 node bench/arena-check.mjs
 ```
 
-> 이 검사는 현재 실행되지 않습니다. 아래 '아직 복구하지 않은 검사'를 보세요.
-
 커널이 결과 버퍼를 재사용해도 계산 결과가 달라지지 않는지 확인합니다. 같은 그래프를
 **재사용을 끄고 한 번, 켜고 한 번** 실행해 런타임 변수 상태를 비트 단위로 비교합니다.
 
 ```
 OK   aliasingAccumulator  풀링 끔 52370d421c73f0f3 · 풀링 켬 52370d421c73f0f3
-OK   userBlockTraining    풀링 끔 349c784bbe2e5e5a · 풀링 켬 349c784bbe2e5e5a
+OK   userBlockTraining    풀링 끔 2683556c7a50cbb1 · 풀링 켬 2683556c7a50cbb1
 OK   matrixAccumulator    풀링 끔 613f1c38cfeda1fe · 풀링 켬 613f1c38cfeda1fe
 OK   nestedRepeat         풀링 끔 4054022e11e8d6c9 · 풀링 켬 4054022e11e8d6c9
 ```
+
+`userBlockTraining` 그래프는 softmax를 실제 `블록 묶기`로 사용자 블록으로 만든 뒤
+`dz = p ⊙ (g - g·p)`를 그 블록의 역전파 정의로 저장하고, 손실부터 `W`까지 여섯 개의
+역전파 블록을 손으로 연결해 학습합니다. 사용자 블록 순전파 trace와 수동 역전파가
+즉시 쓰는 gradient 변수는 모두 아레나 버퍼를 회차 경계 너머로 붙잡을 수 있는
+자리이므로, 이 그래프가 그 경로를 덮습니다.
 
 버퍼 재사용 버그는 예외를 던지지 않고 **조용히 틀린 값으로 학습**하기 때문에, 커널이나
 버퍼 아레나를 건드린 뒤에는 이 검사를 반드시 돌리세요. 검사 그래프는 각각 다른 함정을 노립니다.
@@ -83,7 +94,7 @@ OK   nestedRepeat         풀링 끔 4054022e11e8d6c9 · 풀링 켬 4054022e11e8
 | 그래프 | 노리는 것 |
 | --- | --- |
 | `aliasingAccumulator` | `펼치기`·`값 보기`·`둘 다 계산`이 입력 버퍼를 그대로 넘기는 경로 |
-| `userBlockTraining` | 사용자 블록을 통한 미분, `zerosLike`의 0 초기화 |
+| `userBlockTraining` | 사용자 블록 순전파 trace, 수동 역전파가 즉시 쓰는 gradient 변수 |
 | `matrixAccumulator` | 회차를 넘어 살아남는 행렬이 `외적`에 들어가는 경우 |
 | `nestedRepeat` | 중첩 반복의 회차 경계 |
 
@@ -93,8 +104,6 @@ OK   nestedRepeat         풀링 끔 4054022e11e8d6c9 · 풀링 켬 4054022e11e8
 node bench/spatial-math-check.mjs
 ```
 
-> 이 검사는 현재 실행되지 않습니다. 아래 '아직 복구하지 않은 검사'를 보세요.
-
 실제 브라우저 페이지에서 `배열 모양 바꾸기`와 `슬라이딩 창 펼치기`를 검사합니다.
 
 검사 항목:
@@ -102,29 +111,55 @@ node bench/spatial-math-check.mjs
 - reshape 모양 변경과 `-1` 자동 계산
 - reshape의 zero-copy 동작
 - 2×2 sliding-window unfold 순전파
-- 겹치는 창에서 입력 gradient 누적
+- `슬라이딩 창 합치기`가 겹치는 창의 입력 gradient를 제대로 누적하는지
 - zero padding
-- `unfold → 행렬×벡터 → 합` 전체 그래프에서 커널과 입력 양쪽 자동미분
+- `unfold → 행렬×벡터 → 합` 전체 그래프를 실제 `역전파 실행` 경로로 돌려
+  커널과 입력 양쪽 gradient 확인
 
-## 공간 연산 fusion 검사
+마지막 항목의 역전파는 자동 생성이 아니라 이 파일이 직접 써 둔 정의입니다.
+
+| 블록 | 저장된 역전파 식 |
+| --- | --- |
+| `합` | `dx = g·[x = x]` |
+| `행렬 × 벡터` | `dA = g ⊗ x`, `dx = Aᵀg` |
+| `슬라이딩 창 펼치기` | `dx = fold2d(g, x)` (같은 창 크기·stride·padding) |
+
+## CNN 패턴 수동 역전파 검사
 
 ```bash
-node bench/spatial-fusion-check.mjs
+node bench/spatial-backprop-check.mjs
 ```
 
-> 이 검사는 현재 실행되지 않습니다. 아래 '아직 복구하지 않은 검사'를 보세요.
+발표용 CNN 패턴 한 가지를 사용자 블록으로 만들고, 손으로 쓴 역전파가 맞는지 검사합니다.
 
-4필터 CNN에서 실제로 사용하는 패턴을 만들어 학습용 `unfold → 행렬×벡터` fusion을 검사합니다.
+```text
+Conv 3×3 → 배열 모양 바꾸기 → max(0,·) → AvgPool 2×2 (stride 2) → 합
+        × 4분기
+```
 
-- 하나의 3×3 unfold를 네 합성곱 필터가 공유
-- 각 필터 뒤의 2×2 / stride 2 평균 풀링
-- fusion OFF/ON의 모든 변수 gradient를 Float32 비트 단위로 비교
-- fusion된 matvec 개수 확인
-- 같은 gradient pass의 평균 실행 시간을 함께 출력
+저장된 역전파 정의:
 
-fusion은 사용자에게 보이는 블록이나 수식을 바꾸지 않습니다. 학습 중에만 큰 patch 행렬과
-patch-gradient 행렬의 실체화를 생략합니다. 필요하면 개발자 콘솔에서
-`SPATIAL_TRAINING_FUSION.setDisabled(true)`로 기존 경로와 직접 비교할 수 있습니다.
+```text
+dq = g·1            dP = dq ⊗ [¼,¼,¼,¼]      dR = fold2(dP, R)
+dS = dR·[R = S]     dc = reshape(dS, 676)    dk = Aᵀdc
+dA = dc ⊗ k         dx = fold3(dA, x)
+```
+
+검사 항목:
+
+- 네 필터 `k1..k4`의 gradient 36개를 손실의 중심 차분과 비교
+- 입력 `x`의 gradient를 이미지 여러 위치에서 중심 차분과 비교
+- 커널 부호를 뒤집어 ReLU가 전부 막히는 경우 `dk`와 `dx`가 정확히 0인지
+- 역전파 정의 중 순전파 trace에서 재사용된 중간값 개수
+- 한 번의 수동 gradient pass 평균 실행 시간
+
+ReLU kink에서 떨어져 있으면 손실은 모든 파라미터에 대해 정확히 선형이므로 중심 차분은
+근사가 아니라 역전파 식이 내놓아야 하는 바로 그 값입니다. 검사 데이터는 모든
+pre-activation을 양수로 유지해 어떤 섭동도 kink를 넘지 않게 합니다. 마스크 자체는
+부호를 뒤집은 두 번째 경우가 검사합니다.
+
+예전에 이 자리에 있던 `unfold → 행렬×벡터` fusion 비교는 자동미분과 함께 런타임이
+제거되면서 비교 대상이 사라졌습니다.
 
 ## 필요한 것
 
@@ -174,13 +209,3 @@ gb → 곱하기(lr) → 빼기(b) → 값 바꾸기(b) ─┴→ 둘 다 계산
 - 순전파 출력 `y`를 읽는 역전파 정의
 - 저장하지 않는 gradient 가지의 제거
 - gradient 변수의 즉시 쓰기와 다음 역전파 블록의 즉시 읽기
-
-## 아직 복구하지 않은 검사
-
-`arena-check.mjs`, `spatial-math-check.mjs`, `spatial-fusion-check.mjs`는 아직
-제거된 자동미분(`미분` 블록, `primitiveVJP`, 학습용 fusion 런타임)에 의존하고
-있어서 지금은 실행되지 않습니다. 실행하면 조용히 넘어가지 않고 오류로 멈춥니다.
-수동 역전파 기준으로 다시 쓰는 작업이 남아 있습니다.
-
-`weight-io-check.mjs`와 `bench/manual-backprop*-browser-smoke.html`은 정상
-동작합니다.
