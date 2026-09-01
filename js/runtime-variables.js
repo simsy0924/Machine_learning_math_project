@@ -5,17 +5,54 @@
 // lives on a stack and an inner 반복 can use `i` while an outer one still
 // exposes `epoch`.
 
+// The signature string decides whether a stored runtime value still belongs to
+// the 변수 block that named it, so its exact format is part of the .mmlab file
+// format: a saved project stores the signature next to each trained weight.
+// Building it costs a JSON.stringify, and the manual-backprop hot path asks for
+// it on every gradient read and write, so remember the last answer per node and
+// rebuild only when one of the eight params it depends on actually changed.
+const VARIABLE_SIGNATURE_CACHE = new WeakMap();
+
 function variableSignature(node) {
-  return JSON.stringify({
-    mode: node.params.mode,
-    value: node.params.value,
-    length: node.params.length,
-    rows: node.params.rows,
-    cols: node.params.cols,
-    init: node.params.init,
-    seed: node.params.seed,
-    scale: node.params.scale
+  const params = node.params;
+  const cached = VARIABLE_SIGNATURE_CACHE.get(node);
+  if (
+    cached &&
+    cached.mode === params.mode &&
+    cached.value === params.value &&
+    cached.length === params.length &&
+    cached.rows === params.rows &&
+    cached.cols === params.cols &&
+    cached.init === params.init &&
+    cached.seed === params.seed &&
+    cached.scale === params.scale
+  ) {
+    return cached.signature;
+  }
+
+  const signature = JSON.stringify({
+    mode: params.mode,
+    value: params.value,
+    length: params.length,
+    rows: params.rows,
+    cols: params.cols,
+    init: params.init,
+    seed: params.seed,
+    scale: params.scale
   });
+
+  VARIABLE_SIGNATURE_CACHE.set(node, {
+    mode: params.mode,
+    value: params.value,
+    length: params.length,
+    rows: params.rows,
+    cols: params.cols,
+    init: params.init,
+    seed: params.seed,
+    scale: params.scale,
+    signature
+  });
+  return signature;
 }
 
 function initialVariableValue(node) {
