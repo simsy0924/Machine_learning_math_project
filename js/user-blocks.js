@@ -149,16 +149,26 @@ function createUserBlockFromSelection() {
       graph.connections.push({ from: newNode.id, to: c.to, inputIndex: c.inputIndex });
     }
   });
+  // Inside the 내부 구조 편집 workspace the grouped blocks are gone, so an output
+  // pointer aimed at one of them would leave the definition unsaveable. The new
+  // block produces exactly the value the old output did, so it takes over.
+  if (userBlockEditorState && core.has(userBlockEditorState.outputNodeId)) {
+    userBlockEditorState.outputNodeId = newNode.id;
+  }
   cancelGroupSelection();
   updateWires();
   invalidatePreviews();
   syncWorkspaceState();
+  decorateEditorNodes();
   notifyWorkspaceChanged();
 }
 
 // ---------- storage and palette ----------
 
+// Every write to the library goes through here, so this is also where the
+// compiled plans that captured the old definitions are marked stale.
 function persistUserBlocks() {
+  bumpUserBlockLibraryVersion();
   try {
     localStorage.setItem(USER_BLOCK_STORAGE_KEY, JSON.stringify([...USER_BLOCKS.values()]));
   } catch (e) {
@@ -171,6 +181,7 @@ function loadUserBlocks() {
     const raw = localStorage.getItem(USER_BLOCK_STORAGE_KEY);
     if (!raw) return;
     for (const def of JSON.parse(raw)) USER_BLOCKS.set(def.id, def);
+    bumpUserBlockLibraryVersion();
   } catch (e) {
     console.warn('사용자 블록 불러오기 실패', e);
   }
@@ -204,6 +215,31 @@ function renderMyBlocksPalette() {
     row.append(addButton, deleteButton);
     myBlocksPalette.appendChild(row);
   }
+}
+
+// Every 사용자 블록 id that `customId` uses, directly or through nested blocks.
+function userBlockDependencies(customId, found = new Set()) {
+  const definition = USER_BLOCKS.get(customId);
+  if (!definition) return found;
+  for (const node of definition.nodes || []) {
+    const type = String(node.type || '');
+    if (!type.startsWith('custom:')) continue;
+    const childId = type.slice(7);
+    if (found.has(childId)) continue;
+    found.add(childId);
+    userBlockDependencies(childId, found);
+  }
+  return found;
+}
+
+// Placing `candidateId` inside the definition of `hostId` closes a cycle when the
+// candidate is the host itself or already depends on it. A saved cycle compiles
+// without complaint and only shows up as a stack overflow on the next 계산, so
+// it is refused while the block is being placed.
+function userBlockWouldRecurse(candidateId, hostId) {
+  if (!candidateId || !hostId) return false;
+  if (candidateId === hostId) return true;
+  return userBlockDependencies(candidateId).has(hostId);
 }
 
 function userBlockUsage(customId) {
@@ -556,6 +592,21 @@ function saveUserBlockEditor() {
     return;
   }
 
+  // A block that contains itself, directly or through a nested block, saves and
+  // persists happily and then blows the stack on the next 계산.
+  const recursive = [...graph.nodes.values()].find(node =>
+    String(node.type).startsWith('custom:')
+    && userBlockWouldRecurse(String(node.type).slice(7), userBlockEditorState.customId));
+  if (recursive) {
+    const recursiveId = String(recursive.type).slice(7);
+    const host = USER_BLOCKS.get(userBlockEditorState.customId);
+    const hostName = host?.name || '이 블록';
+    alert(recursiveId === userBlockEditorState.customId
+      ? `'${hostName}' 자신이 내부에 들어 있습니다. 제거한 뒤 다시 저장해 주세요.`
+      : `'${USER_BLOCKS.get(recursiveId)?.name || recursiveId}' 블록은 '${hostName}'을 사용하고 있어 내부에 둘 수 없습니다. 제거한 뒤 다시 저장해 주세요.`);
+    return;
+  }
+
   let updated;
   try {
     updated = collectEditedDefinition();
@@ -658,11 +709,42 @@ document.addEventListener('click', event => {
   if (!userBlockEditorState) return;
   const button = event.target.closest('[data-block]');
   if (!button) return;
-  if (!UNSUPPORTED_IN_USER_BLOCK.has(String(button.dataset.block || ''))) return;
+  const type = String(button.dataset.block || '');
+
+  // 묶기 never puts a 변수 inside a definition — it keeps it outside and leaves an
+  // external input in its place — because a 사용자 블록 is a pure function of its
+  // ports. A 변수 dropped straight into the internals would be invisible from the
+  // outside and could never receive a gradient.
+  if (type === 'variable') {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    alert('변수 블록은 사용자 블록 내부에 넣을 수 없습니다. 바깥에 두고 외부 입력으로 연결해 주세요.');
+    return;
+  }
+
+  if (!UNSUPPORTED_IN_USER_BLOCK.has(type)) return;
 
   event.preventDefault();
   event.stopImmediatePropagation();
   alert('미분, 값 바꾸기, 반복 블록은 사용자 블록 내부에 넣을 수 없습니다. 사용자 블록 바깥에서 사용해 주세요.');
+}, true);
+
+// The palette still lists the block currently being edited, and the blocks that
+// use it. Adding one of those closes a cycle, so stop it at the palette instead
+// of letting it become a stack overflow at 계산 time.
+document.addEventListener('click', event => {
+  if (!userBlockEditorState) return;
+  const button = event.target.closest('[data-custom-block]');
+  if (!button) return;
+  const candidateId = String(button.dataset.customBlock || '');
+  if (!userBlockWouldRecurse(candidateId, userBlockEditorState.customId)) return;
+
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  const host = USER_BLOCKS.get(userBlockEditorState.customId);
+  alert(candidateId === userBlockEditorState.customId
+    ? `'${host?.name || '이 블록'}'을 자기 자신 안에 넣을 수는 없습니다.`
+    : `'${USER_BLOCKS.get(candidateId)?.name || candidateId}' 블록은 '${host?.name || '이 블록'}'을 사용하고 있어 내부에 넣을 수 없습니다.`);
 }, true);
 
 const userBlockPaletteStyle = document.createElement('style');

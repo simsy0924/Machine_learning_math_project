@@ -68,6 +68,18 @@ const graph = { nodes: new Map(), connections: [] };
 const USER_BLOCKS = new Map();
 const USER_BLOCK_STORAGE_KEY = 'machine-learning-math-project.user-blocks.v1';
 
+// Compiled plans capture the 사용자 블록 definitions they saw while compiling —
+// including the definitions of nested 사용자 블록. Keying those caches on object
+// identity alone is not enough: editing a nested block replaces only that one
+// object, and every parent plan keeps running the version it captured. Every
+// change to the library bumps this counter instead, and a plan compiled at an
+// older version is rebuilt on its next use.
+let USER_BLOCK_LIBRARY_VERSION = 0;
+
+function bumpUserBlockLibraryVersion() {
+  USER_BLOCK_LIBRARY_VERSION++;
+}
+
 // Block type used only while a 사용자 블록 definition is open in the workspace
 // editor. One node of this type stands for one external input port.
 const USER_BLOCK_EXTERNAL_INPUT_TYPE = '__userBlockExternalInput';

@@ -175,6 +175,7 @@ function compileUserBlockPlan(definition) {
 
   return {
     definition,
+    libraryVersion: USER_BLOCK_LIBRARY_VERSION,
     steps,
     outputValueIndex,
     expressionIndexByKey,
@@ -185,9 +186,12 @@ function compileUserBlockPlan(definition) {
   };
 }
 
+// The WeakMap alone would keep serving a plan whose nested 사용자 블록 have since
+// been edited, because only the edited definition object is replaced. The
+// library version catches that case.
 function userBlockPlanFor(definition) {
   let plan = USER_BLOCK_PLANS.get(definition);
-  if (!plan) {
+  if (!plan || plan.libraryVersion !== USER_BLOCK_LIBRARY_VERSION) {
     plan = compileUserBlockPlan(definition);
     USER_BLOCK_PLANS.set(definition, plan);
   }

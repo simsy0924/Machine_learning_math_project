@@ -7,6 +7,7 @@ on:
       - 'js/**'
       - 'bench/manual-backprop-browser-smoke.html'
       - 'bench/manual-backprop-compiled-browser-smoke.html'
+      - 'bench/user-block-editor-browser-smoke.html'
       - '.github/workflows/manual-backprop-smoke.yml'
   push:
     branches:
@@ -16,6 +17,7 @@ on:
       - 'js/**'
       - 'bench/manual-backprop-browser-smoke.html'
       - 'bench/manual-backprop-compiled-browser-smoke.html'
+      - 'bench/user-block-editor-browser-smoke.html'
       - '.github/workflows/manual-backprop-smoke.yml'
 
 permissions:
@@ -100,3 +102,16 @@ jobs:
 
           cat /tmp/manual-backprop-compiled-smoke-dom.html
           grep -q '<div id="result">PASS</div>' /tmp/manual-backprop-compiled-smoke-dom.html
+
+          "$BROWSER" \
+            --headless=new \
+            --no-sandbox \
+            --disable-gpu \
+            --disable-dev-shm-usage \
+            --virtual-time-budget=5000 \
+            --dump-dom \
+            http://127.0.0.1:8765/bench/user-block-editor-browser-smoke.html \
+            > /tmp/user-block-editor-smoke-dom.html
+
+          cat /tmp/user-block-editor-smoke-dom.html
+          grep -q '<div id="result">PASS</div>' /tmp/user-block-editor-smoke-dom.html
