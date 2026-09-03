@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>User block internal editor browser smoke</title>
+</head>
+<body>
+  <div id="result">RUNNING</div>
+  <iframe id="app" src="../index.html" style="width:1200px;height:800px"></iframe>
+  <script>
+    const frame = document.getElementById('app');
+
+    frame.addEventListener('load', () => {
+      const script = frame.contentDocument.createElement('script');
+      script.textContent = `
+        (() => {
+          const finish = text => { parent.document.getElementById('result').textContent = text; };
+
+          // The editor talks to the user through window dialogs. Record them so a
+          // silent failure (a save that never happened) cannot pass as a success.
+          const alerts = [];
+          window.alert = message => alerts.push(String(message));
+          window.confirm = () => true;
+          let blockName = 'block';
+          window.prompt = () => blockName;
+
+          const connect = (fromId, toId, inputIndex) => {
+            graph.connections = graph.connections.filter(c => !(c.to === toId && c.inputIndex === inputIndex));
+            graph.connections.push({ from: fromId, to: toId, inputIndex });
+          };
+          const numberNode = value => {
+            const node = addBlock('number');
+            node.params.value = value;
+            return node;
+          };
+          const scalarVariable = (name, value) => {
+            const node = addBlock('variable');
+            node.params.name = name;
+            node.params.mode = 'scalar';
+            node.params.value = value;
+            return node;
+          };
+          const groupInto = (name, nodes) => {
+            blockName = name;
+            startGroupSelection();
+            for (const node of nodes) toggleGroupNode(node.id);
+            createUserBlockFromSelection();
+            return [...USER_BLOCKS.values()].find(definition => definition.name === name);
+          };
+          const internalNodeOfType = type => [...graph.nodes.values()].find(node => node.type === type);
+
+          const reset = () => {
+            alerts.length = 0;
+            resetWorkspace();
+            USER_BLOCKS.clear();
+            renderMyBlocksPalette();
+          };
+
+          try {
+            // ---- editing a nested block must reach the blocks that use it ----
+            // The compiled plan of the outer block captured the inner definition,
+            // and saving the inner one replaces only that object.
+            reset();
+            const x = scalarVariable('x', 5);
+            const two = numberNode(2);
+            const innerMultiply = addBlock('multiply');
+            connect(x.id, innerMultiply.id, 0);
+            connect(two.id, innerMultiply.id, 1);
+            const inner = groupInto('inner', [two, innerMultiply]);
+
+            const innerInstance = graph.nodes.get([...graph.nodes.keys()].find(id => graph.nodes.get(id).type === 'custom:' + inner.id));
+            const one = numberNode(1);
+            const outerAdd = addBlock('add');
+            connect(innerInstance.id, outerAdd.id, 0);
+            connect(one.id, outerAdd.id, 1);
+            const outer = groupInto('outer', [innerInstance, one, outerAdd]);
+            const outerInstance = graph.nodes.get([...graph.nodes.keys()].find(id => graph.nodes.get(id).type === 'custom:' + outer.id));
+
+            const before = evaluateNode(outerInstance.id);
+            if (before !== 11) throw new Error('nested user block forward is wrong before the edit: ' + before);
+
+            openUserBlockEditor(USER_BLOCKS.get(inner.id));
+            internalNodeOfType('number').params.value = 100;
+            saveUserBlockEditor();
+            if (isUserBlockWorkspaceEditing()) throw new Error('editing the nested block did not save: ' + alerts.join(' | '));
+
+            const after = evaluateNode(outerInstance.id);
+            if (after !== 501) {
+              throw new Error('the parent block kept running the old nested definition: ' + after);
+            }
+
+            // ---- a block must not be able to contain itself ----
+            reset();
+            const y = scalarVariable('y', 5);
+            const three = numberNode(3);
+            const multiply = addBlock('multiply');
+            connect(y.id, multiply.id, 0);
+            connect(three.id, multiply.id, 1);
+            const self = groupInto('self', [three, multiply]);
+            const selfInstance = graph.nodes.get([...graph.nodes.keys()].find(id => graph.nodes.get(id).type === 'custom:' + self.id));
+
+            openUserBlockEditor(USER_BLOCKS.get(self.id));
+            const paletteButton = document.querySelector('[data-custom-block="' + self.id + '"]');
+            if (!paletteButton) throw new Error('the edited block is missing from the palette');
+            const nodeCount = graph.nodes.size;
+            paletteButton.click();
+            if (graph.nodes.size !== nodeCount) throw new Error('the block being edited was added inside itself');
+
+            // The same cycle built without the palette must be refused on save,
+            // because a saved cycle only shows up as a stack overflow at 계산 time.
+            const smuggled = addBlock('custom:' + self.id);
+            connect(-1, smuggled.id, 0);
+            connect(smuggled.id, internalNodeOfType('multiply').id, 0);
+            saveUserBlockEditor();
+            if (!isUserBlockWorkspaceEditing()) throw new Error('a self-referencing definition was saved');
+            cancelUserBlockEditor();
+            if (evaluateNode(selfInstance.id) !== 15) throw new Error('cancelling the recursive edit did not restore the block');
+
+            // ---- 변수 stays outside, exactly as 묶기 leaves it ----
+            reset();
+            const z = scalarVariable('z', 5);
+            const four = numberNode(4);
+            const product = addBlock('multiply');
+            connect(z.id, product.id, 0);
+            connect(four.id, product.id, 1);
+            const pure = groupInto('pure', [four, product]);
+
+            openUserBlockEditor(USER_BLOCKS.get(pure.id));
+            const beforeVariable = graph.nodes.size;
+            document.querySelector('[data-block="variable"]').click();
+            if (graph.nodes.size !== beforeVariable) throw new Error('a 변수 block was added inside a definition');
+            const beforeAdd = graph.nodes.size;
+            document.querySelector('[data-block="add"]').click();
+            if (graph.nodes.size !== beforeAdd + 1) throw new Error('an ordinary block can no longer be added inside a definition');
+            cancelUserBlockEditor();
+
+            // ---- 추가 묶기 inside the editor keeps a usable output ----
+            reset();
+            const w = scalarVariable('w', 5);
+            const five = numberNode(2);
+            const scale = addBlock('multiply');
+            connect(w.id, scale.id, 0);
+            connect(five.id, scale.id, 1);
+            const regroup = groupInto('regroup', [five, scale]);
+            const regroupInstance = graph.nodes.get([...graph.nodes.keys()].find(id => graph.nodes.get(id).type === 'custom:' + regroup.id));
+
+            openUserBlockEditor(USER_BLOCKS.get(regroup.id));
+            groupInto('nested', [internalNodeOfType('number'), internalNodeOfType('multiply')]);
+            saveUserBlockEditor();
+            if (isUserBlockWorkspaceEditing()) {
+              throw new Error('grouping inside the editor left the definition unsaveable: ' + alerts.join(' | '));
+            }
+            const regrouped = evaluateNode(regroupInstance.id);
+            if (regrouped !== 10) throw new Error('regrouped definition computes the wrong value: ' + regrouped);
+
+            finish('PASS');
+          } catch (error) {
+            console.error(error);
+            finish('FAIL: ' + (error && error.stack ? error.stack : error));
+          }
+        })();
+      `;
+      frame.contentDocument.body.appendChild(script);
+    });
+  </script>
+</body>
+</html>

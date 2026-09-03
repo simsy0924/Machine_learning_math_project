@@ -267,6 +267,7 @@ function compileManualBackpropExecutionPlan(
 
   return {
     definition,
+    libraryVersion: USER_BLOCK_LIBRARY_VERSION,
     inputCount,
     requiredMask: [...requiredMask],
     usesForwardOutput: flags.usesForwardOutput,
@@ -318,8 +319,11 @@ function manualBackpropExecutionPlanFor(
     plansByOwner.set(owner, plans);
   }
 
+  // A backward plan resolves 사용자 블록 used inside the formula, and borrows the
+  // forward plan's expression map, so it goes stale for the same reason a
+  // forward plan does when the library changes.
   let plan = plans.get(key);
-  if (!plan) {
+  if (!plan || plan.libraryVersion !== USER_BLOCK_LIBRARY_VERSION) {
     plan = compileManualBackpropExecutionPlan(definition, inputCount, mask, forwardDefinition);
     plans.set(key, plan);
   }
