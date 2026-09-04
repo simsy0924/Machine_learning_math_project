@@ -57,6 +57,22 @@ document.addEventListener('click', event => {
 
 window.addEventListener('resize', updateWires);
 
+// The workspace can change size without a window resize (for example when a
+// neighboring grid panel grows). The wire SVG keeps a size-dependent viewBox,
+// so redraw once after those layout changes as well. Coalescing through one
+// animation frame avoids doing repeated geometry work during the same layout.
+if (typeof ResizeObserver === 'function') {
+  let workspaceWireResizeFrame = 0;
+  const workspaceWireResizeObserver = new ResizeObserver(() => {
+    if (workspaceWireResizeFrame) return;
+    workspaceWireResizeFrame = requestAnimationFrame(() => {
+      workspaceWireResizeFrame = 0;
+      updateWires();
+    });
+  });
+  workspaceWireResizeObserver.observe(workspace);
+}
+
 loadUserBlocks();
 renderMyBlocksPalette();
 resetDrawCanvas();
