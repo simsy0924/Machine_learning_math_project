@@ -69,7 +69,7 @@ function loadChromium() {
   throw new Error('playwright를 찾지 못했습니다. `npm i -g playwright` 또는 PLAYWRIGHT_MODULE 환경변수로 경로를 지정하세요.');
 }
 
-async function checkInPage() {
+async function checkInPage(timingIterations = 40) {
   function assert(condition, message) {
     if (!condition) throw new Error(message);
   }
@@ -365,8 +365,8 @@ async function checkInPage() {
 
   // ---- 3. timing of one full manual gradient pass ----
   writeInputs(1);
-  const iterations = 40;
-  for (let i = 0; i < 8; i++) await runGradients(built);
+  const iterations = timingIterations;
+  for (let i = 0; i < (iterations >= 400 ? 40 : 8); i++) await runGradients(built);
   const started = performance.now();
   for (let i = 0; i < iterations; i++) await runGradients(built);
   const msPerPass = (performance.now() - started) / iterations;
@@ -392,8 +392,9 @@ try {
   page.on('pageerror', error => pageErrors.push(error.message));
   await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'load' });
   if (pageErrors.length) throw new Error(`페이지 로딩 오류: ${pageErrors.join(' | ')}`);
-  const result = await page.evaluate(checkInPage);
-  console.log('spatial manual backprop checks:', result);
+  const result = await page.evaluate(checkInPage, process.argv.includes('--benchmark') ? 400 : 40);
+  if (process.argv.includes('--json')) console.log(JSON.stringify(result));
+  else console.log('spatial manual backprop checks:', result);
 } finally {
   await browser?.close();
   await new Promise(resolve => server.close(resolve));

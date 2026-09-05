@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 const root = new URL('../', import.meta.url);
 globalThis.PROFILER_HOOKS = {};
-for (const file of ['js/values.js', 'js/spatial-ops.js', 'js/evaluate-compiled.js']) {
+for (const file of ['js/values.js', 'js/spatial-ops.js']) {
   vm.runInThisContext(fs.readFileSync(new URL(file, root), 'utf8'), { filename: file });
 }
 vm.runInThisContext(fs.readFileSync(new URL('js/manual-math-extensions.js', root), 'utf8').split('BLOCKS.fold2d =')[0]);
@@ -59,27 +59,4 @@ for (const [h, w, kh, kw, sh, sw, pad] of [
   }
 }
 
-const gradient = arrayValue([1.1234567, -0, 12345.67, -0.00000003, 0.2], [5]);
-const weight = arrayValue([0.9, -0, 12, 0, 1.1], [5]);
-for (const a of [weight, 0, -0, 2.1]) for (const scale of [0, -0, 0.01, -3.2]) {
-  exact(subtractScaledValues(a, scale, gradient), subtractValues(a, multiplyValues(scale, gradient)), 'scaled subtract');
-  exact(subtractScaledValues(a, gradient, scale), subtractValues(a, multiplyValues(gradient, scale)), 'swapped scaled subtract');
-}
-exact(subtractScaledValues(weight, gradient, gradient), subtractValues(weight, multiplyValues(gradient, gradient)), 'array fallback');
-assert.equal(subtractScaledValues(2, 3, 4), -10);
-assert.throws(() => subtractScaledValues(arrayValue([1]), 0.1, gradient));
-
-function steps(shared = false, backward = false) {
-  return [
-    { id: 4, node: { type: 'multiply', params: { manualBackpropMode: backward ? 'backward' : 'forward' } }, kind: 'normal', inputIds: [2, 3] },
-    { id: 5, node: { type: 'subtract', params: {} }, kind: 'normal', inputIds: [1, 4] },
-    ...(shared ? [{ id: 6, node: { type: 'display', params: {} }, kind: 'normal', inputIds: [4] }] : [])
-  ];
-}
-assert.equal(fuseLeafScaledSubtracts(steps(), 5)[0].kind, 'subtractScaled');
-assert.equal(fuseLeafScaledSubtracts(steps(true), 6).length, 3, 'shared product must remain');
-assert.equal(fuseLeafScaledSubtracts(steps(false, true), 5).length, 2, 'manual backward must remain');
-const separated = steps();
-separated.splice(1, 0, { id: 7, node: { type: 'setVariable', params: {} }, kind: 'setVariable', inputIds: [1] });
-assert.equal(fuseLeafScaledSubtracts(separated, 5).length, 3, 'do not cross state changes');
-console.log('PASS: transpose, spatial cache invalidation/fallback, Float32 fusion and shared/stateful guards');
+console.log('PASS: transpose and spatial cache invalidation/fallback');

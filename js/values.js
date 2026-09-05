@@ -216,24 +216,6 @@ function subtractValues(a, b) {
   return fastArrayValue(out, aa.shape);
 }
 
-// Equivalent to subtractValues(a, multiplyValues(b, c)). Array multiplication
-// rounds to Float32 before subtraction; preserve that boundary with fround.
-function subtractScaledValues(a, b, c) {
-  if (typeof b !== 'number' && typeof c === 'number') return subtractScaledValues(a, c, b);
-  if (typeof b !== 'number' || typeof c === 'number') return subtractValues(a, multiplyValues(b, c));
-  const cc = asArrayValue(c), cd = cc.data;
-  const aa = typeof a === 'number' ? null : asArrayValue(a);
-  if (aa && aa.data.length !== cd.length) throw new Error('배열의 원소 수가 서로 다릅니다.');
-  const out = takeResultBuffer(cd.length);
-  if (aa) {
-    const ad = aa.data;
-    for (let i = 0; i < out.length; i++) out[i] = ad[i] - Math.fround(b * cd[i]);
-  } else {
-    for (let i = 0; i < out.length; i++) out[i] = a - Math.fround(b * cd[i]);
-  }
-  return fastArrayValue(out, aa ? aa.shape : cc.shape);
-}
-
 function multiplyValues(a, b) {
   if (typeof a === 'number') {
     if (typeof b === 'number') return a * b;

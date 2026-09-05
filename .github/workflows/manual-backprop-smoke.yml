@@ -46,7 +46,7 @@ jobs:
           # autodiff entry point silently stops checking anything.
           ! grep -R -nE 'differentiateGraph\(|computeAllGraphGradients\(|primitiveVJP\(|userBlockVJP\(' js bench index.html
 
-      - name: Verify numeric kernels and Float32 rounding
+      - name: Verify numeric kernels
         run: node bench/numeric-kernel-check.mjs
 
       - name: Verify manual runtimes are loaded
@@ -147,23 +147,28 @@ jobs:
           git worktree add --detach "$RUNNER_TEMP/mmlab-base" "$BASE_SHA"
           # Use identical fixtures and the optional system-browser path on both.
           cp bench/train-bench.mjs "$RUNNER_TEMP/mmlab-base/bench/train-bench.mjs"
+          cp bench/spatial-backprop-check.mjs "$RUNNER_TEMP/mmlab-base/bench/spatial-backprop-check.mjs"
           mkdir -p benchmark-results
           for hidden in 0 64; do
             node "$RUNNER_TEMP/mmlab-base/bench/train-bench.mjs" --steps 10000 --runs 3 --warmup 1 --hidden "$hidden" --json > "benchmark-results/base-$hidden.json"
             node bench/train-bench.mjs --steps 10000 --runs 3 --warmup 1 --hidden "$hidden" --json > "benchmark-results/current-$hidden.json"
-            node bench/train-bench.mjs --steps 10000 --runs 3 --warmup 1 --hidden "$hidden" --no-fusion --json > "benchmark-results/no-fusion-$hidden.json"
+          done
+          for run in 1 2 3; do
+            node "$RUNNER_TEMP/mmlab-base/bench/spatial-backprop-check.mjs" --benchmark --json > "benchmark-results/spatial-base-$run.json"
+            node bench/spatial-backprop-check.mjs --benchmark --json > "benchmark-results/spatial-current-$run.json"
           done
           node --input-type=module <<'JS'
           import fs from 'node:fs';
           for (const hidden of [0, 64]) {
             const base = JSON.parse(fs.readFileSync(`benchmark-results/base-${hidden}.json`));
             const current = JSON.parse(fs.readFileSync(`benchmark-results/current-${hidden}.json`));
-            const noFusion = JSON.parse(fs.readFileSync(`benchmark-results/no-fusion-${hidden}.json`));
             const checksum = base.results[0].checksum;
-            if ([...base.results, ...current.results, ...noFusion.results].some(r => r.checksum !== checksum)) throw new Error(`Weight mismatch: hidden=${hidden}`);
+            if ([...base.results, ...current.results].some(r => r.checksum !== checksum)) throw new Error(`Weight mismatch: hidden=${hidden}`);
             const median = report => report.results.map(r => r.stepsPerSecond).sort((a, b) => a - b)[1];
-            console.log(JSON.stringify({ hidden, checksum, baseStepsPerSecond: median(base), currentStepsPerSecond: median(current), noFusionStepsPerSecond: median(noFusion), speedup: median(current) / median(base), noFusionSpeedup: median(noFusion) / median(base) }));
+            console.log(JSON.stringify({ hidden, checksum, baseStepsPerSecond: median(base), currentStepsPerSecond: median(current), speedup: median(current) / median(base) }));
           }
+          const spatialMedian = kind => [1, 2, 3].map(run => JSON.parse(fs.readFileSync(`benchmark-results/spatial-${kind}-${run}.json`)).msPerPass).sort((a,b) => a-b)[1];
+          console.log(JSON.stringify({ spatialBaseMs: spatialMedian('base'), spatialCurrentMs: spatialMedian('current'), spatialSpeedup: spatialMedian('base') / spatialMedian('current') }));
           JS
 
       - name: Keep benchmark results

@@ -26,28 +26,6 @@ const LEAF_PLAN_ORDERS = {
   training: selectedLeafOrder
 };
 
-function fuseLeafScaledSubtracts(steps, outputId) {
-  const uses = new Map();
-  for (const step of steps) for (const id of step.inputIds) uses.set(id, (uses.get(id) || 0) + 1);
-  const fused = [];
-  for (const step of steps) {
-    const product = fused[fused.length - 1];
-    // Only fuse adjacent, forward, single-consumer math. Sharing an intermediate
-    // or crossing any stateful step must continue to use the ordinary executor.
-    if (step.kind === 'normal' && step.node.type === 'subtract'
-      && step.node.params.manualBackpropMode !== 'backward'
-      && product?.kind === 'normal' && product.node.type === 'multiply'
-      && product.node.params.manualBackpropMode !== 'backward'
-      && step.inputIds[1] === product.id && uses.get(product.id) === 1 && product.id !== outputId) {
-      fused.pop();
-      step.kind = 'subtractScaled';
-      step.inputIds = [step.inputIds[0], ...product.inputIds];
-    }
-    fused.push(step);
-  }
-  return fused;
-}
-
 function compileLeafPlan(mode, outputId, structureCache) {
   const order = LEAF_PLAN_ORDERS[mode](outputId, structureCache);
   const steps = [];
@@ -94,7 +72,7 @@ function compileLeafPlan(mode, outputId, structureCache) {
   return {
     mode,
     outputId,
-    steps: fuseLeafScaledSubtracts(steps, outputId),
+    steps,
     values: [],
     pendingUpdates: new Map(),
     loopFrame: new Map(),
@@ -159,8 +137,6 @@ function runLeafPlanSteps(plan) {
         value = readCompiledVariable(step);
       } else if (step.kind === 'setVariable') {
         value = writeCompiledVariable(step, values[step.inputIds[0]]);
-      } else if (step.kind === 'subtractScaled') {
-        value = subtractScaledValues(values[step.inputIds[0]], values[step.inputIds[1]], values[step.inputIds[2]]);
       } else {
         const inputs = step.inputs;
         for (let i = 0; i < step.inputIds.length; i++) inputs[i] = values[step.inputIds[i]];
