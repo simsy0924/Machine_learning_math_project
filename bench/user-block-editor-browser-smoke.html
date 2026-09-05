@@ -153,6 +153,73 @@
             const regrouped = evaluateNode(regroupInstance.id);
             if (regrouped !== 10) throw new Error('regrouped definition computes the wrong value: ' + regrouped);
 
+            // ---- copy internals without modifying the original or consumers ----
+            reset();
+            const copyInput = scalarVariable('copyInput', 5);
+            const copyFactor = numberNode(2);
+            const copyProduct = addBlock('multiply');
+            connect(copyInput.id, copyProduct.id, 0);
+            connect(copyFactor.id, copyProduct.id, 1);
+            const copyDefinition = groupInto('copy source', [copyFactor, copyProduct]);
+            const copyInstance = graph.nodes.get(selectedNodeId);
+            const consumer = addBlock('display');
+            connect(copyInstance.id, consumer.id, 0);
+            const beforeDefinition = JSON.stringify(USER_BLOCKS.get(copyDefinition.id));
+            const beforeWires = JSON.stringify(graph.connections);
+            selectNode(copyInstance.id);
+            document.querySelector('.user-block-copy-button').click();
+            const copiedOutput = selectedNodeId;
+            if (copiedOutput === copyInstance.id || evaluateNode(copiedOutput) !== 10) throw new Error('copy button did not create a working copy');
+            if (JSON.stringify(USER_BLOCKS.get(copyDefinition.id)) !== beforeDefinition) throw new Error('copy changed the definition');
+            if (!graph.nodes.has(copyInstance.id) || evaluateNode(consumer.id) !== 10) throw new Error('copy changed the original consumer');
+            for (const wire of JSON.parse(beforeWires)) {
+              if (!graph.connections.some(c => c.from === wire.from && c.to === wire.to && c.inputIndex === wire.inputIndex)) throw new Error('copy removed an existing wire');
+            }
+            const copiedFactorWire = graph.connections.find(c => c.to === copiedOutput && c.inputIndex === 1);
+            graph.nodes.get(copiedFactorWire.from).params.value = 7;
+            if (evaluateNode(copiedOutput) !== 35 || evaluateNode(copyInstance.id) !== 10) throw new Error('copy params alias the source');
+            copyInput.params.value = 3;
+            if (evaluateNode(copiedOutput) !== 21 || evaluateNode(copyInstance.id) !== 6) throw new Error('copy lost the live external input');
+            const copiedSnapshot = buildProjectSnapshot();
+            rebuildWorkspaceFromSnapshot(copiedSnapshot);
+            if (evaluateNode(copiedOutput) !== 21 || evaluateNode(consumer.id) !== 6) throw new Error('copy does not survive save/load');
+
+            selectNode(copyInstance.id);
+            openUserBlockEditor(USER_BLOCKS.get(copyDefinition.id));
+            internalNodeOfType('number').params.value = 9;
+            document.getElementById('userBlockEditorCopy').click();
+            if (isUserBlockWorkspaceEditing() || evaluateNode(selectedNodeId) !== 27 || evaluateNode(copyInstance.id) !== 27) throw new Error('save and copy did not use the edited definition');
+            disconnectInput(copyInstance.id, 0);
+            const unconnectedCopy = copyUserBlockContents(copyInstance.id);
+            if (!unconnectedCopy || unconnectedCopy.missingInputs !== 1) throw new Error('missing external input was not left available to connect');
+
+            // Nested copies retain a usable custom instance at the next level.
+            // Use a fresh nesting of copy source.
+            const nestedSource = addBlock('custom:' + copyDefinition.id);
+            connect(copyInput.id, nestedSource.id, 0);
+            const nestedCopyDef = groupInto('nested copy', [nestedSource]);
+            const nestedCopy = copyUserBlockContents(selectedNodeId);
+            if (!nestedCopy || graph.nodes.get(nestedCopy.outputId).type !== 'custom:' + copyDefinition.id || evaluateNode(nestedCopy.outputId) !== 27) throw new Error('nested block copy is wrong');
+
+            // ---- insertion follows the viewport, including inside the editor ----
+            const assertVisible = node => {
+              const bounds = workspace.getBoundingClientRect();
+              const rect = nodesLayer.querySelector('[data-node-id="' + node.id + '"]').getBoundingClientRect();
+              if (rect.left < bounds.left - 1 || rect.top < bounds.top - 1 || rect.left >= bounds.right || rect.top >= bounds.bottom) throw new Error('new block header is outside the viewport');
+              if (rect.width < bounds.width - 32 && rect.right > bounds.right + 1) throw new Error('new block exceeds viewport width');
+              if (rect.height < bounds.height - 32 && rect.bottom > bounds.bottom + 1) throw new Error('new block exceeds viewport height');
+            };
+            for (const zoom of [0.35, 1, 2.5]) {
+              restoreWorkspaceViewSnapshot({ x: -4000, y: 3000, zoom });
+              for (let i = 0; i < 8; i++) assertVisible(addBlock('add'));
+            }
+            const explicit = addBlock('number', { x: 12345, y: -9876 });
+            if (explicit.x !== 12345 || explicit.y !== -9876) throw new Error('explicit placement changed');
+            openUserBlockEditor(USER_BLOCKS.get(nestedCopyDef.id));
+            restoreWorkspaceViewSnapshot({ x: 2300, y: -1700, zoom: 0.6 });
+            assertVisible(addBlock('number'));
+            cancelUserBlockEditor();
+
             finish('PASS');
           } catch (error) {
             console.error(error);

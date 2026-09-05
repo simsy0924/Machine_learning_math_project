@@ -87,11 +87,12 @@ function renderWorkspaceGraph() {
 function addBlock(type, position = null) {
   const def = getBlockDef(type);
   const id = nextNodeId++;
-  const count = graph.nodes.size;
-  const node = { id, type, x: position?.x ?? 34 + (count % 4) * 205, y: position?.y ?? 34 + Math.floor(count / 4) * 135, params: {} };
+  const placement = position || workspaceInsertionPosition(190, 135 + def.inputs.length * 22);
+  const node = { id, type, x: placement.x, y: placement.y, params: {} };
   for (const control of def.controls || []) node.params[control.key] = control.default;
   graph.nodes.set(id, node);
   renderNode(node);
+  if (!position) keepNewBlockVisible(node);
   selectNode(id);
   syncWorkspaceState();
   updateWires();

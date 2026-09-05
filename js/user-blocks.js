@@ -116,7 +116,7 @@ function createUserBlockFromSelection() {
 
   const serializedNodes = [...core].map(id => {
     const n = graph.nodes.get(id);
-    return { id: n.id, type: n.type, params: deepCloneJson(n.params) };
+    return { id: n.id, type: n.type, x: n.x, y: n.y, params: deepCloneJson(n.params) };
   });
   const customId = `u${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   const definition = {
@@ -284,6 +284,99 @@ function deleteUserBlock(customId) {
   return true;
 }
 
+// Copy one level of a custom block into the current outer workspace. All IDs and
+// params are independent; nested custom blocks keep referencing their library
+// definitions, just as adding another instance from the palette does.
+function copyUserBlockContents(instanceId) {
+  if (isUserBlockWorkspaceEditing() || evaluateBtn.disabled) return null;
+  const instance = graph.nodes.get(instanceId);
+  const definition = instance?.type?.startsWith('custom:') ? USER_BLOCKS.get(instance.type.slice(7)) : null;
+  if (!definition) return null;
+
+  try {
+    // Validate and construct off-graph so a malformed imported definition cannot
+    // leave a partially copied group in the workspace.
+    compileUserBlockPlan(definition);
+    const savedNodes = layoutDefinition(definition);
+    if (!savedNodes.length) throw new Error('복사할 내부 블록이 없습니다.');
+    const ids = new Map();
+    let nextId = nextNodeId;
+    for (const saved of savedNodes) {
+      if (!Number.isInteger(saved.id) || saved.id <= 0 || ids.has(saved.id)) throw new Error('내부 블록 ID가 올바르지 않습니다.');
+      ids.set(saved.id, nextId++);
+    }
+    const outputId = ids.get(definition.outputNodeId);
+    if (outputId == null) throw new Error('출력 블록을 찾을 수 없습니다.');
+
+    const sourceSlots = new Map();
+    (definition.externalInputs || []).forEach((slot, index) => {
+      if (slot.inputIndex == null && !sourceSlots.has(slot.nodeId)) sourceSlots.set(slot.nodeId, index);
+    });
+    const origin = workspaceInsertionPosition();
+    const minX = Math.min(...savedNodes.map(node => Number(node.x)));
+    const minY = Math.min(...savedNodes.map(node => Number(node.y)));
+    const copies = savedNodes.map(saved => {
+      // Legacy whole-node input slots are pass-through values, not the saved
+      // source node's original constant or variable.
+      const source = sourceSlots.has(saved.id);
+      const type = source ? 'display' : saved.type;
+      getBlockDef(type);
+      return { id: ids.get(saved.id), type,
+        x: origin.x + Number(saved.x) - minX, y: origin.y + Number(saved.y) - minY,
+        params: source ? {} : deepCloneJson(saved.params || {}) };
+    });
+    const copiesById = new Map(copies.map(node => [node.id, node]));
+    const connections = [];
+    const usedInputs = new Set();
+    const link = (from, to, inputIndex) => {
+      const target = copiesById.get(to);
+      if (!target || !Number.isInteger(inputIndex) || inputIndex < 0 || inputIndex >= getBlockDef(target.type).inputs.length) {
+        throw new Error('내부 입력 연결이 올바르지 않습니다.');
+      }
+      const key = `${to}:${inputIndex}`;
+      if (usedInputs.has(key)) return;
+      usedInputs.add(key);
+      connections.push({ from, to, inputIndex });
+    };
+    for (const connection of definition.connections || []) {
+      if (sourceSlots.has(connection.to)) continue;
+      if (!ids.has(connection.from)) throw new Error('내부 연결의 출력을 찾을 수 없습니다.');
+      link(ids.get(connection.from), ids.get(connection.to), connection.inputIndex);
+    }
+    let missingInputs = 0;
+    (definition.externalInputs || []).forEach((slot, index) => {
+      if (sourceSlots.has(slot.nodeId) && sourceSlots.get(slot.nodeId) !== index) return;
+      const to = ids.get(slot.nodeId), inputIndex = slot.inputIndex == null ? 0 : slot.inputIndex;
+      if (usedInputs.has(`${to}:${inputIndex}`)) return;
+      const incoming = graph.connections.find(c => c.to === instanceId && c.inputIndex === index);
+      if (incoming && graph.nodes.has(incoming.from)) link(incoming.from, to, inputIndex);
+      else missingInputs++;
+    });
+
+    cancelGroupSelection();
+    cancelConnection();
+    for (const node of copies) { graph.nodes.set(node.id, node); renderNode(node); }
+    graph.connections.push(...connections);
+    nextNodeId = nextId;
+    selectNode(outputId);
+    syncWorkspaceState();
+    focusWorkspaceNodes(copies.map(node => node.id));
+    updateWires();
+    workspaceStatus.textContent = `${copies.length}개 내부 블록 복사 완료${missingInputs ? ` · 연결할 외부 입력 ${missingInputs}개` : ''}`;
+    notifyWorkspaceChanged();
+    return { nodeIds: copies.map(node => node.id), outputId, missingInputs };
+  } catch (error) {
+    alert(`내부 블록을 복사할 수 없습니다.\n${error.message}`);
+    return null;
+  }
+}
+
+function saveAndCopyUserBlockEditor() {
+  const instanceId = userBlockEditorState?.outerSelectedNodeId;
+  saveUserBlockEditor();
+  if (!userBlockEditorState && instanceId != null) copyUserBlockContents(instanceId);
+}
+
 // ---------- editing a definition in the workspace ----------
 
 function ensureUserBlockEditorToolbar() {
@@ -295,10 +388,12 @@ function ensureUserBlockEditorToolbar() {
     <span class="pill user-block-editor-badge">사용자 블록 편집</span>
     <strong id="userBlockEditorTitle"></strong>
     <button type="button" id="userBlockEditorSave" class="primary">저장하고 돌아가기</button>
+    <button type="button" id="userBlockEditorCopy" class="ghost">저장하고 바깥으로 복사</button>
     <button type="button" id="userBlockEditorCancel" class="ghost">취소</button>`;
   document.querySelector('.workspace-head')?.appendChild(userBlockEditorToolbar);
   userBlockEditorTitle = document.getElementById('userBlockEditorTitle');
   document.getElementById('userBlockEditorSave')?.addEventListener('click', saveUserBlockEditor);
+  document.getElementById('userBlockEditorCopy')?.addEventListener('click', saveAndCopyUserBlockEditor);
   document.getElementById('userBlockEditorCancel')?.addEventListener('click', cancelUserBlockEditor);
 }
 
@@ -477,6 +572,7 @@ function openUserBlockEditor(definition) {
 
   ensureUserBlockEditorToolbar();
   userBlockEditorTitle.textContent = definition.name || '사용자 블록';
+  document.getElementById('userBlockEditorCopy').disabled = userBlockEditorState.outerNodes.get(userBlockEditorState.outerSelectedNodeId)?.type !== `custom:${definition.id}`;
   userBlockEditorToolbar.hidden = false;
   setEditingControlsDisabled(true);
   redrawEditorWorkspace();
@@ -680,6 +776,15 @@ INSPECTOR_EXTENSIONS.push(node => {
   button.textContent = '내부 구조 편집';
   button.addEventListener('click', () => openUserBlockEditor(definition));
   inspectorControls.prepend(button);
+
+  const copyButton = document.createElement('button');
+  copyButton.type = 'button';
+  copyButton.className = 'ghost user-block-copy-button';
+  copyButton.textContent = '내부 블록 복사';
+  copyButton.title = '순전파 내부 노드와 연결을 작업공간에 복사합니다. 원래 블록과 출력 연결은 유지됩니다.';
+  copyButton.disabled = evaluateBtn.disabled;
+  copyButton.addEventListener('click', () => copyUserBlockContents(node.id));
+  button.after(copyButton);
 });
 
 // ---------- editor guards ----------

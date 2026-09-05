@@ -386,7 +386,7 @@ const chromium = loadChromium();
 const { server, port } = await startServer();
 let browser;
 try {
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch({ headless: true, executablePath: process.env.CHROMIUM_EXECUTABLE_PATH || undefined });
   const page = await browser.newPage();
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));

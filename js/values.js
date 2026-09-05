@@ -216,6 +216,24 @@ function subtractValues(a, b) {
   return fastArrayValue(out, aa.shape);
 }
 
+// Equivalent to subtractValues(a, multiplyValues(b, c)). Array multiplication
+// rounds to Float32 before subtraction; preserve that boundary with fround.
+function subtractScaledValues(a, b, c) {
+  if (typeof b !== 'number' && typeof c === 'number') return subtractScaledValues(a, c, b);
+  if (typeof b !== 'number' || typeof c === 'number') return subtractValues(a, multiplyValues(b, c));
+  const cc = asArrayValue(c), cd = cc.data;
+  const aa = typeof a === 'number' ? null : asArrayValue(a);
+  if (aa && aa.data.length !== cd.length) throw new Error('배열의 원소 수가 서로 다릅니다.');
+  const out = takeResultBuffer(cd.length);
+  if (aa) {
+    const ad = aa.data;
+    for (let i = 0; i < out.length; i++) out[i] = ad[i] - Math.fround(b * cd[i]);
+  } else {
+    for (let i = 0; i < out.length; i++) out[i] = a - Math.fround(b * cd[i]);
+  }
+  return fastArrayValue(out, aa ? aa.shape : cc.shape);
+}
+
 function multiplyValues(a, b) {
   if (typeof a === 'number') {
     if (typeof b === 'number') return a * b;
@@ -469,7 +487,21 @@ function transposeMatrixVectorValues(matrix, vector) {
   if (vd.length !== rows) throw new Error('전치 행렬과 벡터의 크기가 맞지 않습니다.');
 
   const out = takeResultBuffer(cols);
-  for (let c = 0; c < cols; c++) {
+  // Read four adjacent columns together, retaining the original row-order
+  // Float64 accumulation and the single Float32 store for each output.
+  let c = 0;
+  for (; c + 3 < cols; c += 4) {
+    let s0 = 0, s1 = 0, s2 = 0, s3 = 0;
+    for (let r = 0; r < rows; r++) {
+      const base = r * cols + c, scale = vd[r];
+      s0 += md[base] * scale;
+      s1 += md[base + 1] * scale;
+      s2 += md[base + 2] * scale;
+      s3 += md[base + 3] * scale;
+    }
+    out[c] = s0; out[c + 1] = s1; out[c + 2] = s2; out[c + 3] = s3;
+  }
+  for (; c < cols; c++) {
     let sum = 0;
     let r = 0;
     for (; r + 7 < rows; r += 8) {
