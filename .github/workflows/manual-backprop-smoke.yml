@@ -151,16 +151,18 @@ jobs:
           for hidden in 0 64; do
             node "$RUNNER_TEMP/mmlab-base/bench/train-bench.mjs" --steps 10000 --runs 3 --warmup 1 --hidden "$hidden" --json > "benchmark-results/base-$hidden.json"
             node bench/train-bench.mjs --steps 10000 --runs 3 --warmup 1 --hidden "$hidden" --json > "benchmark-results/current-$hidden.json"
+            node bench/train-bench.mjs --steps 10000 --runs 3 --warmup 1 --hidden "$hidden" --no-fusion --json > "benchmark-results/no-fusion-$hidden.json"
           done
           node --input-type=module <<'JS'
           import fs from 'node:fs';
           for (const hidden of [0, 64]) {
             const base = JSON.parse(fs.readFileSync(`benchmark-results/base-${hidden}.json`));
             const current = JSON.parse(fs.readFileSync(`benchmark-results/current-${hidden}.json`));
+            const noFusion = JSON.parse(fs.readFileSync(`benchmark-results/no-fusion-${hidden}.json`));
             const checksum = base.results[0].checksum;
-            if ([...base.results, ...current.results].some(r => r.checksum !== checksum)) throw new Error(`Weight mismatch: hidden=${hidden}`);
+            if ([...base.results, ...current.results, ...noFusion.results].some(r => r.checksum !== checksum)) throw new Error(`Weight mismatch: hidden=${hidden}`);
             const median = report => report.results.map(r => r.stepsPerSecond).sort((a, b) => a - b)[1];
-            console.log(JSON.stringify({ hidden, checksum, baseStepsPerSecond: median(base), currentStepsPerSecond: median(current), speedup: median(current) / median(base) }));
+            console.log(JSON.stringify({ hidden, checksum, baseStepsPerSecond: median(base), currentStepsPerSecond: median(current), noFusionStepsPerSecond: median(noFusion), speedup: median(current) / median(base), noFusionSpeedup: median(noFusion) / median(base) }));
           }
           JS
 

@@ -42,6 +42,7 @@ function parseArgs(argv) {
     lr: 0.01,
     seed: 1,
     headed: false,
+    noFusion: false,
     json: false
   };
 
@@ -57,6 +58,7 @@ function parseArgs(argv) {
       case '--lr': options.lr = Number(value); break;
       case '--seed': options.seed = Number(value); break;
       case '--headed': options.headed = true; i--; break;
+      case '--no-fusion': options.noFusion = true; i--; break;
       case '--json': options.json = true; i--; break;
       case '--help':
         console.log('usage: node bench/train-bench.mjs [--steps N] [--runs N] [--warmup N] [--hidden N] [--classes a,b,c] [--lr X] [--seed N] [--headed] [--json]');
@@ -566,6 +568,9 @@ async function main() {
 
     await page.goto(`http://127.0.0.1:${port}/index.html`, { waitUntil: 'load' });
     await page.waitForFunction(() => typeof window.quickDrawDataset !== 'undefined');
+    if (options.noFusion) await page.evaluate(() => {
+      if (typeof fuseLeafScaledSubtracts === 'function') fuseLeafScaledSubtracts = steps => steps;
+    });
 
     const report = await page.evaluate(benchmarkInPage, {
       classes: options.classes,
