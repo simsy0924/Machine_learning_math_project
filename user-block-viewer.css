@@ -9,6 +9,7 @@
 .user-block-editor-toolbar strong { font-size: 13px; }
 .user-block-editor-badge { background: #f3eafc; color: #6f428f; }
 .user-block-open-button { width: 100%; margin: 2px 0 8px; }
+.user-block-copy-button { width: 100%; margin: 0 0 8px; }
 .user-block-output-button { width: 100%; margin: 2px 0 8px; }
 .user-block-editor-input-note { margin: 6px 0 0; }
 
