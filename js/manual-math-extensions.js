@@ -20,7 +20,14 @@ function fold2dValues(node, patches, like) {
   const source = patchArray.data;
   let read = 0;
 
-  for (let outRow = 0; outRow < config.outRows; outRow++) {
+  const indices = windowSourceIndices(config);
+  if (indices) {
+    // Same patch order and Float32 store at each addition as the loop path.
+    for (let i = 0; i < indices.length; i++) {
+      const target = indices[i];
+      if (target >= 0) out[target] += source[i];
+    }
+  } else for (let outRow = 0; outRow < config.outRows; outRow++) {
     const targetTop = outRow * config.strideRows - config.padding;
     for (let outCol = 0; outCol < config.outCols; outCol++) {
       const targetLeft = outCol * config.strideCols - config.padding;

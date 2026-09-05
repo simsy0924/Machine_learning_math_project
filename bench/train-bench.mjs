@@ -554,7 +554,7 @@ async function main() {
   const options = parseArgs(process.argv.slice(2));
   const chromium = loadChromium();
   const { server, port } = await startServer();
-  const browser = await chromium.launch({ headless: !options.headed });
+  const browser = await chromium.launch({ headless: !options.headed, executablePath: process.env.CHROMIUM_EXECUTABLE_PATH || undefined });
 
   try {
     const page = await browser.newPage();

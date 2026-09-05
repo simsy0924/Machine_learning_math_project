@@ -469,7 +469,21 @@ function transposeMatrixVectorValues(matrix, vector) {
   if (vd.length !== rows) throw new Error('전치 행렬과 벡터의 크기가 맞지 않습니다.');
 
   const out = takeResultBuffer(cols);
-  for (let c = 0; c < cols; c++) {
+  // Read four adjacent columns together, retaining the original row-order
+  // Float64 accumulation and the single Float32 store for each output.
+  let c = 0;
+  for (; c + 3 < cols; c += 4) {
+    let s0 = 0, s1 = 0, s2 = 0, s3 = 0;
+    for (let r = 0; r < rows; r++) {
+      const base = r * cols + c, scale = vd[r];
+      s0 += md[base] * scale;
+      s1 += md[base + 1] * scale;
+      s2 += md[base + 2] * scale;
+      s3 += md[base + 3] * scale;
+    }
+    out[c] = s0; out[c + 1] = s1; out[c + 2] = s2; out[c + 3] = s3;
+  }
+  for (; c < cols; c++) {
     let sum = 0;
     let r = 0;
     for (; r + 7 < rows; r += 8) {

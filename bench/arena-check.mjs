@@ -466,7 +466,7 @@ async function main() {
   const classes = ['cat', 'fish', 'house'];
   const chromium = loadChromium();
   const { server, port } = await startServer();
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_EXECUTABLE_PATH || undefined });
 
   try {
     const page = await browser.newPage();

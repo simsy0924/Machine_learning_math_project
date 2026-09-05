@@ -341,14 +341,9 @@ async function evaluateRepeatProgressive(nodeId, memo, visiting, progress) {
           // new weights are seen as still live.
           last = withResultArena(leafPlan.arena, runIteration);
           progress.completed++;
-          if (mode === 'training') {
-            // Avoid an async Promise/await round-trip on every single SGD step.
-            // Check the clock only every eight steps and yield at the same
-            // ~80 ms UI cadence used by the interpreted evaluator.
-            if ((progress.completed & 7) === 0 && performance.now() - progress.lastYield >= 80) {
-              await maybeYieldProgress(progress);
-            }
-          } else {
+          // Both Calculate and selected calculation use the same UI cadence.
+          // Avoid an async Promise/await round-trip on every single step.
+          if ((progress.completed & 7) === 0 && performance.now() - progress.lastYield >= 80) {
             await maybeYieldProgress(progress);
           }
         } else {

@@ -5,6 +5,7 @@ on:
     paths:
       - 'index.html'
       - 'js/**'
+      - 'bench/**'
       - 'bench/manual-backprop-browser-smoke.html'
       - 'bench/manual-backprop-compiled-browser-smoke.html'
       - 'bench/user-block-editor-browser-smoke.html'
@@ -15,6 +16,7 @@ on:
     paths:
       - 'index.html'
       - 'js/**'
+      - 'bench/**'
       - 'bench/manual-backprop-browser-smoke.html'
       - 'bench/manual-backprop-compiled-browser-smoke.html'
       - 'bench/user-block-editor-browser-smoke.html'
@@ -43,6 +45,9 @@ jobs:
           # bench/ is included: a check script that still calls a removed
           # autodiff entry point silently stops checking anything.
           ! grep -R -nE 'differentiateGraph\(|computeAllGraphGradients\(|primitiveVJP\(|userBlockVJP\(' js bench index.html
+
+      - name: Verify numeric kernels
+        run: node bench/numeric-kernel-check.mjs
 
       - name: Verify manual runtimes are loaded
         shell: bash
@@ -115,3 +120,61 @@ jobs:
 
           cat /tmp/user-block-editor-smoke-dom.html
           grep -q '<div id="result">PASS</div>' /tmp/user-block-editor-smoke-dom.html
+
+      - name: Install browser test driver
+        run: npm install --prefix "$RUNNER_TEMP/mmlab-tests" --no-package-lock playwright
+
+      - name: Check arena and spatial gradients in the browser
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PLAYWRIGHT_MODULE="$RUNNER_TEMP/mmlab-tests/node_modules/playwright"
+          export CHROMIUM_EXECUTABLE_PATH="$(command -v google-chrome || command -v chromium)"
+          node bench/arena-check.mjs
+          node bench/spatial-math-check.mjs
+          node bench/spatial-backprop-check.mjs
+
+      - name: Compare training with the PR base
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PLAYWRIGHT_MODULE="$RUNNER_TEMP/mmlab-tests/node_modules/playwright"
+          export CHROMIUM_EXECUTABLE_PATH="$(command -v google-chrome || command -v chromium)"
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          git worktree add --detach "$RUNNER_TEMP/mmlab-base" "$BASE_SHA"
+          # Use identical fixtures and the optional system-browser path on both.
+          cp bench/train-bench.mjs "$RUNNER_TEMP/mmlab-base/bench/train-bench.mjs"
+          cp bench/spatial-backprop-check.mjs "$RUNNER_TEMP/mmlab-base/bench/spatial-backprop-check.mjs"
+          mkdir -p benchmark-results
+          for hidden in 0 64; do
+            node "$RUNNER_TEMP/mmlab-base/bench/train-bench.mjs" --steps 10000 --runs 3 --warmup 1 --hidden "$hidden" --json > "benchmark-results/base-$hidden.json"
+            node bench/train-bench.mjs --steps 10000 --runs 3 --warmup 1 --hidden "$hidden" --json > "benchmark-results/current-$hidden.json"
+          done
+          for run in 1 2 3; do
+            node "$RUNNER_TEMP/mmlab-base/bench/spatial-backprop-check.mjs" --benchmark --json > "benchmark-results/spatial-base-$run.json"
+            node bench/spatial-backprop-check.mjs --benchmark --json > "benchmark-results/spatial-current-$run.json"
+          done
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          for (const hidden of [0, 64]) {
+            const base = JSON.parse(fs.readFileSync(`benchmark-results/base-${hidden}.json`));
+            const current = JSON.parse(fs.readFileSync(`benchmark-results/current-${hidden}.json`));
+            const checksum = base.results[0].checksum;
+            if ([...base.results, ...current.results].some(r => r.checksum !== checksum)) throw new Error(`Weight mismatch: hidden=${hidden}`);
+            const median = report => report.results.map(r => r.stepsPerSecond).sort((a, b) => a - b)[1];
+            console.log(JSON.stringify({ hidden, checksum, baseStepsPerSecond: median(base), currentStepsPerSecond: median(current), speedup: median(current) / median(base) }));
+          }
+          const spatialMedian = kind => [1, 2, 3].map(run => JSON.parse(fs.readFileSync(`benchmark-results/spatial-${kind}-${run}.json`)).msPerPass).sort((a,b) => a-b)[1];
+          console.log(JSON.stringify({ spatialBaseMs: spatialMedian('base'), spatialCurrentMs: spatialMedian('current'), spatialSpeedup: spatialMedian('base') / spatialMedian('current') }));
+          JS
+
+      - name: Keep benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: training-benchmarks
+          path: benchmark-results/*.json
+          if-no-files-found: ignore

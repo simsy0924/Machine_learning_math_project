@@ -76,6 +76,71 @@ function getWorkspaceViewSnapshot() {
   return { x: workspaceView.x, y: workspaceView.y, zoom: workspaceView.zoom };
 }
 
+function workspaceVisibleBounds() {
+  const margin = 16;
+  return {
+    left: (margin - workspaceView.x) / workspaceView.zoom,
+    top: (margin - workspaceView.y) / workspaceView.zoom,
+    right: (Math.max(margin, workspace.clientWidth - margin) - workspaceView.x) / workspaceView.zoom,
+    bottom: (Math.max(margin, workspace.clientHeight - margin) - workspaceView.y) / workspaceView.zoom
+  };
+}
+
+function workspaceInsertionPosition(width = 190, height = 160) {
+  const bounds = workspaceVisibleBounds();
+  const right = Math.max(bounds.left, bounds.right - width);
+  const bottom = Math.max(bounds.top, bounds.bottom - height);
+  const center = { x: (bounds.left + right) / 2, y: (bounds.top + bottom) / 2 };
+  const occupied = Array.from(nodesLayer.children, element => {
+    const node = graph.nodes.get(Number(element.dataset.nodeId));
+    return node ? { x: node.x, y: node.y, width: element.offsetWidth, height: element.offsetHeight } : null;
+  }).filter(Boolean);
+  // A bounded search keeps adding blocks cheap even in a large workspace. When
+  // the viewport is full, prefer the least overlap instead of moving offscreen.
+  let best = center, bestOverlap = Infinity, bestDistance = Infinity;
+  for (let row = 0; row < 7; row++) for (let col = 0; col < 7; col++) {
+    const x = bounds.left + (right - bounds.left) * col / 6;
+    const y = bounds.top + (bottom - bounds.top) * row / 6;
+    let overlap = 0;
+    for (const rect of occupied) {
+      overlap += Math.max(0, Math.min(x + width + 12, rect.x + rect.width) - Math.max(x - 12, rect.x))
+        * Math.max(0, Math.min(y + height + 12, rect.y + rect.height) - Math.max(y - 12, rect.y));
+    }
+    const distance = (x - center.x) ** 2 + (y - center.y) ** 2;
+    if (overlap < bestOverlap || (overlap === bestOverlap && distance < bestDistance)) {
+      best = { x, y }; bestOverlap = overlap; bestDistance = distance;
+    }
+  }
+  return best;
+}
+
+function keepNewBlockVisible(node) {
+  const element = nodesLayer.querySelector(`[data-node-id="${node.id}"]`);
+  if (!element) return;
+  const bounds = workspaceVisibleBounds();
+  node.x = clamp(node.x, bounds.left, Math.max(bounds.left, bounds.right - element.offsetWidth));
+  node.y = clamp(node.y, bounds.top, Math.max(bounds.top, bounds.bottom - element.offsetHeight));
+  element.style.left = `${node.x}px`;
+  element.style.top = `${node.y}px`;
+}
+
+function focusWorkspaceNodes(ids) {
+  const rectangles = Array.from(ids, id => {
+    const node = graph.nodes.get(id);
+    const element = nodesLayer.querySelector(`[data-node-id="${id}"]`);
+    return node && element ? { left: node.x, top: node.y, right: node.x + element.offsetWidth, bottom: node.y + element.offsetHeight } : null;
+  }).filter(Boolean);
+  if (!rectangles.length) return;
+  const left = Math.min(...rectangles.map(r => r.left)), right = Math.max(...rectangles.map(r => r.right));
+  const top = Math.min(...rectangles.map(r => r.top)), bottom = Math.max(...rectangles.map(r => r.bottom));
+  const zoom = clampWorkspaceZoom(Math.min(workspaceView.zoom,
+    Math.max(1, workspace.clientWidth - 48) / Math.max(1, right - left),
+    Math.max(1, workspace.clientHeight - 48) / Math.max(1, bottom - top)));
+  restoreWorkspaceViewSnapshot({ zoom,
+    x: workspace.clientWidth / 2 - (left + right) * zoom / 2,
+    y: workspace.clientHeight / 2 - (top + bottom) * zoom / 2 });
+}
+
 function restoreWorkspaceViewSnapshot(saved) {
   const x = Number(saved?.x);
   const y = Number(saved?.y);

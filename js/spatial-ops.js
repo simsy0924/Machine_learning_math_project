@@ -4,9 +4,9 @@
 // array's shape, and sliding-window unfold extracts local patches. Convolution
 // is then just 슬라이딩 창 펼치기 → 행렬 × 벡터, built from ordinary blocks.
 //
-// The forward geometry lives here so that the blocks (js/blocks.js) and the
-// training-time unfold→matvec fusion (js/autodiff-spatial-fusion.js) read the
-// exact same window configuration instead of each deriving its own.
+// Forward and user-authored backward transforms share cached window geometry.
+const UNFOLD_CONFIG_CACHE = new WeakMap();
+const MAX_CACHED_WINDOW_INDICES = 1_000_000;
 
 function positiveInt(value, fallback = 1) {
   const n = Math.floor(Number(value));
@@ -89,6 +89,12 @@ function unfoldConfig(node, input) {
   const strideCols = positiveInt(node.params.strideCols, 1);
   const padding = nonNegativeInt(node.params.padding, 0);
 
+  const cached = UNFOLD_CONFIG_CACHE.get(node);
+  if (cached && cached.height === height && cached.width === width
+    && cached.kernelRows === kernelRows && cached.kernelCols === kernelCols
+    && cached.strideRows === strideRows && cached.strideCols === strideCols
+    && cached.padding === padding) return cached;
+
   const paddedHeight = height + padding * 2;
   const paddedWidth = width + padding * 2;
   if (kernelRows > paddedHeight || kernelCols > paddedWidth) {
@@ -99,7 +105,7 @@ function unfoldConfig(node, input) {
   const outCols = Math.floor((paddedWidth - kernelCols) / strideCols) + 1;
   if (outRows < 1 || outCols < 1) throw new Error('슬라이딩 창의 출력 크기가 0입니다.');
 
-  return {
+  const config = {
     height,
     width,
     kernelRows,
@@ -112,6 +118,37 @@ function unfoldConfig(node, input) {
     windowSize: kernelRows * kernelCols,
     windowCount: outRows * outCols
   };
+  UNFOLD_CONFIG_CACHE.set(node, config);
+  return config;
+}
+
+// Cache positions rather than pixel values. Editing geometry or changing the
+// input shape produces a new config; very large windows retain the loop path.
+function windowSourceIndices(config) {
+  if (config.sourceIndices !== undefined) return config.sourceIndices;
+  const length = config.windowCount * config.windowSize;
+  if (length > MAX_CACHED_WINDOW_INDICES || config.height * config.width > 0x7fffffff) {
+    config.sourceIndices = null;
+    return null;
+  }
+  const indices = new Int32Array(length);
+  let write = 0;
+  for (let y = 0; y < config.outRows; y++) {
+    const top = y * config.strideRows - config.padding;
+    for (let x = 0; x < config.outCols; x++) {
+      const left = x * config.strideCols - config.padding;
+      for (let kr = 0; kr < config.kernelRows; kr++) {
+        const row = top + kr;
+        for (let kc = 0; kc < config.kernelCols; kc++) {
+          const col = left + kc;
+          indices[write++] = row >= 0 && row < config.height && col >= 0 && col < config.width
+            ? row * config.width + col : -1;
+        }
+      }
+    }
+  }
+  config.sourceIndices = indices;
+  return indices;
 }
 
 function unfold2dValues(node, input) {
@@ -121,7 +158,10 @@ function unfold2dValues(node, input) {
   const src = arr.data;
   let write = 0;
 
-  for (let outRow = 0; outRow < config.outRows; outRow++) {
+  const indices = windowSourceIndices(config);
+  if (indices) {
+    for (let i = 0; i < indices.length; i++) out[i] = indices[i] < 0 ? 0 : src[indices[i]];
+  } else for (let outRow = 0; outRow < config.outRows; outRow++) {
     const sourceTop = outRow * config.strideRows - config.padding;
     for (let outCol = 0; outCol < config.outCols; outCol++) {
       const sourceLeft = outCol * config.strideCols - config.padding;
