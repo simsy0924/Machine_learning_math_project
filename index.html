@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>수학 블록 실험실</title>
-  <link rel="stylesheet" href="styles.css?v=20260828-2" />
+  <link rel="stylesheet" href="styles.css?v=20260908-review1" />
   <link rel="stylesheet" href="user-block-viewer.css?v=20260905-1" />
 </head>
 <body>
@@ -141,6 +141,32 @@
         <div id="datasetStatus" class="dataset-status">아직 불러온 데이터가 없습니다.</div>
         <div class="section-head sample-head"><h3>실제 데이터 샘플</h3><button id="randomizeSamplesBtn" class="ghost" disabled>다른 샘플</button></div>
         <div id="datasetSamples" class="sample-grid"></div>
+        <section class="dataset-review" aria-labelledby="reviewTitle">
+          <h3 id="reviewTitle">그림별 예측 평가</h3>
+          <p class="muted">최종 확률/점수 출력 블록을 선택하세요. 학습에 쓰지 않은 데이터 구간을 지정해 평가할 수 있습니다.</p>
+          <div class="review-controls">
+            <label>시작 번호 (0부터)<input id="reviewStart" type="number" min="0" step="1" value="15000" /></label>
+            <label>평가할 그림 수<input id="reviewCount" type="number" min="1" step="1" value="15000" /></label>
+          </div>
+          <div class="dataset-actions">
+            <button id="reviewRun" class="primary">선택한 출력으로 평가</button>
+            <button id="reviewStop" disabled>중단</button>
+          </div>
+          <p id="reviewSummary" class="dataset-status" role="status">평가 전 · 기존 가중치로 예측만 실행합니다.</p>
+          <p id="reviewDetails" class="muted">번호는 불러온 종류를 번갈아 세는 전체 데이터 번호입니다. 결과는 이 평가를 시작한 시점의 가중치 기준으로 보관됩니다.</p>
+          <details><summary>종류별 정확도</summary><table id="reviewClassSummary"></table></details>
+          <div class="review-controls">
+            <label>정답 종류<select id="reviewClass"><option value="">모든 종류</option></select></label>
+            <label>결과<select id="reviewFilter"><option value="all">전체</option><option value="correct">정답</option><option value="wrong">오답 (정답 점수 0)</option><option value="tie">최고값 동률</option></select></label>
+          </div>
+          <div class="dataset-actions">
+            <button id="reviewWrongRandom" disabled>틀린 그림 랜덤 보기</button>
+            <button id="reviewRandom" disabled>랜덤 보기</button>
+            <button id="reviewPrevious" disabled>이전</button>
+            <button id="reviewNext" disabled>다음</button>
+          </div>
+          <div id="reviewImage">평가 후 그림별 결과를 볼 수 있습니다.</div>
+        </section>
       </section>
     </aside>
   </main>
@@ -174,6 +200,7 @@
   <script src="js/manual-math-extensions.js?v=20260905-1"></script> <!-- fold2d + manual-training compatibility -->
   <script src="js/autosave.js?v=20260828-2"></script>
   <script src="js/profiler.js?v=20260828-2"></script> <!-- diagnostics only -->
+  <script src="js/dataset-evaluation.js?v=20260908-review1"></script> <!-- read-only per-image evaluation -->
   <script src="js/boot.js?v=20260828-2"></script> <!-- wiring and startup -->
 </body>
 </html>
