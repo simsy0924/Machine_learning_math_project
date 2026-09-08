@@ -160,3 +160,17 @@ button:disabled { opacity: .4; cursor: default; }
   .workspace-head { flex-direction: column; }
   .class-picker { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Dataset review fits the existing narrow inspector, including mobile. */
+.dataset-review { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+.review-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 12px 0; }
+.review-controls label { display: grid; gap: 5px; font-size: 12px; color: var(--muted); }
+.review-controls input, .review-controls select { width: 100%; min-width: 0; padding: 7px; border: 1px solid var(--border); border-radius: 7px; background: #fff; color: #171717; }
+.dataset-review table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+.dataset-review th, .dataset-review td { padding: 5px 2px; border-bottom: 1px solid #eceef0; text-align: right; }
+.dataset-review th:first-child, .dataset-review td:first-child { text-align: left; }
+.dataset-review summary { cursor: pointer; margin: 10px 0; font-weight: 700; }
+#reviewSummary { white-space: pre-line; }
+#reviewImage { margin-top: 12px; overflow-wrap: anywhere; font-size: 13px; }
+#reviewImage canvas { display: block; width: min(100%, 196px); height: auto; margin: 8px auto; image-rendering: pixelated; border-radius: 8px; }
+#reviewImage p { margin: 7px 0; }
