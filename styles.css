@@ -14,7 +14,6 @@ button { cursor: pointer; }
 .topbar { min-height: 94px; padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; gap: 20px; background: #fff; border-bottom: 1px solid var(--border); }
 .eyebrow { margin: 0 0 4px; font-size: 12px; font-weight: 800; letter-spacing: .08em; color: #777; text-transform: uppercase; }
 h1 { margin: 0; font-size: 27px; }
-.subtitle { margin: 5px 0 0; color: var(--muted); font-size: 14px; }
 h2 { margin: 0; font-size: 17px; }
 h3 { margin: 0; font-size: 14px; }
 .top-actions, .workspace-tools, .dataset-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -181,4 +180,35 @@ button:disabled { opacity: .4; cursor: default; }
 .presentation-description { padding: 16px; border-top: 1px solid #dbe3ec; }
 .presentation-description p { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; max-height: 35vh; overflow: auto; }
 #presentationStatus { padding: 0 12px; white-space: pre-wrap; }
-#presentationToggle[aria-pressed="true"] { background: #164e63; color: white; }
+#presentationToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 10px;
+  padding: 7px 12px;
+  border: 1px solid #dce2e8;
+  border-radius: 999px;
+  background: #f5f7fa;
+  color: #536174;
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 700;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 4%);
+  transition: background-color .16s ease, border-color .16s ease, color .16s ease;
+}
+#presentationToggle::before {
+  content: "";
+  flex: 0 0 28px;
+  width: 28px;
+  height: 16px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 8px 8px, #fff 5px, transparent 5.5px), #a5b0be;
+}
+#presentationToggle:hover:not(:disabled) { background: #eaf0f6; border-color: #b7c5d4; }
+#presentationToggle[aria-pressed="true"] { background: #e8f5f2; border-color: #a4d7cb; color: #166553; }
+#presentationToggle[aria-pressed="true"]::before {
+  background: radial-gradient(circle at 20px 8px, #fff 5px, transparent 5.5px), #21816b;
+}
+#presentationToggle[aria-pressed="true"]:hover:not(:disabled) { background: #d9eee8; border-color: #78bdad; }
+#presentationToggle:focus-visible { outline: 3px solid #79adca; outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { #presentationToggle { transition: none; } }
