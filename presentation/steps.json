@@ -1,7 +1,44 @@
 {
   "steps": [
-    { "id": "01", "title": "1단계", "file": "01.mmlab" },
-    { "id": "02", "title": "2단계", "file": "02.mmlab" },
-    { "id": "03", "title": "3단계", "file": "03.mmlab" }
+    {
+      "id": "00a",
+      "title": "0-1. 입력 블록과 값 보기",
+      "file": "00a-input-blocks.mmlab"
+    },
+    {
+      "id": "00b",
+      "title": "0-2. 수학 연산 블록",
+      "file": "00b-math-blocks.mmlab"
+    },
+    {
+      "id": "00c",
+      "title": "0-3. 값 바꾸기 · 둘 다 계산 · 반복",
+      "file": "00c-control-blocks.mmlab"
+    },
+    {
+      "id": "00d",
+      "title": "0-4. 사용자 블록",
+      "file": "00d-user-blocks.mmlab"
+    },
+    {
+      "id": "01",
+      "title": "1. 퍼셉트론: AND · OR · NAND",
+      "file": "01-perceptron.mmlab"
+    },
+    {
+      "id": "02",
+      "title": "2. XOR 게이트 조립",
+      "file": "02-xor.mmlab"
+    },
+    {
+      "id": "03",
+      "title": "3. 신경망의 기본 발상 Wx+b: XOR 학습 실패",
+      "file": "03-linear-fail.mmlab"
+    },
+    {
+      "id": "04",
+      "title": "4. 임계값 활성화: 표현은 되지만 학습은?",
+      "file": "04-threshold-search.mmlab"
+    }
   ]
 }
