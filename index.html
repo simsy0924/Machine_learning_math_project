@@ -4,12 +4,13 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>수학 블록 실험실</title>
-  <link rel="stylesheet" href="styles.css?v=20260908-review1" />
+  <link rel="stylesheet" href="styles.css?v=20260916-1" />
   <link rel="stylesheet" href="user-block-viewer.css?v=20260905-1" />
 </head>
 <body>
   <header class="topbar">
     <div>
+      <button id="presentationToggle" aria-pressed="false" disabled>발표 모드 OFF · 편집 모드</button>
       <p class="eyebrow">Machine Learning Math Project</p>
       <h1>수학 블록 실험실</h1>
       <p class="subtitle">수학 블록을 직접 연결하고, 묶고, 역전파 식까지 직접 구성하며 구조를 만들어 갑니다.</p>
@@ -97,6 +98,13 @@
     </aside>
 
     <section class="workspace-panel">
+      <nav id="presentationControls" class="presentation-controls" aria-label="발표 단계" hidden>
+        <button id="presentationPrevious">이전</button>
+        <span id="presentationStep" aria-live="polite"></span>
+        <button id="presentationNext">다음</button>
+        <span class="muted">단계 이동 시 원본을 다시 불러옵니다. 수정본은 내보내기로 보관하세요.</span>
+      </nav>
+      <p id="presentationStatus" role="status" hidden></p>
       <div class="workspace-head">
         <div><h2>작업공간</h2><p id="connectionHint" class="muted">블록을 놓고 수학식을 직접 만드세요.</p></div>
         <div class="workspace-tools">
@@ -111,6 +119,9 @@
         <svg id="wires" class="wires" aria-hidden="true"></svg><div id="nodes" class="nodes"></div>
         <div id="emptyState" class="empty-state"><div class="empty-symbol">f(x)</div><strong>아직 아무 함수도 만들지 않았습니다.</strong><span>왼쪽에서 블록을 추가해 시작하세요.</span></div>
       </div>
+      <details id="presentationDescription" class="presentation-description" open hidden>
+        <summary>단계 설명</summary><p id="presentationDescriptionText"></p>
+      </details>
     </section>
 
     <aside class="sidebar inspector-panel">
@@ -179,7 +190,7 @@
   </footer>
 
   <script src="js/hooks.js?v=20260828-2"></script> <!-- extension points every module registers with -->
-  <script src="js/state.js?v=20260903-1"></script> <!-- DOM handles and shared state -->
+  <script src="js/state.js?v=20260916-1"></script> <!-- DOM handles and shared state -->
   <script src="js/values.js?v=20260905-1"></script> <!-- value model, kernels, result-buffer arena -->
   <script src="js/runtime-variables.js?v=20260901-1"></script> <!-- stateful 변수 and loop indices -->
   <script src="js/spatial-ops.js?v=20260905-1"></script> <!-- reshape / sliding-window unfold -->
@@ -190,17 +201,18 @@
   <script src="js/evaluate.js?v=20260905-1"></script> <!-- graph evaluation -->
   <script src="js/workspace-ui.js?v=20260905-1"></script> <!-- nodes, wires, inspector -->
   <script src="js/viewport.js?v=20260905-1"></script> <!-- pan / zoom / drag -->
-  <script src="js/user-blocks.js?v=20260905-1"></script> <!-- 묶기, palette, internal editor -->
+  <script src="js/user-blocks.js?v=20260916-1"></script> <!-- 묶기, palette, internal editor -->
   <script src="js/dataset.js?v=20260828-2"></script> <!-- Quick Draw loading -->
   <script src="js/drawing.js?v=20260828-2"></script> <!-- drawing pad and hand-drawing test -->
   <script src="js/selected-evaluation.js?v=20260828-2"></script> <!-- 선택 계산 -->
-  <script src="js/file-io.js?v=20260828-2"></script> <!-- .mmlab / .mmlweights -->
+  <script src="js/file-io.js?v=20260916-1"></script> <!-- .mmlab / .mmlweights -->
   <script src="js/manual-backprop.js?v=20260828-2"></script> <!-- user-authored local backward formulas; no autodiff -->
   <script src="js/manual-backprop-compiled.js?v=20260903-1"></script> <!-- cached manual backward execution -->
   <script src="js/manual-math-extensions.js?v=20260905-1"></script> <!-- fold2d + manual-training compatibility -->
-  <script src="js/autosave.js?v=20260828-2"></script>
+  <script src="js/autosave.js?v=20260916-1"></script>
   <script src="js/profiler.js?v=20260828-2"></script> <!-- diagnostics only -->
   <script src="js/dataset-evaluation.js?v=20260908-review1"></script> <!-- read-only per-image evaluation -->
-  <script src="js/boot.js?v=20260828-2"></script> <!-- wiring and startup -->
+  <script src="js/presentation.js?v=20260916-1"></script>
+  <script src="js/boot.js?v=20260916-1"></script> <!-- wiring and startup -->
 </body>
 </html>

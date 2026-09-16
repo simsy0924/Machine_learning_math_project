@@ -573,3 +573,11 @@ python -m http.server 8000
 - 묶은 수학 레이어를 지원합니다. 그림값과 가중치 변수는 바깥에서 입력받아야 하며, 예측 경로에 정답 종류 벡터를 연결할 수 없습니다.
 
 검증: `node bench/dataset-evaluation-check.mjs` (Playwright 필요). Chromium이 없는 환경에서는 `JSDOM_MODULE=/절대경로/jsdom node bench/dataset-evaluation-check.mjs`로 DOM 동작을 검증할 수 있습니다. 이 대체 검증은 화면 배치를 검사하지 않습니다.
+
+## 발표 모드
+
+좌상단 발표 모드 ON/OFF 버튼으로 전환합니다. 단계 이동 시 원본 `.mmlab`을 다시 읽고, OFF로 돌아오면 편집 모드의 작업과 가중치를 복원합니다. 발표 수정본은 내보내기로 별도 다운로드합니다.
+
+단계 목록·설명·발표 파일 교체 방법은 [presentation/README.md](presentation/README.md)를 참고하세요. 기본 3개 `.mmlab`은 교체용 빈 작업공간입니다.
+
+상태 분리 회귀 테스트: `node bench/presentation-check.mjs` (외부 패키지 불필요).

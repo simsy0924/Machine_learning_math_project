@@ -141,7 +141,7 @@ function safeFileBaseName(text) {
 
 function exportProject() {
   try {
-    downloadJson(JSON.stringify(buildProjectSnapshot()), `${safeFileBaseName('math-network')}-${fileStamp()}.mmlab`);
+    downloadJson(JSON.stringify(buildProjectSnapshot()), `${presentationActive ? 'presentation-copy' : safeFileBaseName('math-network')}-${fileStamp()}.mmlab`);
   } catch (error) {
     console.error(error);
     alert(`내보내기 실패: ${error.message}`);
@@ -165,7 +165,7 @@ function restoreDatasetSelection(names) {
   });
 }
 
-async function restoreProject(project) {
+async function restoreProject(project, options = {}) {
   validateProjectSnapshot(project);
 
   // Rebuilding a workspace is a long series of edits, and loading the dataset
@@ -173,7 +173,7 @@ async function restoreProject(project) {
   // snapshot; the single notify at the end is what schedules the real save.
   window.dispatchEvent(new CustomEvent('workspace-restore-start'));
   try {
-    await rebuildWorkspaceFromSnapshot(project);
+    await rebuildWorkspaceFromSnapshot(project, options);
   } finally {
     window.dispatchEvent(new CustomEvent('workspace-restore-end'));
   }
@@ -181,7 +181,7 @@ async function restoreProject(project) {
   notifyWorkspaceChanged();
 }
 
-async function rebuildWorkspaceFromSnapshot(project) {
+async function rebuildWorkspaceFromSnapshot(project, { loadDataset = true } = {}) {
   // Reset visible graph and state before rebuilding it.
   resetWorkspace();
 
@@ -248,7 +248,7 @@ async function rebuildWorkspaceFromSnapshot(project) {
   restoreWorkspaceViewSnapshot(project?.viewport);
 
   restoreDatasetSelection(project.datasetSelection);
-  if (project.datasetSelection?.length && window.quickDrawDataset?.loadSelectedClasses) {
+  if (loadDataset && project.datasetSelection?.length && window.quickDrawDataset?.loadSelectedClasses) {
     await window.quickDrawDataset.loadSelectedClasses();
   }
 }

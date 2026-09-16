@@ -14,7 +14,7 @@ let autosaveTimer = null;
 let autosaveSuspendDepth = 0;
 
 function autosaveSuspended() {
-  return autosaveSuspendDepth > 0 || isUserBlockWorkspaceEditing();
+  return presentationActive || presentationBusy || autosaveSuspendDepth > 0 || isUserBlockWorkspaceEditing();
 }
 
 window.addEventListener('workspace-restore-start', () => { autosaveSuspendDepth++; });

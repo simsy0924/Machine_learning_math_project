@@ -1,0 +1,7 @@
+{
+  "steps": [
+    { "id": "01", "title": "1단계", "file": "01.mmlab" },
+    { "id": "02", "title": "2단계", "file": "02.mmlab" },
+    { "id": "03", "title": "3단계", "file": "03.mmlab" }
+  ]
+}

@@ -174,3 +174,11 @@ button:disabled { opacity: .4; cursor: default; }
 #reviewImage { margin-top: 12px; overflow-wrap: anywhere; font-size: 13px; }
 #reviewImage canvas { display: block; width: min(100%, 196px); height: auto; margin: 8px auto; image-rendering: pixelated; border-radius: 8px; }
 #reviewImage p { margin: 7px 0; }
+
+/* Presentation keeps the same editable workspace. */
+.presentation-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px; }
+.presentation-controls[hidden], .presentation-description[hidden] { display: none; }
+.presentation-description { padding: 16px; border-top: 1px solid #dbe3ec; }
+.presentation-description p { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; max-height: 35vh; overflow: auto; }
+#presentationStatus { padding: 0 12px; white-space: pre-wrap; }
+#presentationToggle[aria-pressed="true"] { background: #164e63; color: white; }

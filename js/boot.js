@@ -77,4 +77,4 @@ loadUserBlocks();
 renderMyBlocksPalette();
 resetDrawCanvas();
 resetWorkspace();
-restoreAutosaveAtStartup();
+restoreAutosaveAtStartup().finally(() => { document.getElementById('presentationToggle').disabled = false; });
