@@ -54,6 +54,9 @@ function koreanClassName(name) {
 
 // ---------- workspace state ----------
 
+// Presentation never persists into the editor's browser storage.
+let presentationActive = false;
+let presentationBusy = false;
 let nextNodeId = 1;
 let selectedNodeId = null;
 let pendingOutput = null;

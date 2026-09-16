@@ -169,6 +169,7 @@ function createUserBlockFromSelection() {
 // compiled plans that captured the old definitions are marked stale.
 function persistUserBlocks() {
   bumpUserBlockLibraryVersion();
+  if (presentationActive || presentationBusy) return;
   try {
     localStorage.setItem(USER_BLOCK_STORAGE_KEY, JSON.stringify([...USER_BLOCKS.values()]));
   } catch (e) {
