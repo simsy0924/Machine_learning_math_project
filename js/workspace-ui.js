@@ -9,7 +9,7 @@ function escapeHtml(text) {
 }
 
 function kindLabel(kind) {
-  return ({ source: '입력', data: '데이터', generator: '생성', transform: '변환', operation: '연산', calculus: '미분', custom: '내 블록', sink: '확인' })[kind] || kind;
+  return ({ source: '입력', data: '데이터', generator: '생성', transform: '변환', operation: '연산', custom: '내 블록', sink: '확인' })[kind] || kind;
 }
 
 function formatValue(value, compact = false) {

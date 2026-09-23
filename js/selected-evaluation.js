@@ -199,9 +199,6 @@ async function evaluateSelectedOutput() {
   try {
     if (selectedNodeId == null) throw new Error('먼저 계산할 블록을 선택하세요.');
     const specials = selectedBranchSpecials(selectedNodeId);
-    if (specials.has('derivative') && (specials.has('repeat') || specials.has('setVariable'))) {
-      throw new Error('선택 실행에서는 반복/값 변경과 미분을 한 가지에 섞지 마세요. 테스트 가지에는 미분 블록이 필요하지 않습니다.');
-    }
 
     if (evaluateSelectedBtn) {
       evaluateSelectedBtn.disabled = true;

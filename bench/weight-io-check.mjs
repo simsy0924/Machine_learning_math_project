@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Regression checks for model weight selection in direct-SGD and minibatch graphs.
+// Regression checks for model weight selection: only 변수 blocks marked 학습 파라미터
+// are saved, never gradient accumulators that are also updated by 값 바꾸기.
 
 import http from 'node:http';
 import fs from 'node:fs';
@@ -42,7 +43,7 @@ function checkInPage() {
     if (!condition) throw new Error(message);
   }
 
-  function addVariable(name, mode = 'vector', length = 2) {
+  function addVariable(name, trainable, mode = 'vector', length = 2) {
     const node = addBlock('variable');
     Object.assign(node.params, {
       name,
@@ -51,14 +52,9 @@ function checkInPage() {
       rows: 2,
       cols: 2,
       init: 'constant',
-      value: 0
+      value: 0,
+      trainable
     });
-    return node;
-  }
-
-  function addDerivative(variable) {
-    const node = addBlock('derivative');
-    node.params.variable = variable;
     return node;
   }
 
@@ -68,19 +64,21 @@ function checkInPage() {
     return node;
   }
 
-  // Direct SGD: derivative target and setVariable target are the same parameter.
+  // The palette must not offer the removed automatic-differentiation block.
+  assert(!('derivative' in BLOCKS), '제거된 미분 블록이 아직 등록되어 있습니다.');
+
+  // Direct SGD: the marked parameter is also the setVariable target.
   resetWorkspace();
-  addVariable('W');
-  addDerivative('W');
+  addVariable('W', 'yes');
   addSetter('W');
   assert(JSON.stringify(collectTrainableVariableNames()) === JSON.stringify(['W']), 'direct SGD에서 W를 학습 가중치로 찾지 못했습니다.');
 
-  // Minibatch SGD: derivative targets W, gradient is accumulated into gW, and W
-  // is updated later from gW. Only W is a model parameter.
+  // Minibatch SGD: gradient is accumulated into gW, and W is updated later from
+  // gW. Both receive 값 바꾸기; only W is a model parameter.
   resetWorkspace();
-  const w = addVariable('W');
-  addVariable('gW');
-  addDerivative('W');
+  const w = addVariable('W', 'yes');
+  addVariable('gW', 'no');
+  addVariable('lr', 'auto');
   addSetter('gW');
   addSetter('W');
 
