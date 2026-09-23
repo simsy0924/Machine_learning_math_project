@@ -136,43 +136,11 @@ function withResultArena(arena, run) {
 // ---------- 일반 원소별 연산 ----------
 // Used by user-defined blocks and by any operation without a dedicated kernel.
 
-function elementwiseUnary(value, fn) {
-  if (typeof value === 'number') return fn(value);
-  const arr = asArrayValue(value);
-  const source = arr.data;
-  const data = takeResultBuffer(source.length);
-  for (let i = 0; i < data.length; i++) data[i] = fn(source[i], i);
-  return fastArrayValue(data, arr.shape);
-}
-
-function elementwiseBinary(a, b, fn) {
-  if (typeof a === 'number' && typeof b === 'number') return fn(a, b);
-  // Each mixed case gets its own loop. Wrapping fn in another closure here used
-  // to add a second layer of indirect calls to every element.
-  if (typeof a === 'number') {
-    const bb = asArrayValue(b), bd = bb.data;
-    const data = takeResultBuffer(bd.length);
-    for (let i = 0; i < data.length; i++) data[i] = fn(a, bd[i]);
-    return fastArrayValue(data, bb.shape);
-  }
-  const aa = asArrayValue(a), ad = aa.data;
-  if (typeof b === 'number') {
-    const data = takeResultBuffer(ad.length);
-    for (let i = 0; i < data.length; i++) data[i] = fn(ad[i], b);
-    return fastArrayValue(data, aa.shape);
-  }
-  const bd = asArrayValue(b).data;
-  if (ad.length !== bd.length) throw new Error('배열의 원소 수가 서로 다릅니다.');
-  const data = takeResultBuffer(ad.length);
-  for (let i = 0; i < data.length; i++) data[i] = fn(ad[i], bd[i]);
-  return fastArrayValue(data, aa.shape);
-}
-
 // ---------- 원소별 연산 커널 ----------
 // These are the innermost loops of both the forward pass and backpropagation. A
 // single SGD step on a 15x784 weight matrix runs tens of thousands of elements
-// through them, so they are written as plain typed loops instead of going
-// through elementwiseBinary/elementwiseUnary with a per-element callback.
+// through them, so they are written as plain typed loops instead of a generic
+// helper with a per-element callback.
 
 function addValues(a, b) {
   if (typeof a === 'number') {
@@ -300,14 +268,6 @@ function equalValues(a, b) {
   return fastArrayValue(out, aa.shape);
 }
 
-function negateValue(v) {
-  if (typeof v === 'number') return -v;
-  const a = asArrayValue(v), d = a.data;
-  const out = takeResultBuffer(d.length);
-  for (let i = 0; i < out.length; i++) out[i] = -d[i];
-  return fastArrayValue(out, a.shape);
-}
-
 function expValues(v) {
   if (typeof v === 'number') return Math.exp(v);
   const a = asArrayValue(v), d = a.data;
@@ -362,43 +322,6 @@ function arrayMaximumValue(value) {
   return maximum;
 }
 
-// ---------- gradient shape helpers ----------
-
-function zerosLike(v) {
-  if (typeof v === 'number') return 0;
-  if (isArrayValue(v)) {
-    // A pooled buffer still holds the previous iteration's numbers, so zeros
-    // have to be written explicitly rather than relying on a fresh allocation.
-    const data = takeResultBuffer(v.data.length);
-    data.fill(0);
-    return fastArrayValue(data, v.shape);
-  }
-  return null;
-}
-
-function fillLike(v, scalar) {
-  if (typeof v === 'number') return scalar;
-  const a = asArrayValue(v);
-  const data = takeResultBuffer(a.data.length);
-  data.fill(scalar);
-  return fastArrayValue(data, a.shape);
-}
-
-function unbroadcast(grad, original) {
-  if (typeof original === 'number' && isArrayValue(grad)) return sumArray(grad);
-  if (isArrayValue(original) && typeof grad === 'number') return fillLike(original, grad);
-  // Same element count, different shape: reinterpret instead of copying the
-  // whole buffer. This runs on every backward pass through 행렬×벡터 and 더하기.
-  if (isArrayValue(original) && isArrayValue(grad)) return fastArrayValue(grad.data, original.shape);
-  return grad;
-}
-
-function accumulateGrad(map, key, grad) {
-  if (grad == null) return;
-  // Values are immutable by rule, so the first gradient for a node can be stored
-  // as-is; addValues allocates a fresh array for every later accumulation.
-  map.set(key, map.has(key) ? addValues(map.get(key), grad) : grad);
-}
 
 // ---------- random ----------
 

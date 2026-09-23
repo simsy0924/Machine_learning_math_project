@@ -44,7 +44,6 @@ button:disabled { opacity: .4; cursor: default; }
 .palette-block.generator { border-left-color: #8d63c7; }
 .palette-block.transform { border-left-color: #6d58b8; }
 .palette-block.operation { border-left-color: #d28a25; }
-.palette-block.calculus { border-left-color: #208b88; }
 .palette-block.custom { border-left-color: #7b4aa8; background: #faf7ff; }
 .palette-block.sink { border-left-color: #555b66; }
 .my-blocks-group { padding-top: 12px; border-top: 1px solid #eceef0; }
@@ -91,7 +90,6 @@ button:disabled { opacity: .4; cursor: default; }
 .node.generator .node-head { border-top: 4px solid #8d63c7; border-radius: 11px 11px 0 0; }
 .node.transform .node-head { border-top: 4px solid #6d58b8; border-radius: 11px 11px 0 0; }
 .node.operation .node-head { border-top: 4px solid #d28a25; border-radius: 11px 11px 0 0; }
-.node.calculus .node-head { border-top: 4px solid #208b88; border-radius: 11px 11px 0 0; }
 .node.custom .node-head { border-top: 4px solid #7b4aa8; border-radius: 11px 11px 0 0; background: #fbf8ff; }
 .node.sink .node-head { border-top: 4px solid #555b66; border-radius: 11px 11px 0 0; }
 .port-row { position: relative; min-height: 23px; margin: 4px 0; }

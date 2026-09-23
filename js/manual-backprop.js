@@ -35,16 +35,6 @@ function cloneManualJson(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-// ---------- retire automatic differentiation ----------
-
-// The old 미분 block and VJP metadata are intentionally removed at runtime too,
-// not merely hidden from the palette. The old autodiff modules are no longer
-// loaded by index.html on this branch.
-delete BLOCKS.derivative;
-for (const definition of Object.values(BLOCKS)) delete definition.vjp;
-GRADIENT_STRATEGIES.length = 0;
-if (typeof UNSUPPORTED_IN_USER_BLOCK !== 'undefined') UNSUPPORTED_IN_USER_BLOCK.delete('derivative');
-
 // A general linear-algebra operation that is needed to write matrix-vector
 // backprop by hand. This is not a backward-specific block: it simply computes
 // A^T x and is useful anywhere in the forward graph too.

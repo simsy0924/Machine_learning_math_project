@@ -66,15 +66,6 @@ function reshapeValues(input, rawShape) {
   return fastArrayValue(arr.data, shape);
 }
 
-function reshapeBackward(input, upstream) {
-  const original = asArrayValue(input);
-  const gradient = asArrayValue(upstream);
-  if (gradient.data.length !== original.data.length) {
-    throw new Error('배열 모양 바꾸기 역전파의 원소 수가 맞지 않습니다.');
-  }
-  return fastArrayValue(gradient.data, original.shape);
-}
-
 function unfoldConfig(node, input) {
   const arr = asArrayValue(input);
   if (arr.shape.length !== 2) {
@@ -177,43 +168,5 @@ function unfold2dValues(node, input) {
     }
   }
 
-  const value = fastArrayValue(out, [config.windowCount, config.windowSize]);
-  // The VJP receives the direct node output, so keeping the extraction geometry
-  // here lets backward reuse the exact parameters without a wider signature.
-  value.unfold2d = config;
-  return value;
-}
-
-function unfold2dBackward(input, output, upstream) {
-  const original = asArrayValue(input);
-  const gradient = asArrayValue(upstream);
-  const config = output?.unfold2d;
-  if (!config) throw new Error('슬라이딩 창 역전파 정보를 찾지 못했습니다.');
-  if (gradient.data.length !== config.windowCount * config.windowSize) {
-    throw new Error('슬라이딩 창 역전파의 gradient 크기가 맞지 않습니다.');
-  }
-
-  const out = takeResultBuffer(original.data.length);
-  out.fill(0);
-  const gd = gradient.data;
-  let read = 0;
-
-  for (let outRow = 0; outRow < config.outRows; outRow++) {
-    const sourceTop = outRow * config.strideRows - config.padding;
-    for (let outCol = 0; outCol < config.outCols; outCol++) {
-      const sourceLeft = outCol * config.strideCols - config.padding;
-      for (let kr = 0; kr < config.kernelRows; kr++) {
-        const sourceRow = sourceTop + kr;
-        for (let kc = 0; kc < config.kernelCols; kc++) {
-          const sourceCol = sourceLeft + kc;
-          const g = gd[read++];
-          if (sourceRow >= 0 && sourceRow < config.height && sourceCol >= 0 && sourceCol < config.width) {
-            out[sourceRow * config.width + sourceCol] += g;
-          }
-        }
-      }
-    }
-  }
-
-  return fastArrayValue(out, original.shape);
+  return fastArrayValue(out, [config.windowCount, config.windowSize]);
 }

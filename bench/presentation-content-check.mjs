@@ -28,6 +28,8 @@ function startServer() {
   const server = http.createServer((request, response) => {
     const requested = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
     const relative = requested === '/' ? 'index.html' : requested.replace(/^\/+/, '');
+    // Full Chromium asks for a favicon the app does not ship; that 404 is not a page error.
+    if (requested === '/favicon.ico') { response.writeHead(204).end(); return; }
     const filePath = path.resolve(ROOT, relative);
     if (filePath !== ROOT && !filePath.startsWith(ROOT + path.sep)) { response.writeHead(403).end('forbidden'); return; }
     fs.readFile(filePath, (error, data) => {

@@ -86,9 +86,14 @@ assert.equal(run('graph.nodes.size'),0);assert.equal(run('RUNTIME_VARIABLES.size
 // Missing file must leave the current stage untouched.
 files.delete('/app/presentation/02.mmlab');await run('changePresentation(1)');
 assert.equal(run('presentationIndex'),0);assert.match(elements.get('presentationStatus').textContent,/404/);
-// Invalid node fails AFTER clearing the workspace: exercise rollback.
-files.set('/app/presentation/02.mmlab',{...blank,graph:{nodes:[{id:1,type:'broken'}],connections:[]}});
+// Unknown block type is rejected before the workspace is touched.
+files.set('/app/presentation/02.mmlab',{...blank,graph:{nodes:[{id:1,type:'derivative',params:{}}],connections:[]}});
 run(`graph.nodes.set(3,{id:3,type:'number',params:{value:88}})`);await run('changePresentation(1)');
+assert.equal(run('graph.nodes.get(3).params.value'),88);assert.equal(run('presentationIndex'),0);
+assert.match(elements.get('presentationStatus').textContent,/자동미분/);
+// A declared custom block that fails while rebuilding fails AFTER clearing the workspace: exercise rollback.
+files.set('/app/presentation/02.mmlab',{...blank,userBlocks:[{id:'x',name:'X'}],graph:{nodes:[{id:1,type:'custom:x',params:{}}],connections:[]}});
+await run('changePresentation(1)');
 assert.equal(run('graph.nodes.get(3).params.value'),88);assert.equal(run('presentationIndex'),0);
 await run("changePresentation('off')");assert.equal(run('presentationActive'),false);
 assert.deepEqual(comparable(snapshot()),original);assert.deepEqual(storage,stored);

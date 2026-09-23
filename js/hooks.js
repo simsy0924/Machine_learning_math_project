@@ -13,15 +13,6 @@ const INSPECTOR_EXTENSIONS = [];
 // Called after "선택 계산" has rendered its result panel. Signature: (value) => void
 const SELECTED_RESULT_EXTENSIONS = [];
 
-// Kept as an empty compatibility surface for older diagnostics. Automatic
-// differentiation no longer registers or executes gradient strategies.
-const GRADIENT_STRATEGIES = [];
-
-function registerGradientStrategy(strategy) {
-  GRADIENT_STRATEGIES.push(strategy);
-  GRADIENT_STRATEGIES.sort((a, b) => a.priority - b.priority);
-}
-
 // Diagnostic hooks. Every field stays null unless js/profiler.js installs it, and
 // every call site checks for null first, so a page without the profiler pays only
 // a tiny branch on the hot path.

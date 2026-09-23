@@ -156,6 +156,16 @@ function validateProjectSnapshot(project) {
   if (project.graph.connections.length > 20000) throw new Error('연결 수가 지나치게 많습니다.');
   if (!Array.isArray(project.userBlocks)) throw new Error('사용자 블록 정보가 올바르지 않습니다.');
   if (!Array.isArray(project.runtimeVariables)) throw new Error('변수 정보가 올바르지 않습니다.');
+  // Reject unknown blocks before restoring clears the current workspace.
+  const customIds = new Set(project.userBlocks.map(definition => String(definition?.id)));
+  const knownType = type => {
+    if (typeof type !== 'string') return false;
+    if (type.startsWith('custom:')) return customIds.has(type.slice(7));
+    try { return Boolean(getBlockDef(type)); } catch { return false; }
+  };
+  const unknown = project.graph.nodes.find(node => !knownType(node?.type));
+  if (unknown?.type === 'derivative') throw new Error('예전 자동미분 \'미분\' 블록이 들어 있는 파일입니다. 자동미분은 제거되었으니 수동 역전파로 바꾼 파일을 사용하세요.');
+  if (unknown) throw new Error(`알 수 없는 블록이 있습니다: ${String(unknown?.type)}`);
 }
 
 function restoreDatasetSelection(names) {
@@ -265,40 +275,23 @@ async function importProjectFile(file) {
 
 // ---------- .mmlweights: trained parameters only ----------
 //
-// A trainable parameter is identified by the variable named on a 미분 block that
-// is also the target of at least one 값 바꾸기. This works for both direct SGD
-// and minibatch training: in a minibatch graph the derivative flows into an
-// accumulator such as gW while the actual parameter W is updated from it later,
-// so following the derivative into 값 바꾸기 would save the wrong variable.
-
-function collectSetVariableTargets() {
-  const names = new Set();
-  for (const node of graph.nodes.values()) {
-    if (getBlockDef(node.type).special !== 'setVariable') continue;
-    const name = String(node.params.variable || '').trim();
-    if (name) names.add(name);
-  }
-  return names;
-}
+// Nothing in a manual-backprop graph says which state variables are model
+// parameters and which are gradient accumulators (W vs gW both receive 값 바꾸기),
+// so the user marks each 변수 block explicitly as 학습 파라미터.
 
 function collectTrainableVariableNames() {
-  const updateTargets = collectSetVariableTargets();
   const names = new Set();
-
   for (const node of graph.nodes.values()) {
-    if (getBlockDef(node.type).special !== 'derivative') continue;
-    const name = String(node.params.variable || '').trim();
-    if (!name || !updateTargets.has(name)) continue;
-    if (!findVariableNode(name)) continue;
-    names.add(name);
+    if (node.type !== 'variable' || String(node.params.trainable || '') !== 'yes') continue;
+    const name = String(node.params.name || '').trim();
+    if (name) names.add(name);
   }
-
   return [...names];
 }
 
 function buildWeightsSnapshot() {
   const names = collectTrainableVariableNames();
-  if (!names.length) throw new Error("미분되고 실제로 '값 바꾸기'로 갱신되는 학습 변수가 없습니다.");
+  if (!names.length) throw new Error("'학습 파라미터'로 표시한 변수가 없습니다. 변수 블록의 '가중치 저장 분류'를 확인하세요.");
 
   const variables = names.map(name => {
     const variableNode = findVariableNode(name);

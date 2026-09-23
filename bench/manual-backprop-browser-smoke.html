@@ -34,13 +34,19 @@
               throw new Error('derivative must not be present in the palette');
             }
 
-            let legacyStopped = false;
-            try {
-              BLOCKS.derivative.compute({ params: { variable: 'x' } }, [1]);
-            } catch (error) {
-              legacyStopped = /자동미분은 제거/.test(String(error.message));
+            if ('derivative' in BLOCKS) {
+              throw new Error('derivative must not be registered as a block');
             }
-            if (!legacyStopped) throw new Error('legacy derivative placeholder unexpectedly computed');
+            let legacyRejected = false;
+            try {
+              validateProjectSnapshot({
+                format: PROJECT_FORMAT, version: PROJECT_VERSION, userBlocks: [], runtimeVariables: [],
+                graph: { nodes: [{ id: 1, type: 'derivative', params: { variable: 'x' } }], connections: [] }
+              });
+            } catch (error) {
+              legacyRejected = /자동미분/.test(String(error.message));
+            }
+            if (!legacyRejected) throw new Error('legacy derivative file was not rejected before loading');
 
             resetWorkspace();
             localStorage.removeItem(MANUAL_BACKPROP_STORAGE_KEY);
@@ -154,6 +160,18 @@
             if (!/샘플 2회/.test(profileText)) throw new Error('training profiler did not sample two iterations: ' + profileText);
             if (!/느린 블록 종류/.test(profileText)) throw new Error('training profiler block breakdown missing: ' + profileText);
             if (/gradient backward VJP|gradient 전체/.test(profileText)) throw new Error('legacy autodiff profiler labels remain: ' + profileText);
+
+            // 선택 계산 on a stateful branch (반복 + 값 바꾸기) and on a pure one.
+            await waitFor(() => !evaluateBtn.disabled);
+            const selectedAlerts = [];
+            window.alert = message => selectedAlerts.push(String(message));
+            for (const node of [repeat, plus]) {
+              selectedNodeId = node.id;
+              await evaluateSelectedOutput();
+              if (selectedAlerts.length || !/^선택 계산 완료/.test(workspaceStatus.textContent)) {
+                throw new Error('selected evaluation failed: ' + (selectedAlerts.join(' | ') || workspaceStatus.textContent));
+              }
+            }
 
             finish('PASS');
           } catch (error) {

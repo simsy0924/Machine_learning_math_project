@@ -6,7 +6,7 @@
 // pan/zoom and editing handlers are reused, the inside looks and behaves exactly
 // like the rest of the app instead of being drawn by a separate viewer.
 
-const UNSUPPORTED_IN_USER_BLOCK = new Set(['derivative', 'setVariable', 'repeat']);
+const UNSUPPORTED_IN_USER_BLOCK = new Set(['setVariable', 'repeat']);
 
 let userBlockEditorState = null;
 let userBlockEditorToolbar = null;
@@ -83,12 +83,6 @@ function createUserBlockFromSelection() {
   const variableIds = new Set([...groupSelectedIds].filter(id => graph.nodes.get(id)?.type === 'variable'));
   const core = new Set([...groupSelectedIds].filter(id => !variableIds.has(id)));
   if (!core.size) { alert('변수만으로는 새 블록을 만들 수 없습니다. 연산 블록도 함께 선택하세요.'); return; }
-  for (const id of core) {
-    if (getBlockDef(graph.nodes.get(id).type).special === 'derivative') {
-      alert('미분 블록 자체는 아직 묶기 안에 넣지 마세요. 만든 블록 바깥에서 미분하면 됩니다.');
-      return;
-    }
-  }
 
   const outgoingOutside = new Map();
   for (const id of core) outgoingOutside.set(id, graph.connections.filter(c => c.from === id && !core.has(c.to)));
@@ -832,7 +826,7 @@ document.addEventListener('click', event => {
 
   event.preventDefault();
   event.stopImmediatePropagation();
-  alert('미분, 값 바꾸기, 반복 블록은 사용자 블록 내부에 넣을 수 없습니다. 사용자 블록 바깥에서 사용해 주세요.');
+  alert('값 바꾸기, 반복 블록은 사용자 블록 내부에 넣을 수 없습니다. 사용자 블록 바깥에서 사용해 주세요.');
 }, true);
 
 // The palette still lists the block currently being edited, and the blocks that
