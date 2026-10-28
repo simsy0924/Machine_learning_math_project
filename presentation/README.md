@@ -25,7 +25,7 @@ node bench/presentation-content-check.mjs    # 실제 페이지에서 모든 단
 | `03` | `03-linear-fail.mmlab` | 활성화 없는 선형 모형을 델타 규칙으로 학습, XOR 실패 (손실 1.0에서 멈춤) |
 | `04` | `04-threshold-search.mmlab` | 임계값 2-2-1 신경망: 손으로 넣은 가중치로 표현 확인, 무작위 탐색으로 학습 |
 | `cnn-train` | `cnn-1-train.mmlab` | Quick Draw 15종 CNN: 무작위 초기값에서 `계산`으로 1 epoch 학습 (테스트 정확도 6.7% → 81.3%) |
-| `cnn-trained` | `cnn-2-trained.mmlab` | 같은 CNN에 60 epoch 학습 가중치를 넣은 상태: 그림별 예측 평가 87.6%, 손그림 분류 |
+| `cnn-trained` | `cnn-2-trained.mmlab` | 같은 CNN에 60 epoch 학습 가중치를 넣은 상태: 그림별 예측 평가 87.9%, 손그림 분류 |
 
 ## 파일 형식
 
@@ -39,7 +39,7 @@ node bench/presentation-content-check.mjs    # 실제 페이지에서 모든 단
 - 하나의 입력을 블록 안에서 여러 곳에 쓰려면 `값 보기` 블록으로 갈라 씁니다(입력 포트 하나 = 슬롯 하나).
 - 배치는 열 300px, 행 190px 격자입니다. 입력이 3개 이상인 블록은 190px보다 높으므로 행 간격을 넓혀야 합니다.
 - `계산`은 블록을 만든 순서(id 순)로 한 번씩 계산하므로, 반복이 끝난 뒤의 값을 보이려면 반복 블록보다 나중에 만든 변수 블록으로 읽습니다.
-- CNN 단계는 `source/quickdraw-cnn.mmlab`(편집 모드의 학습 작업공간)에서 사용자 블록 정의와 변수 설정을 그대로 가져오고, `source/quickdraw-cnn.mmlweights.json`을 학습된 단계의 저장 값으로 넣습니다. 원본과 다른 점은 `build.mjs`의 CNN 절 머리 주석에 정리했습니다(평가용 순전파 복제 제거, 둘 다 계산 사슬을 '차례로 실행' 블록으로 묶기, 가중치 갱신이 새 모멘텀을 쓰도록 연결, 파라미터별 한 줄 배치).
+- CNN 단계는 `source/quickdraw-cnn.mmlab`(편집 모드의 학습 작업공간)에서 사용자 블록 정의와 변수 설정을 그대로 가져오고, `source/quickdraw-cnn.mmlweights.json`을 학습된 단계의 저장 값으로 넣습니다. 이 가중치는 `cnn-train` 단계의 epoch 반복만 60으로 바꿔 학습한 것입니다. 원본과 다른 점은 `build.mjs`의 CNN 절 머리 주석에 정리했습니다(평가용 순전파 복제 제거, 둘 다 계산 사슬을 '차례로 실행' 블록으로 묶기, 가중치 갱신이 새 모멘텀을 쓰도록 연결, 파라미터별 한 줄 배치).
 - CNN 정확도는 생성기에서 흉내내기에 계산이 커서 페이지에서 잰 값을 `CNN_MEASURED`에 적어 두고, 검증 스크립트가 다시 재서 비교합니다. 구조나 가중치를 바꾸면 다시 재서 고치세요.
 - 3단계 경사하강과 4단계 탐색은 페이지와 같은 float32 계산과 같은 난수(`js/values.js`의 LCG)로 미리 흉내내어 기대값과 설명에 들어갈 숫자를 만듭니다.
 

@@ -630,7 +630,8 @@ function build04() {
 // ---------- CNN: Quick Draw 15종 분류 ----------
 //
 // source/quickdraw-cnn.mmlab(편집 모드에서 만든 학습 작업공간)과 source/quickdraw-cnn.mmlweights.json
-// (그 구조로 60 epoch 학습한 가중치)을 읽어 발표용으로 다시 배치합니다. 사용자 블록 정의, 변수 설정,
+// (아래처럼 정리한 cnn-train 단계를 epoch 반복만 60으로 바꿔 학습한 가중치)을 읽어 발표용으로 다시
+// 배치합니다. 사용자 블록 정의, 변수 설정,
 // 순전파·역전파·모멘텀 갱신의 계산은 원본 그대로이고 바뀌는 것은 다음뿐입니다.
 //   · 복제된 평가용 순전파와 혼동행렬 평가 반복을 빼고, 학습 순전파의 점수에 Softmax를 달아
 //     '예측 확률' 출력으로 씁니다(그림별 예측 평가 · 손그림 분류 패널에서 선택).
@@ -654,7 +655,7 @@ const CNN_PARAM_COUNT = CNN_WEIGHTS.variables.reduce((sum, v) => sum + v.value.s
 // 생성기에서 흉내내기에는 계산이 커서 측정값을 적어 두고, 내용 검사가 다시 측정해 비교합니다.
 // 1 epoch 학습 후 정확도는 무작위 초기값에서 이 단계의 '계산'을 한 번 실행한 결과입니다.
 const CNN_EVAL = { start: 15000, count: 15000 };
-const CNN_MEASURED = { initial: 0.06686666666666667, oneEpoch: 0.8132666666666667, trained: 0.8758666666666667 };
+const CNN_MEASURED = { initial: 0.06686666666666667, oneEpoch: 0.8132666666666667, trained: 0.8787333333333334 };
 const percent = value => `${(value * 100).toFixed(1)}%`;
 
 function sourceVariableParams(name) {
