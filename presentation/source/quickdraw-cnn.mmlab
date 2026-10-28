@@ -1,0 +1,10097 @@
+{
+  "format": "machine-learning-math-project",
+  "version": 1,
+  "exportedAt": "2026-09-08T03:39:14.500Z",
+  "graph": {
+    "nodes": [
+      {
+        "id": 1,
+        "type": "dataset",
+        "x": 2200,
+        "y": 3500,
+        "params": {}
+      },
+      {
+        "id": 2,
+        "type": "variable",
+        "x": 40,
+        "y": 250,
+        "params": {
+          "name": "epoch",
+          "mode": "scalar",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 3,
+        "type": "variable",
+        "x": 40,
+        "y": 430,
+        "params": {
+          "name": "batch",
+          "mode": "scalar",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 4,
+        "type": "variable",
+        "x": 40,
+        "y": 610,
+        "params": {
+          "name": "k",
+          "mode": "scalar",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 5,
+        "type": "variable",
+        "x": 40,
+        "y": 790,
+        "params": {
+          "name": "K1",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "random",
+          "seed": 101,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.4898979485566356,
+          "trainable": "yes"
+        }
+      },
+      {
+        "id": 6,
+        "type": "variable",
+        "x": 40,
+        "y": 970,
+        "params": {
+          "name": "K2",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "random",
+          "seed": 103,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.4898979485566356,
+          "trainable": "yes"
+        }
+      },
+      {
+        "id": 7,
+        "type": "variable",
+        "x": 40,
+        "y": 1150,
+        "params": {
+          "name": "K3",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "random",
+          "seed": 107,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.4898979485566356,
+          "trainable": "yes"
+        }
+      },
+      {
+        "id": 8,
+        "type": "variable",
+        "x": 40,
+        "y": 1330,
+        "params": {
+          "name": "K4",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "random",
+          "seed": 109,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.4898979485566356,
+          "trainable": "yes"
+        }
+      },
+      {
+        "id": 9,
+        "type": "variable",
+        "x": 40,
+        "y": 1510,
+        "params": {
+          "name": "W1_1",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "random",
+          "seed": 211,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.07216878364870322,
+          "trainable": "yes"
+        }
+      },
+      {
+        "id": 10,
+        "type": "variable",
+        "x": 40,
+        "y": 1690,
+        "params": {
+          "name": "W1_2",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "random",
+          "seed": 223,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.07216878364870322,
+          "trainable": "yes"
+        }
+      },
+      {
+        "id": 11,
+        "type": "variable",
+        "x": 40,
+        "y": 1870,
+        "params": {
+          "name": "W1_3",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "random",
+          "seed": 227,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.07216878364870322,
+          "trainable": "yes"
+        }
+      },
+      {
+        "id": 12,
+        "type": "variable",
+        "x": 40,
+        "y": 2050,
+        "params": {
+          "name": "W1_4",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "random",
+          "seed": 229,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.07216878364870322,
+          "trainable": "yes"
+        }
+      },
+      {
+        "id": 13,
+        "type": "variable",
+        "x": 40,
+        "y": 2230,
+        "params": {
+          "name": "b1",
+          "mode": "vector",
+          "value": 0,
+          "length": 128,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "yes"
+        }
+      },
+      {
+        "id": 14,
+        "type": "variable",
+        "x": 360,
+        "y": 250,
+        "params": {
+          "name": "W2",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "random",
+          "seed": 29,
+          "rows": 64,
+          "cols": 128,
+          "scale": 0.21650635094610965,
+          "trainable": "yes"
+        }
+      },
+      {
+        "id": 15,
+        "type": "variable",
+        "x": 360,
+        "y": 430,
+        "params": {
+          "name": "b2",
+          "mode": "vector",
+          "value": 0,
+          "length": 64,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "yes"
+        }
+      },
+      {
+        "id": 16,
+        "type": "variable",
+        "x": 360,
+        "y": 610,
+        "params": {
+          "name": "W3",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "random",
+          "seed": 47,
+          "rows": 15,
+          "cols": 64,
+          "scale": 0.21650635094610965,
+          "trainable": "yes"
+        }
+      },
+      {
+        "id": 17,
+        "type": "variable",
+        "x": 360,
+        "y": 790,
+        "params": {
+          "name": "b3",
+          "mode": "vector",
+          "value": 0,
+          "length": 15,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "yes"
+        }
+      },
+      {
+        "id": 18,
+        "type": "variable",
+        "x": 360,
+        "y": 970,
+        "params": {
+          "name": "gK1",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 19,
+        "type": "variable",
+        "x": 360,
+        "y": 1150,
+        "params": {
+          "name": "gK2",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 20,
+        "type": "variable",
+        "x": 360,
+        "y": 1330,
+        "params": {
+          "name": "gK3",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 21,
+        "type": "variable",
+        "x": 360,
+        "y": 1510,
+        "params": {
+          "name": "gK4",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 22,
+        "type": "variable",
+        "x": 360,
+        "y": 1690,
+        "params": {
+          "name": "gW1_1",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 23,
+        "type": "variable",
+        "x": 360,
+        "y": 1870,
+        "params": {
+          "name": "gW1_2",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 24,
+        "type": "variable",
+        "x": 360,
+        "y": 2050,
+        "params": {
+          "name": "gW1_3",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 25,
+        "type": "variable",
+        "x": 360,
+        "y": 2230,
+        "params": {
+          "name": "gW1_4",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 26,
+        "type": "variable",
+        "x": 680,
+        "y": 250,
+        "params": {
+          "name": "gb1",
+          "mode": "vector",
+          "value": 0,
+          "length": 128,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 27,
+        "type": "variable",
+        "x": 680,
+        "y": 430,
+        "params": {
+          "name": "gW2",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 64,
+          "cols": 128,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 28,
+        "type": "variable",
+        "x": 680,
+        "y": 610,
+        "params": {
+          "name": "gb2",
+          "mode": "vector",
+          "value": 0,
+          "length": 64,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 29,
+        "type": "variable",
+        "x": 680,
+        "y": 790,
+        "params": {
+          "name": "gW3",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 15,
+          "cols": 64,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 30,
+        "type": "variable",
+        "x": 680,
+        "y": 970,
+        "params": {
+          "name": "gb3",
+          "mode": "vector",
+          "value": 0,
+          "length": 15,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 31,
+        "type": "number",
+        "x": 40,
+        "y": 2600,
+        "params": {
+          "value": 15
+        }
+      },
+      {
+        "id": 32,
+        "type": "custom:lr_decay60",
+        "x": 6600,
+        "y": 3500,
+        "params": {}
+      },
+      {
+        "id": 35,
+        "type": "constantVector",
+        "x": 40,
+        "y": 2780,
+        "params": {
+          "length": 25,
+          "value": 0
+        }
+      },
+      {
+        "id": 36,
+        "type": "constantVector",
+        "x": 40,
+        "y": 2960,
+        "params": {
+          "length": 128,
+          "value": 0
+        }
+      },
+      {
+        "id": 37,
+        "type": "constantVector",
+        "x": 40,
+        "y": 3140,
+        "params": {
+          "length": 64,
+          "value": 0
+        }
+      },
+      {
+        "id": 38,
+        "type": "constantVector",
+        "x": 40,
+        "y": 3320,
+        "params": {
+          "length": 15,
+          "value": 0
+        }
+      },
+      {
+        "id": 40,
+        "type": "matrix",
+        "x": 40,
+        "y": 3500,
+        "params": {
+          "rows": 128,
+          "cols": 144,
+          "init": "constant",
+          "value": 0,
+          "seed": 1,
+          "scale": 0.05
+        }
+      },
+      {
+        "id": 41,
+        "type": "matrix",
+        "x": 40,
+        "y": 3680,
+        "params": {
+          "rows": 64,
+          "cols": 128,
+          "init": "constant",
+          "value": 0,
+          "seed": 1,
+          "scale": 0.05
+        }
+      },
+      {
+        "id": 42,
+        "type": "matrix",
+        "x": 40,
+        "y": 3860,
+        "params": {
+          "rows": 15,
+          "cols": 64,
+          "init": "constant",
+          "value": 0,
+          "seed": 1,
+          "scale": 0.05
+        }
+      },
+      {
+        "id": 43,
+        "type": "multiply",
+        "x": 1900,
+        "y": 3900,
+        "params": {}
+      },
+      {
+        "id": 44,
+        "type": "add",
+        "x": 2200,
+        "y": 3900,
+        "params": {}
+      },
+      {
+        "id": 45,
+        "type": "datasetSampleByIndex",
+        "x": 2500,
+        "y": 3900,
+        "params": {}
+      },
+      {
+        "id": 46,
+        "type": "sampleImage",
+        "x": 2500,
+        "y": 3500,
+        "params": {}
+      },
+      {
+        "id": 47,
+        "type": "sampleOneHot",
+        "x": 2500,
+        "y": 5400,
+        "params": {}
+      },
+      {
+        "id": 93,
+        "type": "display",
+        "x": 4900,
+        "y": 3500,
+        "params": {}
+      },
+      {
+        "id": 145,
+        "type": "repeat",
+        "x": 6400,
+        "y": 5600,
+        "params": {
+          "count": 15,
+          "start": 0,
+          "indexVariable": "k"
+        }
+      },
+      {
+        "id": 239,
+        "type": "display",
+        "x": 12300,
+        "y": 4000,
+        "params": {}
+      },
+      {
+        "id": 240,
+        "type": "variable",
+        "x": 680,
+        "y": 1150,
+        "params": {
+          "name": "test_i",
+          "mode": "scalar",
+          "value": 15000,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 241,
+        "type": "datasetSampleByIndex",
+        "x": 2200,
+        "y": 10000,
+        "params": {}
+      },
+      {
+        "id": 242,
+        "type": "sampleImage",
+        "x": 2500,
+        "y": 10000,
+        "params": {}
+      },
+      {
+        "id": 243,
+        "type": "sampleOneHot",
+        "x": 2500,
+        "y": 12000,
+        "params": {}
+      },
+      {
+        "id": 284,
+        "type": "display",
+        "x": 4900,
+        "y": 10000,
+        "params": {}
+      },
+      {
+        "id": 285,
+        "type": "variable",
+        "x": 680,
+        "y": 1330,
+        "params": {
+          "name": "correct",
+          "mode": "scalar",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 286,
+        "type": "variable",
+        "x": 680,
+        "y": 1510,
+        "params": {
+          "name": "prob_sum",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 15,
+          "cols": 15,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 287,
+        "type": "variable",
+        "x": 680,
+        "y": 1690,
+        "params": {
+          "name": "class_count",
+          "mode": "vector",
+          "value": 0,
+          "length": 15,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 288,
+        "type": "constantVector",
+        "x": 5200,
+        "y": 10000,
+        "params": {
+          "length": 15,
+          "value": 1
+        }
+      },
+      {
+        "id": 289,
+        "type": "constantVector",
+        "x": 5540,
+        "y": 10000,
+        "params": {
+          "length": 15,
+          "value": 0
+        }
+      },
+      {
+        "id": 290,
+        "type": "number",
+        "x": 5880,
+        "y": 10000,
+        "params": {
+          "value": 0
+        }
+      },
+      {
+        "id": 291,
+        "type": "matrix",
+        "x": 6220,
+        "y": 10000,
+        "params": {
+          "rows": 15,
+          "cols": 15,
+          "init": "constant",
+          "value": 0,
+          "seed": 1,
+          "scale": 0.05
+        }
+      },
+      {
+        "id": 292,
+        "type": "arrayMax",
+        "x": 6560,
+        "y": 10000,
+        "params": {}
+      },
+      {
+        "id": 293,
+        "type": "equal",
+        "x": 5200,
+        "y": 10220,
+        "params": {}
+      },
+      {
+        "id": 294,
+        "type": "sum",
+        "x": 5540,
+        "y": 10220,
+        "params": {}
+      },
+      {
+        "id": 295,
+        "type": "divide",
+        "x": 5880,
+        "y": 10220,
+        "params": {}
+      },
+      {
+        "id": 296,
+        "type": "dot",
+        "x": 6220,
+        "y": 10220,
+        "params": {}
+      },
+      {
+        "id": 297,
+        "type": "add",
+        "x": 6560,
+        "y": 10220,
+        "params": {}
+      },
+      {
+        "id": 298,
+        "type": "setVariable",
+        "x": 5200,
+        "y": 10440,
+        "params": {
+          "variable": "correct"
+        }
+      },
+      {
+        "id": 299,
+        "type": "outerProduct",
+        "x": 5540,
+        "y": 10440,
+        "params": {}
+      },
+      {
+        "id": 300,
+        "type": "add",
+        "x": 5880,
+        "y": 10440,
+        "params": {}
+      },
+      {
+        "id": 301,
+        "type": "setVariable",
+        "x": 6220,
+        "y": 10440,
+        "params": {
+          "variable": "prob_sum"
+        }
+      },
+      {
+        "id": 302,
+        "type": "add",
+        "x": 6560,
+        "y": 10440,
+        "params": {}
+      },
+      {
+        "id": 303,
+        "type": "setVariable",
+        "x": 5200,
+        "y": 10660,
+        "params": {
+          "variable": "class_count"
+        }
+      },
+      {
+        "id": 304,
+        "type": "sequence",
+        "x": 5540,
+        "y": 10660,
+        "params": {}
+      },
+      {
+        "id": 305,
+        "type": "sequence",
+        "x": 5880,
+        "y": 10660,
+        "params": {}
+      },
+      {
+        "id": 306,
+        "type": "repeat",
+        "x": 6220,
+        "y": 10660,
+        "params": {
+          "count": 15000,
+          "start": 15000,
+          "indexVariable": "test_i"
+        }
+      },
+      {
+        "id": 307,
+        "type": "setVariable",
+        "x": 6560,
+        "y": 10660,
+        "params": {
+          "variable": "correct"
+        }
+      },
+      {
+        "id": 308,
+        "type": "setVariable",
+        "x": 5200,
+        "y": 10880,
+        "params": {
+          "variable": "prob_sum"
+        }
+      },
+      {
+        "id": 309,
+        "type": "setVariable",
+        "x": 5540,
+        "y": 10880,
+        "params": {
+          "variable": "class_count"
+        }
+      },
+      {
+        "id": 310,
+        "type": "sequence",
+        "x": 5880,
+        "y": 10880,
+        "params": {}
+      },
+      {
+        "id": 311,
+        "type": "sequence",
+        "x": 6220,
+        "y": 10880,
+        "params": {}
+      },
+      {
+        "id": 312,
+        "type": "sequence",
+        "x": 6560,
+        "y": 10880,
+        "params": {}
+      },
+      {
+        "id": 313,
+        "type": "number",
+        "x": 5200,
+        "y": 11100,
+        "params": {
+          "value": 15000
+        }
+      },
+      {
+        "id": 314,
+        "type": "divide",
+        "x": 5540,
+        "y": 11100,
+        "params": {}
+      },
+      {
+        "id": 315,
+        "type": "display",
+        "x": 5880,
+        "y": 11100,
+        "params": {}
+      },
+      {
+        "id": 316,
+        "type": "outerProduct",
+        "x": 6220,
+        "y": 11100,
+        "params": {}
+      },
+      {
+        "id": 317,
+        "type": "divide",
+        "x": 6560,
+        "y": 11100,
+        "params": {}
+      },
+      {
+        "id": 318,
+        "type": "display",
+        "x": 5200,
+        "y": 11320,
+        "params": {}
+      },
+      {
+        "id": 319,
+        "type": "sequence",
+        "x": 5540,
+        "y": 11320,
+        "params": {}
+      },
+      {
+        "id": 320,
+        "type": "display",
+        "x": 5880,
+        "y": 11320,
+        "params": {}
+      },
+      {
+        "id": 321,
+        "type": "sequence",
+        "x": 12300,
+        "y": 10500,
+        "params": {}
+      },
+      {
+        "id": 322,
+        "type": "display",
+        "x": 12600,
+        "y": 10500,
+        "params": {}
+      },
+      {
+        "id": 323,
+        "type": "variable",
+        "x": 680,
+        "y": 1870,
+        "params": {
+          "name": "gLoss",
+          "mode": "scalar",
+          "value": 1,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 324,
+        "type": "variable",
+        "x": 680,
+        "y": 2050,
+        "params": {
+          "name": "dLogits",
+          "mode": "vector",
+          "value": 0,
+          "length": 15,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 325,
+        "type": "variable",
+        "x": 680,
+        "y": 2230,
+        "params": {
+          "name": "dW3_local",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 15,
+          "cols": 64,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 326,
+        "type": "variable",
+        "x": 1000,
+        "y": 250,
+        "params": {
+          "name": "dh2",
+          "mode": "vector",
+          "value": 0,
+          "length": 64,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 327,
+        "type": "variable",
+        "x": 1000,
+        "y": 430,
+        "params": {
+          "name": "db3_local",
+          "mode": "vector",
+          "value": 0,
+          "length": 15,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 328,
+        "type": "variable",
+        "x": 1000,
+        "y": 610,
+        "params": {
+          "name": "dW2_local",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 64,
+          "cols": 128,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 329,
+        "type": "variable",
+        "x": 1000,
+        "y": 790,
+        "params": {
+          "name": "dh1",
+          "mode": "vector",
+          "value": 0,
+          "length": 128,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 330,
+        "type": "variable",
+        "x": 1000,
+        "y": 970,
+        "params": {
+          "name": "db2_local",
+          "mode": "vector",
+          "value": 0,
+          "length": 64,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 331,
+        "type": "variable",
+        "x": 1000,
+        "y": 1150,
+        "params": {
+          "name": "dW1_1_local",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 332,
+        "type": "variable",
+        "x": 1000,
+        "y": 1330,
+        "params": {
+          "name": "dW1_2_local",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 333,
+        "type": "variable",
+        "x": 1000,
+        "y": 1510,
+        "params": {
+          "name": "dW1_3_local",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 334,
+        "type": "variable",
+        "x": 1000,
+        "y": 1690,
+        "params": {
+          "name": "dW1_4_local",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 335,
+        "type": "variable",
+        "x": 1000,
+        "y": 1870,
+        "params": {
+          "name": "dP1",
+          "mode": "vector",
+          "value": 0,
+          "length": 144,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 336,
+        "type": "variable",
+        "x": 1000,
+        "y": 2050,
+        "params": {
+          "name": "dP2",
+          "mode": "vector",
+          "value": 0,
+          "length": 144,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 337,
+        "type": "variable",
+        "x": 1000,
+        "y": 2230,
+        "params": {
+          "name": "dP3",
+          "mode": "vector",
+          "value": 0,
+          "length": 144,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 338,
+        "type": "variable",
+        "x": 1320,
+        "y": 250,
+        "params": {
+          "name": "dP4",
+          "mode": "vector",
+          "value": 0,
+          "length": 144,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 339,
+        "type": "variable",
+        "x": 1320,
+        "y": 430,
+        "params": {
+          "name": "db1_local",
+          "mode": "vector",
+          "value": 0,
+          "length": 128,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 340,
+        "type": "variable",
+        "x": 1320,
+        "y": 610,
+        "params": {
+          "name": "dK1_local",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 341,
+        "type": "variable",
+        "x": 1320,
+        "y": 790,
+        "params": {
+          "name": "dK2_local",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 342,
+        "type": "variable",
+        "x": 1320,
+        "y": 970,
+        "params": {
+          "name": "dK3_local",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 343,
+        "type": "variable",
+        "x": 1320,
+        "y": 1150,
+        "params": {
+          "name": "dK4_local",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 344,
+        "type": "custom:conv5_pool12",
+        "x": 2800,
+        "y": 3500,
+        "params": {}
+      },
+      {
+        "id": 345,
+        "type": "custom:conv5_pool12",
+        "x": 2800,
+        "y": 3760,
+        "params": {}
+      },
+      {
+        "id": 346,
+        "type": "custom:conv5_pool12",
+        "x": 2800,
+        "y": 4020,
+        "params": {}
+      },
+      {
+        "id": 347,
+        "type": "custom:conv5_pool12",
+        "x": 2800,
+        "y": 4280,
+        "params": {}
+      },
+      {
+        "id": 348,
+        "type": "custom:dense8_relu128",
+        "x": 3300,
+        "y": 3500,
+        "params": {}
+      },
+      {
+        "id": 349,
+        "type": "custom:dense_relu64",
+        "x": 3700,
+        "y": 3500,
+        "params": {}
+      },
+      {
+        "id": 350,
+        "type": "custom:dense_linear15",
+        "x": 4100,
+        "y": 3500,
+        "params": {}
+      },
+      {
+        "id": 351,
+        "type": "custom:softmax_ce15",
+        "x": 4500,
+        "y": 3500,
+        "params": {}
+      },
+      {
+        "id": 352,
+        "type": "custom:softmax_ce15",
+        "x": 4500,
+        "y": 6100,
+        "params": {
+          "manualBackpropMode": "backward",
+          "manualBackpropUpstream": "gLoss",
+          "manualBackpropGradient0": "dLogits",
+          "manualBackpropGradient1": ""
+        }
+      },
+      {
+        "id": 353,
+        "type": "custom:dense_linear15",
+        "x": 4100,
+        "y": 6500,
+        "params": {
+          "manualBackpropMode": "backward",
+          "manualBackpropUpstream": "dLogits",
+          "manualBackpropGradient0": "dW3_local",
+          "manualBackpropGradient1": "dh2",
+          "manualBackpropGradient2": "db3_local"
+        }
+      },
+      {
+        "id": 354,
+        "type": "custom:dense_relu64",
+        "x": 3700,
+        "y": 6500,
+        "params": {
+          "manualBackpropMode": "backward",
+          "manualBackpropUpstream": "dh2",
+          "manualBackpropGradient0": "dW2_local",
+          "manualBackpropGradient1": "dh1",
+          "manualBackpropGradient2": "db2_local"
+        }
+      },
+      {
+        "id": 355,
+        "type": "custom:dense8_relu128",
+        "x": 3300,
+        "y": 6500,
+        "params": {
+          "manualBackpropMode": "backward",
+          "manualBackpropUpstream": "dh1",
+          "manualBackpropGradient0": "dW1_1_local",
+          "manualBackpropGradient1": "dW1_2_local",
+          "manualBackpropGradient2": "dW1_3_local",
+          "manualBackpropGradient3": "dW1_4_local",
+          "manualBackpropGradient4": "dW1_5_local",
+          "manualBackpropGradient5": "dW1_6_local",
+          "manualBackpropGradient6": "dW1_7_local",
+          "manualBackpropGradient7": "dW1_8_local",
+          "manualBackpropGradient8": "dP1",
+          "manualBackpropGradient9": "dP2",
+          "manualBackpropGradient10": "dP3",
+          "manualBackpropGradient11": "dP4",
+          "manualBackpropGradient12": "dP5",
+          "manualBackpropGradient13": "dP6",
+          "manualBackpropGradient14": "dP7",
+          "manualBackpropGradient15": "dP8",
+          "manualBackpropGradient16": "db1_local"
+        }
+      },
+      {
+        "id": 356,
+        "type": "custom:conv5_pool12",
+        "x": 2800,
+        "y": 6500,
+        "params": {
+          "manualBackpropMode": "backward",
+          "manualBackpropUpstream": "dP1",
+          "manualBackpropGradient0": "",
+          "manualBackpropGradient1": "dK1_local"
+        }
+      },
+      {
+        "id": 357,
+        "type": "custom:conv5_pool12",
+        "x": 2800,
+        "y": 6760,
+        "params": {
+          "manualBackpropMode": "backward",
+          "manualBackpropUpstream": "dP2",
+          "manualBackpropGradient0": "",
+          "manualBackpropGradient1": "dK2_local"
+        }
+      },
+      {
+        "id": 358,
+        "type": "custom:conv5_pool12",
+        "x": 2800,
+        "y": 7020,
+        "params": {
+          "manualBackpropMode": "backward",
+          "manualBackpropUpstream": "dP3",
+          "manualBackpropGradient0": "",
+          "manualBackpropGradient1": "dK3_local"
+        }
+      },
+      {
+        "id": 359,
+        "type": "custom:conv5_pool12",
+        "x": 2800,
+        "y": 7280,
+        "params": {
+          "manualBackpropMode": "backward",
+          "manualBackpropUpstream": "dP4",
+          "manualBackpropGradient0": "",
+          "manualBackpropGradient1": "dK4_local"
+        }
+      },
+      {
+        "id": 360,
+        "type": "sequence",
+        "x": 4900,
+        "y": 6200,
+        "params": {}
+      },
+      {
+        "id": 361,
+        "type": "sequence",
+        "x": 5230,
+        "y": 6200,
+        "params": {}
+      },
+      {
+        "id": 362,
+        "type": "sequence",
+        "x": 5560,
+        "y": 6200,
+        "params": {}
+      },
+      {
+        "id": 363,
+        "type": "sequence",
+        "x": 5890,
+        "y": 6200,
+        "params": {}
+      },
+      {
+        "id": 364,
+        "type": "sequence",
+        "x": 4900,
+        "y": 6390,
+        "params": {}
+      },
+      {
+        "id": 365,
+        "type": "sequence",
+        "x": 5230,
+        "y": 6390,
+        "params": {}
+      },
+      {
+        "id": 366,
+        "type": "sequence",
+        "x": 5560,
+        "y": 6390,
+        "params": {}
+      },
+      {
+        "id": 367,
+        "type": "sequence",
+        "x": 5890,
+        "y": 6390,
+        "params": {}
+      },
+      {
+        "id": 368,
+        "type": "add",
+        "x": 4900,
+        "y": 6580,
+        "params": {}
+      },
+      {
+        "id": 369,
+        "type": "setVariable",
+        "x": 5230,
+        "y": 6580,
+        "params": {
+          "variable": "gK1"
+        }
+      },
+      {
+        "id": 370,
+        "type": "sequence",
+        "x": 5560,
+        "y": 6580,
+        "params": {}
+      },
+      {
+        "id": 371,
+        "type": "add",
+        "x": 5890,
+        "y": 6580,
+        "params": {}
+      },
+      {
+        "id": 372,
+        "type": "setVariable",
+        "x": 4900,
+        "y": 6770,
+        "params": {
+          "variable": "gK2"
+        }
+      },
+      {
+        "id": 373,
+        "type": "sequence",
+        "x": 5230,
+        "y": 6770,
+        "params": {}
+      },
+      {
+        "id": 374,
+        "type": "add",
+        "x": 5560,
+        "y": 6770,
+        "params": {}
+      },
+      {
+        "id": 375,
+        "type": "setVariable",
+        "x": 5890,
+        "y": 6770,
+        "params": {
+          "variable": "gK3"
+        }
+      },
+      {
+        "id": 376,
+        "type": "sequence",
+        "x": 4900,
+        "y": 6960,
+        "params": {}
+      },
+      {
+        "id": 377,
+        "type": "add",
+        "x": 5230,
+        "y": 6960,
+        "params": {}
+      },
+      {
+        "id": 378,
+        "type": "setVariable",
+        "x": 5560,
+        "y": 6960,
+        "params": {
+          "variable": "gK4"
+        }
+      },
+      {
+        "id": 379,
+        "type": "sequence",
+        "x": 5890,
+        "y": 6960,
+        "params": {}
+      },
+      {
+        "id": 380,
+        "type": "add",
+        "x": 4900,
+        "y": 7150,
+        "params": {}
+      },
+      {
+        "id": 381,
+        "type": "setVariable",
+        "x": 5230,
+        "y": 7150,
+        "params": {
+          "variable": "gW1_1"
+        }
+      },
+      {
+        "id": 382,
+        "type": "sequence",
+        "x": 5560,
+        "y": 7150,
+        "params": {}
+      },
+      {
+        "id": 383,
+        "type": "add",
+        "x": 5890,
+        "y": 7150,
+        "params": {}
+      },
+      {
+        "id": 384,
+        "type": "setVariable",
+        "x": 4900,
+        "y": 7340,
+        "params": {
+          "variable": "gW1_2"
+        }
+      },
+      {
+        "id": 385,
+        "type": "sequence",
+        "x": 5230,
+        "y": 7340,
+        "params": {}
+      },
+      {
+        "id": 386,
+        "type": "add",
+        "x": 5560,
+        "y": 7340,
+        "params": {}
+      },
+      {
+        "id": 387,
+        "type": "setVariable",
+        "x": 5890,
+        "y": 7340,
+        "params": {
+          "variable": "gW1_3"
+        }
+      },
+      {
+        "id": 388,
+        "type": "sequence",
+        "x": 4900,
+        "y": 7530,
+        "params": {}
+      },
+      {
+        "id": 389,
+        "type": "add",
+        "x": 5230,
+        "y": 7530,
+        "params": {}
+      },
+      {
+        "id": 390,
+        "type": "setVariable",
+        "x": 5560,
+        "y": 7530,
+        "params": {
+          "variable": "gW1_4"
+        }
+      },
+      {
+        "id": 391,
+        "type": "sequence",
+        "x": 5890,
+        "y": 7530,
+        "params": {}
+      },
+      {
+        "id": 392,
+        "type": "add",
+        "x": 4900,
+        "y": 7720,
+        "params": {}
+      },
+      {
+        "id": 393,
+        "type": "setVariable",
+        "x": 5230,
+        "y": 7720,
+        "params": {
+          "variable": "gb1"
+        }
+      },
+      {
+        "id": 394,
+        "type": "sequence",
+        "x": 5560,
+        "y": 7720,
+        "params": {}
+      },
+      {
+        "id": 395,
+        "type": "add",
+        "x": 5890,
+        "y": 7720,
+        "params": {}
+      },
+      {
+        "id": 396,
+        "type": "setVariable",
+        "x": 4900,
+        "y": 7910,
+        "params": {
+          "variable": "gW2"
+        }
+      },
+      {
+        "id": 397,
+        "type": "sequence",
+        "x": 5230,
+        "y": 7910,
+        "params": {}
+      },
+      {
+        "id": 398,
+        "type": "add",
+        "x": 5560,
+        "y": 7910,
+        "params": {}
+      },
+      {
+        "id": 399,
+        "type": "setVariable",
+        "x": 5890,
+        "y": 7910,
+        "params": {
+          "variable": "gb2"
+        }
+      },
+      {
+        "id": 400,
+        "type": "sequence",
+        "x": 4900,
+        "y": 8100,
+        "params": {}
+      },
+      {
+        "id": 401,
+        "type": "add",
+        "x": 5230,
+        "y": 8100,
+        "params": {}
+      },
+      {
+        "id": 402,
+        "type": "setVariable",
+        "x": 5560,
+        "y": 8100,
+        "params": {
+          "variable": "gW3"
+        }
+      },
+      {
+        "id": 403,
+        "type": "sequence",
+        "x": 5890,
+        "y": 8100,
+        "params": {}
+      },
+      {
+        "id": 404,
+        "type": "add",
+        "x": 4900,
+        "y": 8290,
+        "params": {}
+      },
+      {
+        "id": 405,
+        "type": "setVariable",
+        "x": 5230,
+        "y": 8290,
+        "params": {
+          "variable": "gb3"
+        }
+      },
+      {
+        "id": 406,
+        "type": "sequence",
+        "x": 5560,
+        "y": 8290,
+        "params": {}
+      },
+      {
+        "id": 407,
+        "type": "custom:conv5_pool12",
+        "x": 2800,
+        "y": 10000,
+        "params": {}
+      },
+      {
+        "id": 408,
+        "type": "custom:conv5_pool12",
+        "x": 2800,
+        "y": 10260,
+        "params": {}
+      },
+      {
+        "id": 409,
+        "type": "custom:conv5_pool12",
+        "x": 2800,
+        "y": 10520,
+        "params": {}
+      },
+      {
+        "id": 410,
+        "type": "custom:conv5_pool12",
+        "x": 2800,
+        "y": 10780,
+        "params": {}
+      },
+      {
+        "id": 411,
+        "type": "custom:dense8_relu128",
+        "x": 3300,
+        "y": 10000,
+        "params": {}
+      },
+      {
+        "id": 412,
+        "type": "custom:dense_relu64",
+        "x": 3700,
+        "y": 10000,
+        "params": {}
+      },
+      {
+        "id": 413,
+        "type": "custom:dense_linear15",
+        "x": 4100,
+        "y": 10000,
+        "params": {}
+      },
+      {
+        "id": 414,
+        "type": "custom:softmax15",
+        "x": 4500,
+        "y": 10000,
+        "params": {}
+      },
+      {
+        "id": 500,
+        "type": "variable",
+        "x": 40,
+        "y": 1050,
+        "params": {
+          "name": "K5",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "random",
+          "seed": 225,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.4898979485566356,
+          "trainable": "yes"
+        }
+      },
+      {
+        "id": 501,
+        "type": "variable",
+        "x": 350,
+        "y": 1050,
+        "params": {
+          "name": "W1_5",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "random",
+          "seed": 359,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.07216878364870322,
+          "trainable": "yes"
+        }
+      },
+      {
+        "id": 502,
+        "type": "variable",
+        "x": 660,
+        "y": 1050,
+        "params": {
+          "name": "gK5",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 503,
+        "type": "variable",
+        "x": 970,
+        "y": 1050,
+        "params": {
+          "name": "gW1_5",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 504,
+        "type": "variable",
+        "x": 1280,
+        "y": 1050,
+        "params": {
+          "name": "dK5_local",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 505,
+        "type": "variable",
+        "x": 1590,
+        "y": 1050,
+        "params": {
+          "name": "dW1_5_local",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 506,
+        "type": "variable",
+        "x": 1900,
+        "y": 1050,
+        "params": {
+          "name": "dP5",
+          "mode": "vector",
+          "value": 0,
+          "length": 144,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 507,
+        "type": "custom:conv5_pool12",
+        "x": 2800,
+        "y": 4540,
+        "params": {}
+      },
+      {
+        "id": 508,
+        "type": "custom:conv5_pool12",
+        "x": 2800,
+        "y": 11040,
+        "params": {}
+      },
+      {
+        "id": 509,
+        "type": "custom:conv5_pool12",
+        "x": 2800,
+        "y": 7540,
+        "params": {
+          "manualBackpropMode": "backward",
+          "manualBackpropUpstream": "dP5",
+          "manualBackpropGradient0": "",
+          "manualBackpropGradient1": "dK5_local"
+        }
+      },
+      {
+        "id": 510,
+        "type": "variable",
+        "x": 40,
+        "y": 1250,
+        "params": {
+          "name": "K6",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "random",
+          "seed": 256,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.4898979485566356,
+          "trainable": "yes"
+        }
+      },
+      {
+        "id": 511,
+        "type": "variable",
+        "x": 350,
+        "y": 1250,
+        "params": {
+          "name": "W1_6",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "random",
+          "seed": 396,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.07216878364870322,
+          "trainable": "yes"
+        }
+      },
+      {
+        "id": 512,
+        "type": "variable",
+        "x": 660,
+        "y": 1250,
+        "params": {
+          "name": "gK6",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 513,
+        "type": "variable",
+        "x": 970,
+        "y": 1250,
+        "params": {
+          "name": "gW1_6",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 514,
+        "type": "variable",
+        "x": 1280,
+        "y": 1250,
+        "params": {
+          "name": "dK6_local",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 515,
+        "type": "variable",
+        "x": 1590,
+        "y": 1250,
+        "params": {
+          "name": "dW1_6_local",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 516,
+        "type": "variable",
+        "x": 1900,
+        "y": 1250,
+        "params": {
+          "name": "dP6",
+          "mode": "vector",
+          "value": 0,
+          "length": 144,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 517,
+        "type": "custom:conv5_pool12",
+        "x": 2800,
+        "y": 4800,
+        "params": {}
+      },
+      {
+        "id": 518,
+        "type": "custom:conv5_pool12",
+        "x": 2800,
+        "y": 11300,
+        "params": {}
+      },
+      {
+        "id": 519,
+        "type": "custom:conv5_pool12",
+        "x": 2800,
+        "y": 7800,
+        "params": {
+          "manualBackpropMode": "backward",
+          "manualBackpropUpstream": "dP6",
+          "manualBackpropGradient0": "",
+          "manualBackpropGradient1": "dK6_local"
+        }
+      },
+      {
+        "id": 520,
+        "type": "variable",
+        "x": 40,
+        "y": 1450,
+        "params": {
+          "name": "K7",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "random",
+          "seed": 287,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.4898979485566356,
+          "trainable": "yes"
+        }
+      },
+      {
+        "id": 521,
+        "type": "variable",
+        "x": 350,
+        "y": 1450,
+        "params": {
+          "name": "W1_7",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "random",
+          "seed": 433,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.07216878364870322,
+          "trainable": "yes"
+        }
+      },
+      {
+        "id": 522,
+        "type": "variable",
+        "x": 660,
+        "y": 1450,
+        "params": {
+          "name": "gK7",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 523,
+        "type": "variable",
+        "x": 970,
+        "y": 1450,
+        "params": {
+          "name": "gW1_7",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 524,
+        "type": "variable",
+        "x": 1280,
+        "y": 1450,
+        "params": {
+          "name": "dK7_local",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 525,
+        "type": "variable",
+        "x": 1590,
+        "y": 1450,
+        "params": {
+          "name": "dW1_7_local",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 526,
+        "type": "variable",
+        "x": 1900,
+        "y": 1450,
+        "params": {
+          "name": "dP7",
+          "mode": "vector",
+          "value": 0,
+          "length": 144,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 527,
+        "type": "custom:conv5_pool12",
+        "x": 2800,
+        "y": 5060,
+        "params": {}
+      },
+      {
+        "id": 528,
+        "type": "custom:conv5_pool12",
+        "x": 2800,
+        "y": 11560,
+        "params": {}
+      },
+      {
+        "id": 529,
+        "type": "custom:conv5_pool12",
+        "x": 2800,
+        "y": 8060,
+        "params": {
+          "manualBackpropMode": "backward",
+          "manualBackpropUpstream": "dP7",
+          "manualBackpropGradient0": "",
+          "manualBackpropGradient1": "dK7_local"
+        }
+      },
+      {
+        "id": 530,
+        "type": "variable",
+        "x": 40,
+        "y": 1650,
+        "params": {
+          "name": "K8",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "random",
+          "seed": 318,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.4898979485566356,
+          "trainable": "yes"
+        }
+      },
+      {
+        "id": 531,
+        "type": "variable",
+        "x": 350,
+        "y": 1650,
+        "params": {
+          "name": "W1_8",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "random",
+          "seed": 470,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.07216878364870322,
+          "trainable": "yes"
+        }
+      },
+      {
+        "id": 532,
+        "type": "variable",
+        "x": 660,
+        "y": 1650,
+        "params": {
+          "name": "gK8",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 533,
+        "type": "variable",
+        "x": 970,
+        "y": 1650,
+        "params": {
+          "name": "gW1_8",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 534,
+        "type": "variable",
+        "x": 1280,
+        "y": 1650,
+        "params": {
+          "name": "dK8_local",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 535,
+        "type": "variable",
+        "x": 1590,
+        "y": 1650,
+        "params": {
+          "name": "dW1_8_local",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 536,
+        "type": "variable",
+        "x": 1900,
+        "y": 1650,
+        "params": {
+          "name": "dP8",
+          "mode": "vector",
+          "value": 0,
+          "length": 144,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 537,
+        "type": "custom:conv5_pool12",
+        "x": 2800,
+        "y": 5320,
+        "params": {}
+      },
+      {
+        "id": 538,
+        "type": "custom:conv5_pool12",
+        "x": 2800,
+        "y": 11820,
+        "params": {}
+      },
+      {
+        "id": 539,
+        "type": "custom:conv5_pool12",
+        "x": 2800,
+        "y": 8320,
+        "params": {
+          "manualBackpropMode": "backward",
+          "manualBackpropUpstream": "dP8",
+          "manualBackpropGradient0": "",
+          "manualBackpropGradient1": "dK8_local"
+        }
+      },
+      {
+        "id": 540,
+        "type": "sequence",
+        "x": 3800,
+        "y": 7600,
+        "params": {}
+      },
+      {
+        "id": 541,
+        "type": "sequence",
+        "x": 4100,
+        "y": 7600,
+        "params": {}
+      },
+      {
+        "id": 542,
+        "type": "sequence",
+        "x": 4400,
+        "y": 7600,
+        "params": {}
+      },
+      {
+        "id": 543,
+        "type": "sequence",
+        "x": 3800,
+        "y": 7770,
+        "params": {}
+      },
+      {
+        "id": 544,
+        "type": "add",
+        "x": 4900,
+        "y": 6800,
+        "params": {}
+      },
+      {
+        "id": 545,
+        "type": "setVariable",
+        "x": 5200,
+        "y": 6800,
+        "params": {
+          "variable": "gK5"
+        }
+      },
+      {
+        "id": 546,
+        "type": "add",
+        "x": 4900,
+        "y": 6980,
+        "params": {}
+      },
+      {
+        "id": 547,
+        "type": "setVariable",
+        "x": 5200,
+        "y": 6980,
+        "params": {
+          "variable": "gW1_5"
+        }
+      },
+      {
+        "id": 548,
+        "type": "add",
+        "x": 4900,
+        "y": 7160,
+        "params": {}
+      },
+      {
+        "id": 549,
+        "type": "setVariable",
+        "x": 5200,
+        "y": 7160,
+        "params": {
+          "variable": "gK6"
+        }
+      },
+      {
+        "id": 550,
+        "type": "add",
+        "x": 4900,
+        "y": 7340,
+        "params": {}
+      },
+      {
+        "id": 551,
+        "type": "setVariable",
+        "x": 5200,
+        "y": 7340,
+        "params": {
+          "variable": "gW1_6"
+        }
+      },
+      {
+        "id": 552,
+        "type": "add",
+        "x": 4900,
+        "y": 7520,
+        "params": {}
+      },
+      {
+        "id": 553,
+        "type": "setVariable",
+        "x": 5200,
+        "y": 7520,
+        "params": {
+          "variable": "gK7"
+        }
+      },
+      {
+        "id": 554,
+        "type": "add",
+        "x": 4900,
+        "y": 7700,
+        "params": {}
+      },
+      {
+        "id": 555,
+        "type": "setVariable",
+        "x": 5200,
+        "y": 7700,
+        "params": {
+          "variable": "gW1_7"
+        }
+      },
+      {
+        "id": 556,
+        "type": "add",
+        "x": 4900,
+        "y": 7880,
+        "params": {}
+      },
+      {
+        "id": 557,
+        "type": "setVariable",
+        "x": 5200,
+        "y": 7880,
+        "params": {
+          "variable": "gK8"
+        }
+      },
+      {
+        "id": 558,
+        "type": "add",
+        "x": 4900,
+        "y": 8060,
+        "params": {}
+      },
+      {
+        "id": 559,
+        "type": "setVariable",
+        "x": 5200,
+        "y": 8060,
+        "params": {
+          "variable": "gW1_8"
+        }
+      },
+      {
+        "id": 560,
+        "type": "sequence",
+        "x": 5600,
+        "y": 6800,
+        "params": {}
+      },
+      {
+        "id": 561,
+        "type": "sequence",
+        "x": 5900,
+        "y": 6800,
+        "params": {}
+      },
+      {
+        "id": 562,
+        "type": "sequence",
+        "x": 6200,
+        "y": 6800,
+        "params": {}
+      },
+      {
+        "id": 563,
+        "type": "sequence",
+        "x": 5600,
+        "y": 6970,
+        "params": {}
+      },
+      {
+        "id": 564,
+        "type": "sequence",
+        "x": 5900,
+        "y": 6970,
+        "params": {}
+      },
+      {
+        "id": 565,
+        "type": "sequence",
+        "x": 6200,
+        "y": 6970,
+        "params": {}
+      },
+      {
+        "id": 566,
+        "type": "sequence",
+        "x": 5600,
+        "y": 7140,
+        "params": {}
+      },
+      {
+        "id": 567,
+        "type": "sequence",
+        "x": 5900,
+        "y": 7140,
+        "params": {}
+      },
+      {
+        "id": 568,
+        "type": "variable",
+        "x": 2220,
+        "y": 250,
+        "params": {
+          "name": "v_K1",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 569,
+        "type": "custom:momentum15",
+        "x": 7000,
+        "y": 3500,
+        "params": {}
+      },
+      {
+        "id": 570,
+        "type": "setVariable",
+        "x": 7300,
+        "y": 3500,
+        "params": {
+          "variable": "v_K1"
+        }
+      },
+      {
+        "id": 571,
+        "type": "custom:weight_step",
+        "x": 7600,
+        "y": 3500,
+        "params": {}
+      },
+      {
+        "id": 572,
+        "type": "setVariable",
+        "x": 7900,
+        "y": 3500,
+        "params": {
+          "variable": "K1"
+        }
+      },
+      {
+        "id": 573,
+        "type": "sequence",
+        "x": 8200,
+        "y": 3500,
+        "params": {}
+      },
+      {
+        "id": 574,
+        "type": "setVariable",
+        "x": 7900,
+        "y": 3710,
+        "params": {
+          "variable": "gK1"
+        }
+      },
+      {
+        "id": 575,
+        "type": "variable",
+        "x": 2220,
+        "y": 425,
+        "params": {
+          "name": "v_K2",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 576,
+        "type": "custom:momentum15",
+        "x": 7000,
+        "y": 4000,
+        "params": {}
+      },
+      {
+        "id": 577,
+        "type": "setVariable",
+        "x": 7300,
+        "y": 4000,
+        "params": {
+          "variable": "v_K2"
+        }
+      },
+      {
+        "id": 578,
+        "type": "custom:weight_step",
+        "x": 7600,
+        "y": 4000,
+        "params": {}
+      },
+      {
+        "id": 579,
+        "type": "setVariable",
+        "x": 7900,
+        "y": 4000,
+        "params": {
+          "variable": "K2"
+        }
+      },
+      {
+        "id": 580,
+        "type": "sequence",
+        "x": 8200,
+        "y": 4000,
+        "params": {}
+      },
+      {
+        "id": 581,
+        "type": "setVariable",
+        "x": 7900,
+        "y": 4210,
+        "params": {
+          "variable": "gK2"
+        }
+      },
+      {
+        "id": 582,
+        "type": "variable",
+        "x": 2220,
+        "y": 600,
+        "params": {
+          "name": "v_K3",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 583,
+        "type": "custom:momentum15",
+        "x": 7000,
+        "y": 4500,
+        "params": {}
+      },
+      {
+        "id": 584,
+        "type": "setVariable",
+        "x": 7300,
+        "y": 4500,
+        "params": {
+          "variable": "v_K3"
+        }
+      },
+      {
+        "id": 585,
+        "type": "custom:weight_step",
+        "x": 7600,
+        "y": 4500,
+        "params": {}
+      },
+      {
+        "id": 586,
+        "type": "setVariable",
+        "x": 7900,
+        "y": 4500,
+        "params": {
+          "variable": "K3"
+        }
+      },
+      {
+        "id": 587,
+        "type": "sequence",
+        "x": 8200,
+        "y": 4500,
+        "params": {}
+      },
+      {
+        "id": 588,
+        "type": "setVariable",
+        "x": 7900,
+        "y": 4710,
+        "params": {
+          "variable": "gK3"
+        }
+      },
+      {
+        "id": 589,
+        "type": "variable",
+        "x": 2220,
+        "y": 775,
+        "params": {
+          "name": "v_K4",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 590,
+        "type": "custom:momentum15",
+        "x": 7000,
+        "y": 5000,
+        "params": {}
+      },
+      {
+        "id": 591,
+        "type": "setVariable",
+        "x": 7300,
+        "y": 5000,
+        "params": {
+          "variable": "v_K4"
+        }
+      },
+      {
+        "id": 592,
+        "type": "custom:weight_step",
+        "x": 7600,
+        "y": 5000,
+        "params": {}
+      },
+      {
+        "id": 593,
+        "type": "setVariable",
+        "x": 7900,
+        "y": 5000,
+        "params": {
+          "variable": "K4"
+        }
+      },
+      {
+        "id": 594,
+        "type": "sequence",
+        "x": 8200,
+        "y": 5000,
+        "params": {}
+      },
+      {
+        "id": 595,
+        "type": "setVariable",
+        "x": 7900,
+        "y": 5210,
+        "params": {
+          "variable": "gK4"
+        }
+      },
+      {
+        "id": 596,
+        "type": "variable",
+        "x": 2220,
+        "y": 950,
+        "params": {
+          "name": "v_K5",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 597,
+        "type": "custom:momentum15",
+        "x": 7000,
+        "y": 5500,
+        "params": {}
+      },
+      {
+        "id": 598,
+        "type": "setVariable",
+        "x": 7300,
+        "y": 5500,
+        "params": {
+          "variable": "v_K5"
+        }
+      },
+      {
+        "id": 599,
+        "type": "custom:weight_step",
+        "x": 7600,
+        "y": 5500,
+        "params": {}
+      },
+      {
+        "id": 600,
+        "type": "setVariable",
+        "x": 7900,
+        "y": 5500,
+        "params": {
+          "variable": "K5"
+        }
+      },
+      {
+        "id": 601,
+        "type": "sequence",
+        "x": 8200,
+        "y": 5500,
+        "params": {}
+      },
+      {
+        "id": 602,
+        "type": "setVariable",
+        "x": 7900,
+        "y": 5710,
+        "params": {
+          "variable": "gK5"
+        }
+      },
+      {
+        "id": 603,
+        "type": "variable",
+        "x": 2220,
+        "y": 1125,
+        "params": {
+          "name": "v_K6",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 604,
+        "type": "custom:momentum15",
+        "x": 7000,
+        "y": 6000,
+        "params": {}
+      },
+      {
+        "id": 605,
+        "type": "setVariable",
+        "x": 7300,
+        "y": 6000,
+        "params": {
+          "variable": "v_K6"
+        }
+      },
+      {
+        "id": 606,
+        "type": "custom:weight_step",
+        "x": 7600,
+        "y": 6000,
+        "params": {}
+      },
+      {
+        "id": 607,
+        "type": "setVariable",
+        "x": 7900,
+        "y": 6000,
+        "params": {
+          "variable": "K6"
+        }
+      },
+      {
+        "id": 608,
+        "type": "sequence",
+        "x": 8200,
+        "y": 6000,
+        "params": {}
+      },
+      {
+        "id": 609,
+        "type": "setVariable",
+        "x": 7900,
+        "y": 6210,
+        "params": {
+          "variable": "gK6"
+        }
+      },
+      {
+        "id": 610,
+        "type": "variable",
+        "x": 2220,
+        "y": 1300,
+        "params": {
+          "name": "v_K7",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 611,
+        "type": "custom:momentum15",
+        "x": 7000,
+        "y": 6500,
+        "params": {}
+      },
+      {
+        "id": 612,
+        "type": "setVariable",
+        "x": 7300,
+        "y": 6500,
+        "params": {
+          "variable": "v_K7"
+        }
+      },
+      {
+        "id": 613,
+        "type": "custom:weight_step",
+        "x": 7600,
+        "y": 6500,
+        "params": {}
+      },
+      {
+        "id": 614,
+        "type": "setVariable",
+        "x": 7900,
+        "y": 6500,
+        "params": {
+          "variable": "K7"
+        }
+      },
+      {
+        "id": 615,
+        "type": "sequence",
+        "x": 8200,
+        "y": 6500,
+        "params": {}
+      },
+      {
+        "id": 616,
+        "type": "setVariable",
+        "x": 7900,
+        "y": 6710,
+        "params": {
+          "variable": "gK7"
+        }
+      },
+      {
+        "id": 617,
+        "type": "variable",
+        "x": 2220,
+        "y": 1475,
+        "params": {
+          "name": "v_K8",
+          "mode": "vector",
+          "value": 0,
+          "length": 25,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 618,
+        "type": "custom:momentum15",
+        "x": 7000,
+        "y": 7000,
+        "params": {}
+      },
+      {
+        "id": 619,
+        "type": "setVariable",
+        "x": 7300,
+        "y": 7000,
+        "params": {
+          "variable": "v_K8"
+        }
+      },
+      {
+        "id": 620,
+        "type": "custom:weight_step",
+        "x": 7600,
+        "y": 7000,
+        "params": {}
+      },
+      {
+        "id": 621,
+        "type": "setVariable",
+        "x": 7900,
+        "y": 7000,
+        "params": {
+          "variable": "K8"
+        }
+      },
+      {
+        "id": 622,
+        "type": "sequence",
+        "x": 8200,
+        "y": 7000,
+        "params": {}
+      },
+      {
+        "id": 623,
+        "type": "setVariable",
+        "x": 7900,
+        "y": 7210,
+        "params": {
+          "variable": "gK8"
+        }
+      },
+      {
+        "id": 624,
+        "type": "variable",
+        "x": 2220,
+        "y": 1650,
+        "params": {
+          "name": "v_W1_1",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 625,
+        "type": "custom:momentum15",
+        "x": 8700,
+        "y": 3500,
+        "params": {}
+      },
+      {
+        "id": 626,
+        "type": "setVariable",
+        "x": 9000,
+        "y": 3500,
+        "params": {
+          "variable": "v_W1_1"
+        }
+      },
+      {
+        "id": 627,
+        "type": "custom:weight_step",
+        "x": 9300,
+        "y": 3500,
+        "params": {}
+      },
+      {
+        "id": 628,
+        "type": "setVariable",
+        "x": 9600,
+        "y": 3500,
+        "params": {
+          "variable": "W1_1"
+        }
+      },
+      {
+        "id": 629,
+        "type": "sequence",
+        "x": 9900,
+        "y": 3500,
+        "params": {}
+      },
+      {
+        "id": 630,
+        "type": "setVariable",
+        "x": 9600,
+        "y": 3710,
+        "params": {
+          "variable": "gW1_1"
+        }
+      },
+      {
+        "id": 631,
+        "type": "variable",
+        "x": 2220,
+        "y": 1825,
+        "params": {
+          "name": "v_W1_2",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 632,
+        "type": "custom:momentum15",
+        "x": 8700,
+        "y": 4000,
+        "params": {}
+      },
+      {
+        "id": 633,
+        "type": "setVariable",
+        "x": 9000,
+        "y": 4000,
+        "params": {
+          "variable": "v_W1_2"
+        }
+      },
+      {
+        "id": 634,
+        "type": "custom:weight_step",
+        "x": 9300,
+        "y": 4000,
+        "params": {}
+      },
+      {
+        "id": 635,
+        "type": "setVariable",
+        "x": 9600,
+        "y": 4000,
+        "params": {
+          "variable": "W1_2"
+        }
+      },
+      {
+        "id": 636,
+        "type": "sequence",
+        "x": 9900,
+        "y": 4000,
+        "params": {}
+      },
+      {
+        "id": 637,
+        "type": "setVariable",
+        "x": 9600,
+        "y": 4210,
+        "params": {
+          "variable": "gW1_2"
+        }
+      },
+      {
+        "id": 638,
+        "type": "variable",
+        "x": 2220,
+        "y": 2000,
+        "params": {
+          "name": "v_W1_3",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 639,
+        "type": "custom:momentum15",
+        "x": 8700,
+        "y": 4500,
+        "params": {}
+      },
+      {
+        "id": 640,
+        "type": "setVariable",
+        "x": 9000,
+        "y": 4500,
+        "params": {
+          "variable": "v_W1_3"
+        }
+      },
+      {
+        "id": 641,
+        "type": "custom:weight_step",
+        "x": 9300,
+        "y": 4500,
+        "params": {}
+      },
+      {
+        "id": 642,
+        "type": "setVariable",
+        "x": 9600,
+        "y": 4500,
+        "params": {
+          "variable": "W1_3"
+        }
+      },
+      {
+        "id": 643,
+        "type": "sequence",
+        "x": 9900,
+        "y": 4500,
+        "params": {}
+      },
+      {
+        "id": 644,
+        "type": "setVariable",
+        "x": 9600,
+        "y": 4710,
+        "params": {
+          "variable": "gW1_3"
+        }
+      },
+      {
+        "id": 645,
+        "type": "variable",
+        "x": 2220,
+        "y": 2175,
+        "params": {
+          "name": "v_W1_4",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 646,
+        "type": "custom:momentum15",
+        "x": 8700,
+        "y": 5000,
+        "params": {}
+      },
+      {
+        "id": 647,
+        "type": "setVariable",
+        "x": 9000,
+        "y": 5000,
+        "params": {
+          "variable": "v_W1_4"
+        }
+      },
+      {
+        "id": 648,
+        "type": "custom:weight_step",
+        "x": 9300,
+        "y": 5000,
+        "params": {}
+      },
+      {
+        "id": 649,
+        "type": "setVariable",
+        "x": 9600,
+        "y": 5000,
+        "params": {
+          "variable": "W1_4"
+        }
+      },
+      {
+        "id": 650,
+        "type": "sequence",
+        "x": 9900,
+        "y": 5000,
+        "params": {}
+      },
+      {
+        "id": 651,
+        "type": "setVariable",
+        "x": 9600,
+        "y": 5210,
+        "params": {
+          "variable": "gW1_4"
+        }
+      },
+      {
+        "id": 652,
+        "type": "variable",
+        "x": 2220,
+        "y": 2350,
+        "params": {
+          "name": "v_W1_5",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 653,
+        "type": "custom:momentum15",
+        "x": 8700,
+        "y": 5500,
+        "params": {}
+      },
+      {
+        "id": 654,
+        "type": "setVariable",
+        "x": 9000,
+        "y": 5500,
+        "params": {
+          "variable": "v_W1_5"
+        }
+      },
+      {
+        "id": 655,
+        "type": "custom:weight_step",
+        "x": 9300,
+        "y": 5500,
+        "params": {}
+      },
+      {
+        "id": 656,
+        "type": "setVariable",
+        "x": 9600,
+        "y": 5500,
+        "params": {
+          "variable": "W1_5"
+        }
+      },
+      {
+        "id": 657,
+        "type": "sequence",
+        "x": 9900,
+        "y": 5500,
+        "params": {}
+      },
+      {
+        "id": 658,
+        "type": "setVariable",
+        "x": 9600,
+        "y": 5710,
+        "params": {
+          "variable": "gW1_5"
+        }
+      },
+      {
+        "id": 659,
+        "type": "variable",
+        "x": 2220,
+        "y": 2525,
+        "params": {
+          "name": "v_W1_6",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 660,
+        "type": "custom:momentum15",
+        "x": 8700,
+        "y": 6000,
+        "params": {}
+      },
+      {
+        "id": 661,
+        "type": "setVariable",
+        "x": 9000,
+        "y": 6000,
+        "params": {
+          "variable": "v_W1_6"
+        }
+      },
+      {
+        "id": 662,
+        "type": "custom:weight_step",
+        "x": 9300,
+        "y": 6000,
+        "params": {}
+      },
+      {
+        "id": 663,
+        "type": "setVariable",
+        "x": 9600,
+        "y": 6000,
+        "params": {
+          "variable": "W1_6"
+        }
+      },
+      {
+        "id": 664,
+        "type": "sequence",
+        "x": 9900,
+        "y": 6000,
+        "params": {}
+      },
+      {
+        "id": 665,
+        "type": "setVariable",
+        "x": 9600,
+        "y": 6210,
+        "params": {
+          "variable": "gW1_6"
+        }
+      },
+      {
+        "id": 666,
+        "type": "variable",
+        "x": 2220,
+        "y": 2700,
+        "params": {
+          "name": "v_W1_7",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 667,
+        "type": "custom:momentum15",
+        "x": 8700,
+        "y": 6500,
+        "params": {}
+      },
+      {
+        "id": 668,
+        "type": "setVariable",
+        "x": 9000,
+        "y": 6500,
+        "params": {
+          "variable": "v_W1_7"
+        }
+      },
+      {
+        "id": 669,
+        "type": "custom:weight_step",
+        "x": 9300,
+        "y": 6500,
+        "params": {}
+      },
+      {
+        "id": 670,
+        "type": "setVariable",
+        "x": 9600,
+        "y": 6500,
+        "params": {
+          "variable": "W1_7"
+        }
+      },
+      {
+        "id": 671,
+        "type": "sequence",
+        "x": 9900,
+        "y": 6500,
+        "params": {}
+      },
+      {
+        "id": 672,
+        "type": "setVariable",
+        "x": 9600,
+        "y": 6710,
+        "params": {
+          "variable": "gW1_7"
+        }
+      },
+      {
+        "id": 673,
+        "type": "variable",
+        "x": 2220,
+        "y": 2875,
+        "params": {
+          "name": "v_W1_8",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 128,
+          "cols": 144,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 674,
+        "type": "custom:momentum15",
+        "x": 8700,
+        "y": 7000,
+        "params": {}
+      },
+      {
+        "id": 675,
+        "type": "setVariable",
+        "x": 9000,
+        "y": 7000,
+        "params": {
+          "variable": "v_W1_8"
+        }
+      },
+      {
+        "id": 676,
+        "type": "custom:weight_step",
+        "x": 9300,
+        "y": 7000,
+        "params": {}
+      },
+      {
+        "id": 677,
+        "type": "setVariable",
+        "x": 9600,
+        "y": 7000,
+        "params": {
+          "variable": "W1_8"
+        }
+      },
+      {
+        "id": 678,
+        "type": "sequence",
+        "x": 9900,
+        "y": 7000,
+        "params": {}
+      },
+      {
+        "id": 679,
+        "type": "setVariable",
+        "x": 9600,
+        "y": 7210,
+        "params": {
+          "variable": "gW1_8"
+        }
+      },
+      {
+        "id": 680,
+        "type": "variable",
+        "x": 2220,
+        "y": 3050,
+        "params": {
+          "name": "v_b1",
+          "mode": "vector",
+          "value": 0,
+          "length": 128,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 681,
+        "type": "custom:momentum15",
+        "x": 10400,
+        "y": 3500,
+        "params": {}
+      },
+      {
+        "id": 682,
+        "type": "setVariable",
+        "x": 10700,
+        "y": 3500,
+        "params": {
+          "variable": "v_b1"
+        }
+      },
+      {
+        "id": 683,
+        "type": "custom:weight_step",
+        "x": 11000,
+        "y": 3500,
+        "params": {}
+      },
+      {
+        "id": 684,
+        "type": "setVariable",
+        "x": 11300,
+        "y": 3500,
+        "params": {
+          "variable": "b1"
+        }
+      },
+      {
+        "id": 685,
+        "type": "sequence",
+        "x": 11600,
+        "y": 3500,
+        "params": {}
+      },
+      {
+        "id": 686,
+        "type": "setVariable",
+        "x": 11300,
+        "y": 3710,
+        "params": {
+          "variable": "gb1"
+        }
+      },
+      {
+        "id": 687,
+        "type": "variable",
+        "x": 2220,
+        "y": 3225,
+        "params": {
+          "name": "v_W2",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 64,
+          "cols": 128,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 688,
+        "type": "custom:momentum15",
+        "x": 10400,
+        "y": 4000,
+        "params": {}
+      },
+      {
+        "id": 689,
+        "type": "setVariable",
+        "x": 10700,
+        "y": 4000,
+        "params": {
+          "variable": "v_W2"
+        }
+      },
+      {
+        "id": 690,
+        "type": "custom:weight_step",
+        "x": 11000,
+        "y": 4000,
+        "params": {}
+      },
+      {
+        "id": 691,
+        "type": "setVariable",
+        "x": 11300,
+        "y": 4000,
+        "params": {
+          "variable": "W2"
+        }
+      },
+      {
+        "id": 692,
+        "type": "sequence",
+        "x": 11600,
+        "y": 4000,
+        "params": {}
+      },
+      {
+        "id": 693,
+        "type": "setVariable",
+        "x": 11300,
+        "y": 4210,
+        "params": {
+          "variable": "gW2"
+        }
+      },
+      {
+        "id": 694,
+        "type": "variable",
+        "x": 2220,
+        "y": 3400,
+        "params": {
+          "name": "v_b2",
+          "mode": "vector",
+          "value": 0,
+          "length": 64,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 695,
+        "type": "custom:momentum15",
+        "x": 10400,
+        "y": 4500,
+        "params": {}
+      },
+      {
+        "id": 696,
+        "type": "setVariable",
+        "x": 10700,
+        "y": 4500,
+        "params": {
+          "variable": "v_b2"
+        }
+      },
+      {
+        "id": 697,
+        "type": "custom:weight_step",
+        "x": 11000,
+        "y": 4500,
+        "params": {}
+      },
+      {
+        "id": 698,
+        "type": "setVariable",
+        "x": 11300,
+        "y": 4500,
+        "params": {
+          "variable": "b2"
+        }
+      },
+      {
+        "id": 699,
+        "type": "sequence",
+        "x": 11600,
+        "y": 4500,
+        "params": {}
+      },
+      {
+        "id": 700,
+        "type": "setVariable",
+        "x": 11300,
+        "y": 4710,
+        "params": {
+          "variable": "gb2"
+        }
+      },
+      {
+        "id": 701,
+        "type": "variable",
+        "x": 2220,
+        "y": 3575,
+        "params": {
+          "name": "v_W3",
+          "mode": "matrix",
+          "value": 0,
+          "length": 3,
+          "init": "constant",
+          "seed": 1,
+          "rows": 15,
+          "cols": 64,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 702,
+        "type": "custom:momentum15",
+        "x": 10400,
+        "y": 5000,
+        "params": {}
+      },
+      {
+        "id": 703,
+        "type": "setVariable",
+        "x": 10700,
+        "y": 5000,
+        "params": {
+          "variable": "v_W3"
+        }
+      },
+      {
+        "id": 704,
+        "type": "custom:weight_step",
+        "x": 11000,
+        "y": 5000,
+        "params": {}
+      },
+      {
+        "id": 705,
+        "type": "setVariable",
+        "x": 11300,
+        "y": 5000,
+        "params": {
+          "variable": "W3"
+        }
+      },
+      {
+        "id": 706,
+        "type": "sequence",
+        "x": 11600,
+        "y": 5000,
+        "params": {}
+      },
+      {
+        "id": 707,
+        "type": "setVariable",
+        "x": 11300,
+        "y": 5210,
+        "params": {
+          "variable": "gW3"
+        }
+      },
+      {
+        "id": 708,
+        "type": "variable",
+        "x": 2220,
+        "y": 3750,
+        "params": {
+          "name": "v_b3",
+          "mode": "vector",
+          "value": 0,
+          "length": 15,
+          "init": "constant",
+          "seed": 1,
+          "rows": 3,
+          "cols": 3,
+          "scale": 0.05,
+          "trainable": "no"
+        }
+      },
+      {
+        "id": 709,
+        "type": "custom:momentum15",
+        "x": 10400,
+        "y": 5500,
+        "params": {}
+      },
+      {
+        "id": 710,
+        "type": "setVariable",
+        "x": 10700,
+        "y": 5500,
+        "params": {
+          "variable": "v_b3"
+        }
+      },
+      {
+        "id": 711,
+        "type": "custom:weight_step",
+        "x": 11000,
+        "y": 5500,
+        "params": {}
+      },
+      {
+        "id": 712,
+        "type": "setVariable",
+        "x": 11300,
+        "y": 5500,
+        "params": {
+          "variable": "b3"
+        }
+      },
+      {
+        "id": 713,
+        "type": "sequence",
+        "x": 11600,
+        "y": 5500,
+        "params": {}
+      },
+      {
+        "id": 714,
+        "type": "setVariable",
+        "x": 11300,
+        "y": 5710,
+        "params": {
+          "variable": "gb3"
+        }
+      },
+      {
+        "id": 715,
+        "type": "sequence",
+        "x": 7000,
+        "y": 8000,
+        "params": {}
+      },
+      {
+        "id": 716,
+        "type": "sequence",
+        "x": 7300,
+        "y": 8000,
+        "params": {}
+      },
+      {
+        "id": 717,
+        "type": "sequence",
+        "x": 7600,
+        "y": 8000,
+        "params": {}
+      },
+      {
+        "id": 718,
+        "type": "sequence",
+        "x": 7000,
+        "y": 8170,
+        "params": {}
+      },
+      {
+        "id": 719,
+        "type": "sequence",
+        "x": 7300,
+        "y": 8170,
+        "params": {}
+      },
+      {
+        "id": 720,
+        "type": "sequence",
+        "x": 7600,
+        "y": 8170,
+        "params": {}
+      },
+      {
+        "id": 721,
+        "type": "sequence",
+        "x": 7000,
+        "y": 8340,
+        "params": {}
+      },
+      {
+        "id": 722,
+        "type": "sequence",
+        "x": 7300,
+        "y": 8340,
+        "params": {}
+      },
+      {
+        "id": 723,
+        "type": "sequence",
+        "x": 7600,
+        "y": 8340,
+        "params": {}
+      },
+      {
+        "id": 724,
+        "type": "sequence",
+        "x": 7000,
+        "y": 8510,
+        "params": {}
+      },
+      {
+        "id": 725,
+        "type": "sequence",
+        "x": 7300,
+        "y": 8510,
+        "params": {}
+      },
+      {
+        "id": 726,
+        "type": "sequence",
+        "x": 7600,
+        "y": 8510,
+        "params": {}
+      },
+      {
+        "id": 727,
+        "type": "sequence",
+        "x": 7000,
+        "y": 8680,
+        "params": {}
+      },
+      {
+        "id": 728,
+        "type": "sequence",
+        "x": 7300,
+        "y": 8680,
+        "params": {}
+      },
+      {
+        "id": 729,
+        "type": "sequence",
+        "x": 7600,
+        "y": 8680,
+        "params": {}
+      },
+      {
+        "id": 730,
+        "type": "sequence",
+        "x": 7000,
+        "y": 8850,
+        "params": {}
+      },
+      {
+        "id": 731,
+        "type": "sequence",
+        "x": 7300,
+        "y": 8850,
+        "params": {}
+      },
+      {
+        "id": 732,
+        "type": "sequence",
+        "x": 7600,
+        "y": 8850,
+        "params": {}
+      },
+      {
+        "id": 733,
+        "type": "sequence",
+        "x": 7000,
+        "y": 9020,
+        "params": {}
+      },
+      {
+        "id": 734,
+        "type": "sequence",
+        "x": 7300,
+        "y": 9020,
+        "params": {}
+      },
+      {
+        "id": 735,
+        "type": "sequence",
+        "x": 7600,
+        "y": 9020,
+        "params": {}
+      },
+      {
+        "id": 736,
+        "type": "sequence",
+        "x": 7000,
+        "y": 9190,
+        "params": {}
+      },
+      {
+        "id": 737,
+        "type": "sequence",
+        "x": 7300,
+        "y": 9190,
+        "params": {}
+      },
+      {
+        "id": 738,
+        "type": "sequence",
+        "x": 7600,
+        "y": 9190,
+        "params": {}
+      },
+      {
+        "id": 739,
+        "type": "sequence",
+        "x": 7000,
+        "y": 9360,
+        "params": {}
+      },
+      {
+        "id": 740,
+        "type": "sequence",
+        "x": 7300,
+        "y": 9360,
+        "params": {}
+      },
+      {
+        "id": 741,
+        "type": "sequence",
+        "x": 7600,
+        "y": 9360,
+        "params": {}
+      },
+      {
+        "id": 742,
+        "type": "sequence",
+        "x": 7000,
+        "y": 9530,
+        "params": {}
+      },
+      {
+        "id": 743,
+        "type": "sequence",
+        "x": 7300,
+        "y": 9530,
+        "params": {}
+      },
+      {
+        "id": 744,
+        "type": "sequence",
+        "x": 7600,
+        "y": 9530,
+        "params": {}
+      },
+      {
+        "id": 745,
+        "type": "sequence",
+        "x": 7000,
+        "y": 9700,
+        "params": {}
+      },
+      {
+        "id": 746,
+        "type": "sequence",
+        "x": 7300,
+        "y": 9700,
+        "params": {}
+      },
+      {
+        "id": 747,
+        "type": "sequence",
+        "x": 7600,
+        "y": 9700,
+        "params": {}
+      },
+      {
+        "id": 748,
+        "type": "sequence",
+        "x": 7000,
+        "y": 9870,
+        "params": {}
+      },
+      {
+        "id": 749,
+        "type": "sequence",
+        "x": 7300,
+        "y": 9870,
+        "params": {}
+      },
+      {
+        "id": 750,
+        "type": "sequence",
+        "x": 7600,
+        "y": 9870,
+        "params": {}
+      },
+      {
+        "id": 751,
+        "type": "sequence",
+        "x": 7000,
+        "y": 10040,
+        "params": {}
+      },
+      {
+        "id": 752,
+        "type": "sequence",
+        "x": 7300,
+        "y": 10040,
+        "params": {}
+      },
+      {
+        "id": 753,
+        "type": "sequence",
+        "x": 7600,
+        "y": 10040,
+        "params": {}
+      },
+      {
+        "id": 754,
+        "type": "sequence",
+        "x": 7000,
+        "y": 10210,
+        "params": {}
+      },
+      {
+        "id": 755,
+        "type": "sequence",
+        "x": 7300,
+        "y": 10210,
+        "params": {}
+      },
+      {
+        "id": 756,
+        "type": "sequence",
+        "x": 11400,
+        "y": 4000,
+        "params": {}
+      },
+      {
+        "id": 237,
+        "type": "repeat",
+        "x": 11700,
+        "y": 4000,
+        "params": {
+          "count": 1000,
+          "start": 0,
+          "indexVariable": "batch"
+        }
+      },
+      {
+        "id": 238,
+        "type": "repeat",
+        "x": 12000,
+        "y": 4000,
+        "params": {
+          "count": 60,
+          "start": 0,
+          "indexVariable": "epoch"
+        }
+      }
+    ],
+    "connections": [
+      {
+        "from": 3,
+        "to": 43,
+        "inputIndex": 0
+      },
+      {
+        "from": 31,
+        "to": 43,
+        "inputIndex": 1
+      },
+      {
+        "from": 43,
+        "to": 44,
+        "inputIndex": 0
+      },
+      {
+        "from": 4,
+        "to": 44,
+        "inputIndex": 1
+      },
+      {
+        "from": 1,
+        "to": 45,
+        "inputIndex": 0
+      },
+      {
+        "from": 44,
+        "to": 45,
+        "inputIndex": 1
+      },
+      {
+        "from": 45,
+        "to": 46,
+        "inputIndex": 0
+      },
+      {
+        "from": 45,
+        "to": 47,
+        "inputIndex": 0
+      },
+      {
+        "from": 1,
+        "to": 241,
+        "inputIndex": 0
+      },
+      {
+        "from": 240,
+        "to": 241,
+        "inputIndex": 1
+      },
+      {
+        "from": 241,
+        "to": 242,
+        "inputIndex": 0
+      },
+      {
+        "from": 241,
+        "to": 243,
+        "inputIndex": 0
+      },
+      {
+        "from": 292,
+        "to": 293,
+        "inputIndex": 1
+      },
+      {
+        "from": 293,
+        "to": 294,
+        "inputIndex": 0
+      },
+      {
+        "from": 293,
+        "to": 295,
+        "inputIndex": 0
+      },
+      {
+        "from": 294,
+        "to": 295,
+        "inputIndex": 1
+      },
+      {
+        "from": 243,
+        "to": 296,
+        "inputIndex": 0
+      },
+      {
+        "from": 295,
+        "to": 296,
+        "inputIndex": 1
+      },
+      {
+        "from": 285,
+        "to": 297,
+        "inputIndex": 0
+      },
+      {
+        "from": 296,
+        "to": 297,
+        "inputIndex": 1
+      },
+      {
+        "from": 297,
+        "to": 298,
+        "inputIndex": 0
+      },
+      {
+        "from": 243,
+        "to": 299,
+        "inputIndex": 0
+      },
+      {
+        "from": 286,
+        "to": 300,
+        "inputIndex": 0
+      },
+      {
+        "from": 299,
+        "to": 300,
+        "inputIndex": 1
+      },
+      {
+        "from": 300,
+        "to": 301,
+        "inputIndex": 0
+      },
+      {
+        "from": 287,
+        "to": 302,
+        "inputIndex": 0
+      },
+      {
+        "from": 243,
+        "to": 302,
+        "inputIndex": 1
+      },
+      {
+        "from": 302,
+        "to": 303,
+        "inputIndex": 0
+      },
+      {
+        "from": 301,
+        "to": 304,
+        "inputIndex": 0
+      },
+      {
+        "from": 303,
+        "to": 304,
+        "inputIndex": 1
+      },
+      {
+        "from": 304,
+        "to": 305,
+        "inputIndex": 0
+      },
+      {
+        "from": 298,
+        "to": 305,
+        "inputIndex": 1
+      },
+      {
+        "from": 305,
+        "to": 306,
+        "inputIndex": 0
+      },
+      {
+        "from": 290,
+        "to": 307,
+        "inputIndex": 0
+      },
+      {
+        "from": 291,
+        "to": 308,
+        "inputIndex": 0
+      },
+      {
+        "from": 289,
+        "to": 309,
+        "inputIndex": 0
+      },
+      {
+        "from": 307,
+        "to": 310,
+        "inputIndex": 0
+      },
+      {
+        "from": 308,
+        "to": 310,
+        "inputIndex": 1
+      },
+      {
+        "from": 310,
+        "to": 311,
+        "inputIndex": 0
+      },
+      {
+        "from": 309,
+        "to": 311,
+        "inputIndex": 1
+      },
+      {
+        "from": 311,
+        "to": 312,
+        "inputIndex": 0
+      },
+      {
+        "from": 306,
+        "to": 312,
+        "inputIndex": 1
+      },
+      {
+        "from": 285,
+        "to": 314,
+        "inputIndex": 0
+      },
+      {
+        "from": 313,
+        "to": 314,
+        "inputIndex": 1
+      },
+      {
+        "from": 314,
+        "to": 315,
+        "inputIndex": 0
+      },
+      {
+        "from": 287,
+        "to": 316,
+        "inputIndex": 0
+      },
+      {
+        "from": 288,
+        "to": 316,
+        "inputIndex": 1
+      },
+      {
+        "from": 286,
+        "to": 317,
+        "inputIndex": 0
+      },
+      {
+        "from": 316,
+        "to": 317,
+        "inputIndex": 1
+      },
+      {
+        "from": 317,
+        "to": 318,
+        "inputIndex": 0
+      },
+      {
+        "from": 319,
+        "to": 320,
+        "inputIndex": 0
+      },
+      {
+        "from": 239,
+        "to": 321,
+        "inputIndex": 0
+      },
+      {
+        "from": 320,
+        "to": 321,
+        "inputIndex": 1
+      },
+      {
+        "from": 321,
+        "to": 322,
+        "inputIndex": 0
+      },
+      {
+        "from": 46,
+        "to": 344,
+        "inputIndex": 0
+      },
+      {
+        "from": 5,
+        "to": 344,
+        "inputIndex": 1
+      },
+      {
+        "from": 46,
+        "to": 345,
+        "inputIndex": 0
+      },
+      {
+        "from": 6,
+        "to": 345,
+        "inputIndex": 1
+      },
+      {
+        "from": 46,
+        "to": 346,
+        "inputIndex": 0
+      },
+      {
+        "from": 7,
+        "to": 346,
+        "inputIndex": 1
+      },
+      {
+        "from": 46,
+        "to": 347,
+        "inputIndex": 0
+      },
+      {
+        "from": 8,
+        "to": 347,
+        "inputIndex": 1
+      },
+      {
+        "from": 14,
+        "to": 349,
+        "inputIndex": 0
+      },
+      {
+        "from": 348,
+        "to": 349,
+        "inputIndex": 1
+      },
+      {
+        "from": 15,
+        "to": 349,
+        "inputIndex": 2
+      },
+      {
+        "from": 16,
+        "to": 350,
+        "inputIndex": 0
+      },
+      {
+        "from": 349,
+        "to": 350,
+        "inputIndex": 1
+      },
+      {
+        "from": 17,
+        "to": 350,
+        "inputIndex": 2
+      },
+      {
+        "from": 350,
+        "to": 351,
+        "inputIndex": 0
+      },
+      {
+        "from": 47,
+        "to": 351,
+        "inputIndex": 1
+      },
+      {
+        "from": 351,
+        "to": 93,
+        "inputIndex": 0
+      },
+      {
+        "from": 350,
+        "to": 352,
+        "inputIndex": 0
+      },
+      {
+        "from": 47,
+        "to": 352,
+        "inputIndex": 1
+      },
+      {
+        "from": 16,
+        "to": 353,
+        "inputIndex": 0
+      },
+      {
+        "from": 349,
+        "to": 353,
+        "inputIndex": 1
+      },
+      {
+        "from": 17,
+        "to": 353,
+        "inputIndex": 2
+      },
+      {
+        "from": 14,
+        "to": 354,
+        "inputIndex": 0
+      },
+      {
+        "from": 348,
+        "to": 354,
+        "inputIndex": 1
+      },
+      {
+        "from": 15,
+        "to": 354,
+        "inputIndex": 2
+      },
+      {
+        "from": 46,
+        "to": 356,
+        "inputIndex": 0
+      },
+      {
+        "from": 5,
+        "to": 356,
+        "inputIndex": 1
+      },
+      {
+        "from": 46,
+        "to": 357,
+        "inputIndex": 0
+      },
+      {
+        "from": 6,
+        "to": 357,
+        "inputIndex": 1
+      },
+      {
+        "from": 46,
+        "to": 358,
+        "inputIndex": 0
+      },
+      {
+        "from": 7,
+        "to": 358,
+        "inputIndex": 1
+      },
+      {
+        "from": 46,
+        "to": 359,
+        "inputIndex": 0
+      },
+      {
+        "from": 8,
+        "to": 359,
+        "inputIndex": 1
+      },
+      {
+        "from": 351,
+        "to": 360,
+        "inputIndex": 0
+      },
+      {
+        "from": 352,
+        "to": 360,
+        "inputIndex": 1
+      },
+      {
+        "from": 360,
+        "to": 361,
+        "inputIndex": 0
+      },
+      {
+        "from": 353,
+        "to": 361,
+        "inputIndex": 1
+      },
+      {
+        "from": 361,
+        "to": 362,
+        "inputIndex": 0
+      },
+      {
+        "from": 354,
+        "to": 362,
+        "inputIndex": 1
+      },
+      {
+        "from": 362,
+        "to": 363,
+        "inputIndex": 0
+      },
+      {
+        "from": 355,
+        "to": 363,
+        "inputIndex": 1
+      },
+      {
+        "from": 363,
+        "to": 364,
+        "inputIndex": 0
+      },
+      {
+        "from": 356,
+        "to": 364,
+        "inputIndex": 1
+      },
+      {
+        "from": 364,
+        "to": 365,
+        "inputIndex": 0
+      },
+      {
+        "from": 357,
+        "to": 365,
+        "inputIndex": 1
+      },
+      {
+        "from": 365,
+        "to": 366,
+        "inputIndex": 0
+      },
+      {
+        "from": 358,
+        "to": 366,
+        "inputIndex": 1
+      },
+      {
+        "from": 366,
+        "to": 367,
+        "inputIndex": 0
+      },
+      {
+        "from": 359,
+        "to": 367,
+        "inputIndex": 1
+      },
+      {
+        "from": 18,
+        "to": 368,
+        "inputIndex": 0
+      },
+      {
+        "from": 340,
+        "to": 368,
+        "inputIndex": 1
+      },
+      {
+        "from": 368,
+        "to": 369,
+        "inputIndex": 0
+      },
+      {
+        "from": 543,
+        "to": 370,
+        "inputIndex": 0
+      },
+      {
+        "from": 369,
+        "to": 370,
+        "inputIndex": 1
+      },
+      {
+        "from": 19,
+        "to": 371,
+        "inputIndex": 0
+      },
+      {
+        "from": 341,
+        "to": 371,
+        "inputIndex": 1
+      },
+      {
+        "from": 371,
+        "to": 372,
+        "inputIndex": 0
+      },
+      {
+        "from": 370,
+        "to": 373,
+        "inputIndex": 0
+      },
+      {
+        "from": 372,
+        "to": 373,
+        "inputIndex": 1
+      },
+      {
+        "from": 20,
+        "to": 374,
+        "inputIndex": 0
+      },
+      {
+        "from": 342,
+        "to": 374,
+        "inputIndex": 1
+      },
+      {
+        "from": 374,
+        "to": 375,
+        "inputIndex": 0
+      },
+      {
+        "from": 373,
+        "to": 376,
+        "inputIndex": 0
+      },
+      {
+        "from": 375,
+        "to": 376,
+        "inputIndex": 1
+      },
+      {
+        "from": 21,
+        "to": 377,
+        "inputIndex": 0
+      },
+      {
+        "from": 343,
+        "to": 377,
+        "inputIndex": 1
+      },
+      {
+        "from": 377,
+        "to": 378,
+        "inputIndex": 0
+      },
+      {
+        "from": 376,
+        "to": 379,
+        "inputIndex": 0
+      },
+      {
+        "from": 378,
+        "to": 379,
+        "inputIndex": 1
+      },
+      {
+        "from": 22,
+        "to": 380,
+        "inputIndex": 0
+      },
+      {
+        "from": 331,
+        "to": 380,
+        "inputIndex": 1
+      },
+      {
+        "from": 380,
+        "to": 381,
+        "inputIndex": 0
+      },
+      {
+        "from": 379,
+        "to": 382,
+        "inputIndex": 0
+      },
+      {
+        "from": 381,
+        "to": 382,
+        "inputIndex": 1
+      },
+      {
+        "from": 23,
+        "to": 383,
+        "inputIndex": 0
+      },
+      {
+        "from": 332,
+        "to": 383,
+        "inputIndex": 1
+      },
+      {
+        "from": 383,
+        "to": 384,
+        "inputIndex": 0
+      },
+      {
+        "from": 382,
+        "to": 385,
+        "inputIndex": 0
+      },
+      {
+        "from": 384,
+        "to": 385,
+        "inputIndex": 1
+      },
+      {
+        "from": 24,
+        "to": 386,
+        "inputIndex": 0
+      },
+      {
+        "from": 333,
+        "to": 386,
+        "inputIndex": 1
+      },
+      {
+        "from": 386,
+        "to": 387,
+        "inputIndex": 0
+      },
+      {
+        "from": 385,
+        "to": 388,
+        "inputIndex": 0
+      },
+      {
+        "from": 387,
+        "to": 388,
+        "inputIndex": 1
+      },
+      {
+        "from": 25,
+        "to": 389,
+        "inputIndex": 0
+      },
+      {
+        "from": 334,
+        "to": 389,
+        "inputIndex": 1
+      },
+      {
+        "from": 389,
+        "to": 390,
+        "inputIndex": 0
+      },
+      {
+        "from": 388,
+        "to": 391,
+        "inputIndex": 0
+      },
+      {
+        "from": 390,
+        "to": 391,
+        "inputIndex": 1
+      },
+      {
+        "from": 26,
+        "to": 392,
+        "inputIndex": 0
+      },
+      {
+        "from": 339,
+        "to": 392,
+        "inputIndex": 1
+      },
+      {
+        "from": 392,
+        "to": 393,
+        "inputIndex": 0
+      },
+      {
+        "from": 391,
+        "to": 394,
+        "inputIndex": 0
+      },
+      {
+        "from": 393,
+        "to": 394,
+        "inputIndex": 1
+      },
+      {
+        "from": 27,
+        "to": 395,
+        "inputIndex": 0
+      },
+      {
+        "from": 328,
+        "to": 395,
+        "inputIndex": 1
+      },
+      {
+        "from": 395,
+        "to": 396,
+        "inputIndex": 0
+      },
+      {
+        "from": 394,
+        "to": 397,
+        "inputIndex": 0
+      },
+      {
+        "from": 396,
+        "to": 397,
+        "inputIndex": 1
+      },
+      {
+        "from": 28,
+        "to": 398,
+        "inputIndex": 0
+      },
+      {
+        "from": 330,
+        "to": 398,
+        "inputIndex": 1
+      },
+      {
+        "from": 398,
+        "to": 399,
+        "inputIndex": 0
+      },
+      {
+        "from": 397,
+        "to": 400,
+        "inputIndex": 0
+      },
+      {
+        "from": 399,
+        "to": 400,
+        "inputIndex": 1
+      },
+      {
+        "from": 29,
+        "to": 401,
+        "inputIndex": 0
+      },
+      {
+        "from": 325,
+        "to": 401,
+        "inputIndex": 1
+      },
+      {
+        "from": 401,
+        "to": 402,
+        "inputIndex": 0
+      },
+      {
+        "from": 400,
+        "to": 403,
+        "inputIndex": 0
+      },
+      {
+        "from": 402,
+        "to": 403,
+        "inputIndex": 1
+      },
+      {
+        "from": 30,
+        "to": 404,
+        "inputIndex": 0
+      },
+      {
+        "from": 327,
+        "to": 404,
+        "inputIndex": 1
+      },
+      {
+        "from": 404,
+        "to": 405,
+        "inputIndex": 0
+      },
+      {
+        "from": 403,
+        "to": 406,
+        "inputIndex": 0
+      },
+      {
+        "from": 405,
+        "to": 406,
+        "inputIndex": 1
+      },
+      {
+        "from": 242,
+        "to": 407,
+        "inputIndex": 0
+      },
+      {
+        "from": 5,
+        "to": 407,
+        "inputIndex": 1
+      },
+      {
+        "from": 242,
+        "to": 408,
+        "inputIndex": 0
+      },
+      {
+        "from": 6,
+        "to": 408,
+        "inputIndex": 1
+      },
+      {
+        "from": 242,
+        "to": 409,
+        "inputIndex": 0
+      },
+      {
+        "from": 7,
+        "to": 409,
+        "inputIndex": 1
+      },
+      {
+        "from": 242,
+        "to": 410,
+        "inputIndex": 0
+      },
+      {
+        "from": 8,
+        "to": 410,
+        "inputIndex": 1
+      },
+      {
+        "from": 14,
+        "to": 412,
+        "inputIndex": 0
+      },
+      {
+        "from": 411,
+        "to": 412,
+        "inputIndex": 1
+      },
+      {
+        "from": 15,
+        "to": 412,
+        "inputIndex": 2
+      },
+      {
+        "from": 16,
+        "to": 413,
+        "inputIndex": 0
+      },
+      {
+        "from": 412,
+        "to": 413,
+        "inputIndex": 1
+      },
+      {
+        "from": 17,
+        "to": 413,
+        "inputIndex": 2
+      },
+      {
+        "from": 413,
+        "to": 414,
+        "inputIndex": 0
+      },
+      {
+        "from": 414,
+        "to": 284,
+        "inputIndex": 0
+      },
+      {
+        "from": 414,
+        "to": 292,
+        "inputIndex": 0
+      },
+      {
+        "from": 414,
+        "to": 293,
+        "inputIndex": 0
+      },
+      {
+        "from": 414,
+        "to": 299,
+        "inputIndex": 1
+      },
+      {
+        "to": 507,
+        "inputIndex": 0,
+        "from": 46
+      },
+      {
+        "to": 507,
+        "inputIndex": 1,
+        "from": 500
+      },
+      {
+        "to": 508,
+        "inputIndex": 0,
+        "from": 242
+      },
+      {
+        "to": 508,
+        "inputIndex": 1,
+        "from": 500
+      },
+      {
+        "to": 509,
+        "inputIndex": 0,
+        "from": 46
+      },
+      {
+        "to": 509,
+        "inputIndex": 1,
+        "from": 500
+      },
+      {
+        "to": 517,
+        "inputIndex": 0,
+        "from": 46
+      },
+      {
+        "to": 517,
+        "inputIndex": 1,
+        "from": 510
+      },
+      {
+        "to": 518,
+        "inputIndex": 0,
+        "from": 242
+      },
+      {
+        "to": 518,
+        "inputIndex": 1,
+        "from": 510
+      },
+      {
+        "to": 519,
+        "inputIndex": 0,
+        "from": 46
+      },
+      {
+        "to": 519,
+        "inputIndex": 1,
+        "from": 510
+      },
+      {
+        "to": 527,
+        "inputIndex": 0,
+        "from": 46
+      },
+      {
+        "to": 527,
+        "inputIndex": 1,
+        "from": 520
+      },
+      {
+        "to": 528,
+        "inputIndex": 0,
+        "from": 242
+      },
+      {
+        "to": 528,
+        "inputIndex": 1,
+        "from": 520
+      },
+      {
+        "to": 529,
+        "inputIndex": 0,
+        "from": 46
+      },
+      {
+        "to": 529,
+        "inputIndex": 1,
+        "from": 520
+      },
+      {
+        "to": 537,
+        "inputIndex": 0,
+        "from": 46
+      },
+      {
+        "to": 537,
+        "inputIndex": 1,
+        "from": 530
+      },
+      {
+        "to": 538,
+        "inputIndex": 0,
+        "from": 242
+      },
+      {
+        "to": 538,
+        "inputIndex": 1,
+        "from": 530
+      },
+      {
+        "to": 539,
+        "inputIndex": 0,
+        "from": 46
+      },
+      {
+        "to": 539,
+        "inputIndex": 1,
+        "from": 530
+      },
+      {
+        "to": 348,
+        "inputIndex": 0,
+        "from": 9
+      },
+      {
+        "to": 348,
+        "inputIndex": 1,
+        "from": 10
+      },
+      {
+        "to": 348,
+        "inputIndex": 2,
+        "from": 11
+      },
+      {
+        "to": 348,
+        "inputIndex": 3,
+        "from": 12
+      },
+      {
+        "to": 348,
+        "inputIndex": 4,
+        "from": 501
+      },
+      {
+        "to": 348,
+        "inputIndex": 5,
+        "from": 511
+      },
+      {
+        "to": 348,
+        "inputIndex": 6,
+        "from": 521
+      },
+      {
+        "to": 348,
+        "inputIndex": 7,
+        "from": 531
+      },
+      {
+        "to": 348,
+        "inputIndex": 8,
+        "from": 344
+      },
+      {
+        "to": 348,
+        "inputIndex": 9,
+        "from": 345
+      },
+      {
+        "to": 348,
+        "inputIndex": 10,
+        "from": 346
+      },
+      {
+        "to": 348,
+        "inputIndex": 11,
+        "from": 347
+      },
+      {
+        "to": 348,
+        "inputIndex": 12,
+        "from": 507
+      },
+      {
+        "to": 348,
+        "inputIndex": 13,
+        "from": 517
+      },
+      {
+        "to": 348,
+        "inputIndex": 14,
+        "from": 527
+      },
+      {
+        "to": 348,
+        "inputIndex": 15,
+        "from": 537
+      },
+      {
+        "to": 348,
+        "inputIndex": 16,
+        "from": 13
+      },
+      {
+        "to": 411,
+        "inputIndex": 0,
+        "from": 9
+      },
+      {
+        "to": 411,
+        "inputIndex": 1,
+        "from": 10
+      },
+      {
+        "to": 411,
+        "inputIndex": 2,
+        "from": 11
+      },
+      {
+        "to": 411,
+        "inputIndex": 3,
+        "from": 12
+      },
+      {
+        "to": 411,
+        "inputIndex": 4,
+        "from": 501
+      },
+      {
+        "to": 411,
+        "inputIndex": 5,
+        "from": 511
+      },
+      {
+        "to": 411,
+        "inputIndex": 6,
+        "from": 521
+      },
+      {
+        "to": 411,
+        "inputIndex": 7,
+        "from": 531
+      },
+      {
+        "to": 411,
+        "inputIndex": 8,
+        "from": 407
+      },
+      {
+        "to": 411,
+        "inputIndex": 9,
+        "from": 408
+      },
+      {
+        "to": 411,
+        "inputIndex": 10,
+        "from": 409
+      },
+      {
+        "to": 411,
+        "inputIndex": 11,
+        "from": 410
+      },
+      {
+        "to": 411,
+        "inputIndex": 12,
+        "from": 508
+      },
+      {
+        "to": 411,
+        "inputIndex": 13,
+        "from": 518
+      },
+      {
+        "to": 411,
+        "inputIndex": 14,
+        "from": 528
+      },
+      {
+        "to": 411,
+        "inputIndex": 15,
+        "from": 538
+      },
+      {
+        "to": 411,
+        "inputIndex": 16,
+        "from": 13
+      },
+      {
+        "to": 355,
+        "inputIndex": 0,
+        "from": 9
+      },
+      {
+        "to": 355,
+        "inputIndex": 1,
+        "from": 10
+      },
+      {
+        "to": 355,
+        "inputIndex": 2,
+        "from": 11
+      },
+      {
+        "to": 355,
+        "inputIndex": 3,
+        "from": 12
+      },
+      {
+        "to": 355,
+        "inputIndex": 4,
+        "from": 501
+      },
+      {
+        "to": 355,
+        "inputIndex": 5,
+        "from": 511
+      },
+      {
+        "to": 355,
+        "inputIndex": 6,
+        "from": 521
+      },
+      {
+        "to": 355,
+        "inputIndex": 7,
+        "from": 531
+      },
+      {
+        "to": 355,
+        "inputIndex": 8,
+        "from": 344
+      },
+      {
+        "to": 355,
+        "inputIndex": 9,
+        "from": 345
+      },
+      {
+        "to": 355,
+        "inputIndex": 10,
+        "from": 346
+      },
+      {
+        "to": 355,
+        "inputIndex": 11,
+        "from": 347
+      },
+      {
+        "to": 355,
+        "inputIndex": 12,
+        "from": 507
+      },
+      {
+        "to": 355,
+        "inputIndex": 13,
+        "from": 517
+      },
+      {
+        "to": 355,
+        "inputIndex": 14,
+        "from": 527
+      },
+      {
+        "to": 355,
+        "inputIndex": 15,
+        "from": 537
+      },
+      {
+        "to": 355,
+        "inputIndex": 16,
+        "from": 13
+      },
+      {
+        "to": 540,
+        "inputIndex": 0,
+        "from": 367
+      },
+      {
+        "to": 540,
+        "inputIndex": 1,
+        "from": 509
+      },
+      {
+        "to": 541,
+        "inputIndex": 0,
+        "from": 540
+      },
+      {
+        "to": 541,
+        "inputIndex": 1,
+        "from": 519
+      },
+      {
+        "to": 542,
+        "inputIndex": 0,
+        "from": 541
+      },
+      {
+        "to": 542,
+        "inputIndex": 1,
+        "from": 529
+      },
+      {
+        "to": 543,
+        "inputIndex": 0,
+        "from": 542
+      },
+      {
+        "to": 543,
+        "inputIndex": 1,
+        "from": 539
+      },
+      {
+        "to": 544,
+        "inputIndex": 0,
+        "from": 502
+      },
+      {
+        "to": 544,
+        "inputIndex": 1,
+        "from": 504
+      },
+      {
+        "to": 545,
+        "inputIndex": 0,
+        "from": 544
+      },
+      {
+        "to": 546,
+        "inputIndex": 0,
+        "from": 503
+      },
+      {
+        "to": 546,
+        "inputIndex": 1,
+        "from": 505
+      },
+      {
+        "to": 547,
+        "inputIndex": 0,
+        "from": 546
+      },
+      {
+        "to": 548,
+        "inputIndex": 0,
+        "from": 512
+      },
+      {
+        "to": 548,
+        "inputIndex": 1,
+        "from": 514
+      },
+      {
+        "to": 549,
+        "inputIndex": 0,
+        "from": 548
+      },
+      {
+        "to": 550,
+        "inputIndex": 0,
+        "from": 513
+      },
+      {
+        "to": 550,
+        "inputIndex": 1,
+        "from": 515
+      },
+      {
+        "to": 551,
+        "inputIndex": 0,
+        "from": 550
+      },
+      {
+        "to": 552,
+        "inputIndex": 0,
+        "from": 522
+      },
+      {
+        "to": 552,
+        "inputIndex": 1,
+        "from": 524
+      },
+      {
+        "to": 553,
+        "inputIndex": 0,
+        "from": 552
+      },
+      {
+        "to": 554,
+        "inputIndex": 0,
+        "from": 523
+      },
+      {
+        "to": 554,
+        "inputIndex": 1,
+        "from": 525
+      },
+      {
+        "to": 555,
+        "inputIndex": 0,
+        "from": 554
+      },
+      {
+        "to": 556,
+        "inputIndex": 0,
+        "from": 532
+      },
+      {
+        "to": 556,
+        "inputIndex": 1,
+        "from": 534
+      },
+      {
+        "to": 557,
+        "inputIndex": 0,
+        "from": 556
+      },
+      {
+        "to": 558,
+        "inputIndex": 0,
+        "from": 533
+      },
+      {
+        "to": 558,
+        "inputIndex": 1,
+        "from": 535
+      },
+      {
+        "to": 559,
+        "inputIndex": 0,
+        "from": 558
+      },
+      {
+        "to": 560,
+        "inputIndex": 0,
+        "from": 406
+      },
+      {
+        "to": 560,
+        "inputIndex": 1,
+        "from": 545
+      },
+      {
+        "to": 561,
+        "inputIndex": 0,
+        "from": 560
+      },
+      {
+        "to": 561,
+        "inputIndex": 1,
+        "from": 547
+      },
+      {
+        "to": 562,
+        "inputIndex": 0,
+        "from": 561
+      },
+      {
+        "to": 562,
+        "inputIndex": 1,
+        "from": 549
+      },
+      {
+        "to": 563,
+        "inputIndex": 0,
+        "from": 562
+      },
+      {
+        "to": 563,
+        "inputIndex": 1,
+        "from": 551
+      },
+      {
+        "to": 564,
+        "inputIndex": 0,
+        "from": 563
+      },
+      {
+        "to": 564,
+        "inputIndex": 1,
+        "from": 553
+      },
+      {
+        "to": 565,
+        "inputIndex": 0,
+        "from": 564
+      },
+      {
+        "to": 565,
+        "inputIndex": 1,
+        "from": 555
+      },
+      {
+        "to": 566,
+        "inputIndex": 0,
+        "from": 565
+      },
+      {
+        "to": 566,
+        "inputIndex": 1,
+        "from": 557
+      },
+      {
+        "to": 567,
+        "inputIndex": 0,
+        "from": 566
+      },
+      {
+        "to": 567,
+        "inputIndex": 1,
+        "from": 559
+      },
+      {
+        "to": 145,
+        "inputIndex": 0,
+        "from": 567
+      },
+      {
+        "to": 32,
+        "inputIndex": 0,
+        "from": 2
+      },
+      {
+        "to": 569,
+        "inputIndex": 0,
+        "from": 568
+      },
+      {
+        "to": 569,
+        "inputIndex": 1,
+        "from": 18
+      },
+      {
+        "to": 570,
+        "inputIndex": 0,
+        "from": 569
+      },
+      {
+        "to": 571,
+        "inputIndex": 0,
+        "from": 5
+      },
+      {
+        "to": 571,
+        "inputIndex": 1,
+        "from": 568
+      },
+      {
+        "to": 571,
+        "inputIndex": 2,
+        "from": 32
+      },
+      {
+        "to": 572,
+        "inputIndex": 0,
+        "from": 571
+      },
+      {
+        "to": 573,
+        "inputIndex": 0,
+        "from": 570
+      },
+      {
+        "to": 573,
+        "inputIndex": 1,
+        "from": 572
+      },
+      {
+        "to": 574,
+        "inputIndex": 0,
+        "from": 35
+      },
+      {
+        "to": 576,
+        "inputIndex": 0,
+        "from": 575
+      },
+      {
+        "to": 576,
+        "inputIndex": 1,
+        "from": 19
+      },
+      {
+        "to": 577,
+        "inputIndex": 0,
+        "from": 576
+      },
+      {
+        "to": 578,
+        "inputIndex": 0,
+        "from": 6
+      },
+      {
+        "to": 578,
+        "inputIndex": 1,
+        "from": 575
+      },
+      {
+        "to": 578,
+        "inputIndex": 2,
+        "from": 32
+      },
+      {
+        "to": 579,
+        "inputIndex": 0,
+        "from": 578
+      },
+      {
+        "to": 580,
+        "inputIndex": 0,
+        "from": 577
+      },
+      {
+        "to": 580,
+        "inputIndex": 1,
+        "from": 579
+      },
+      {
+        "to": 581,
+        "inputIndex": 0,
+        "from": 35
+      },
+      {
+        "to": 583,
+        "inputIndex": 0,
+        "from": 582
+      },
+      {
+        "to": 583,
+        "inputIndex": 1,
+        "from": 20
+      },
+      {
+        "to": 584,
+        "inputIndex": 0,
+        "from": 583
+      },
+      {
+        "to": 585,
+        "inputIndex": 0,
+        "from": 7
+      },
+      {
+        "to": 585,
+        "inputIndex": 1,
+        "from": 582
+      },
+      {
+        "to": 585,
+        "inputIndex": 2,
+        "from": 32
+      },
+      {
+        "to": 586,
+        "inputIndex": 0,
+        "from": 585
+      },
+      {
+        "to": 587,
+        "inputIndex": 0,
+        "from": 584
+      },
+      {
+        "to": 587,
+        "inputIndex": 1,
+        "from": 586
+      },
+      {
+        "to": 588,
+        "inputIndex": 0,
+        "from": 35
+      },
+      {
+        "to": 590,
+        "inputIndex": 0,
+        "from": 589
+      },
+      {
+        "to": 590,
+        "inputIndex": 1,
+        "from": 21
+      },
+      {
+        "to": 591,
+        "inputIndex": 0,
+        "from": 590
+      },
+      {
+        "to": 592,
+        "inputIndex": 0,
+        "from": 8
+      },
+      {
+        "to": 592,
+        "inputIndex": 1,
+        "from": 589
+      },
+      {
+        "to": 592,
+        "inputIndex": 2,
+        "from": 32
+      },
+      {
+        "to": 593,
+        "inputIndex": 0,
+        "from": 592
+      },
+      {
+        "to": 594,
+        "inputIndex": 0,
+        "from": 591
+      },
+      {
+        "to": 594,
+        "inputIndex": 1,
+        "from": 593
+      },
+      {
+        "to": 595,
+        "inputIndex": 0,
+        "from": 35
+      },
+      {
+        "to": 597,
+        "inputIndex": 0,
+        "from": 596
+      },
+      {
+        "to": 597,
+        "inputIndex": 1,
+        "from": 502
+      },
+      {
+        "to": 598,
+        "inputIndex": 0,
+        "from": 597
+      },
+      {
+        "to": 599,
+        "inputIndex": 0,
+        "from": 500
+      },
+      {
+        "to": 599,
+        "inputIndex": 1,
+        "from": 596
+      },
+      {
+        "to": 599,
+        "inputIndex": 2,
+        "from": 32
+      },
+      {
+        "to": 600,
+        "inputIndex": 0,
+        "from": 599
+      },
+      {
+        "to": 601,
+        "inputIndex": 0,
+        "from": 598
+      },
+      {
+        "to": 601,
+        "inputIndex": 1,
+        "from": 600
+      },
+      {
+        "to": 602,
+        "inputIndex": 0,
+        "from": 35
+      },
+      {
+        "to": 604,
+        "inputIndex": 0,
+        "from": 603
+      },
+      {
+        "to": 604,
+        "inputIndex": 1,
+        "from": 512
+      },
+      {
+        "to": 605,
+        "inputIndex": 0,
+        "from": 604
+      },
+      {
+        "to": 606,
+        "inputIndex": 0,
+        "from": 510
+      },
+      {
+        "to": 606,
+        "inputIndex": 1,
+        "from": 603
+      },
+      {
+        "to": 606,
+        "inputIndex": 2,
+        "from": 32
+      },
+      {
+        "to": 607,
+        "inputIndex": 0,
+        "from": 606
+      },
+      {
+        "to": 608,
+        "inputIndex": 0,
+        "from": 605
+      },
+      {
+        "to": 608,
+        "inputIndex": 1,
+        "from": 607
+      },
+      {
+        "to": 609,
+        "inputIndex": 0,
+        "from": 35
+      },
+      {
+        "to": 611,
+        "inputIndex": 0,
+        "from": 610
+      },
+      {
+        "to": 611,
+        "inputIndex": 1,
+        "from": 522
+      },
+      {
+        "to": 612,
+        "inputIndex": 0,
+        "from": 611
+      },
+      {
+        "to": 613,
+        "inputIndex": 0,
+        "from": 520
+      },
+      {
+        "to": 613,
+        "inputIndex": 1,
+        "from": 610
+      },
+      {
+        "to": 613,
+        "inputIndex": 2,
+        "from": 32
+      },
+      {
+        "to": 614,
+        "inputIndex": 0,
+        "from": 613
+      },
+      {
+        "to": 615,
+        "inputIndex": 0,
+        "from": 612
+      },
+      {
+        "to": 615,
+        "inputIndex": 1,
+        "from": 614
+      },
+      {
+        "to": 616,
+        "inputIndex": 0,
+        "from": 35
+      },
+      {
+        "to": 618,
+        "inputIndex": 0,
+        "from": 617
+      },
+      {
+        "to": 618,
+        "inputIndex": 1,
+        "from": 532
+      },
+      {
+        "to": 619,
+        "inputIndex": 0,
+        "from": 618
+      },
+      {
+        "to": 620,
+        "inputIndex": 0,
+        "from": 530
+      },
+      {
+        "to": 620,
+        "inputIndex": 1,
+        "from": 617
+      },
+      {
+        "to": 620,
+        "inputIndex": 2,
+        "from": 32
+      },
+      {
+        "to": 621,
+        "inputIndex": 0,
+        "from": 620
+      },
+      {
+        "to": 622,
+        "inputIndex": 0,
+        "from": 619
+      },
+      {
+        "to": 622,
+        "inputIndex": 1,
+        "from": 621
+      },
+      {
+        "to": 623,
+        "inputIndex": 0,
+        "from": 35
+      },
+      {
+        "to": 625,
+        "inputIndex": 0,
+        "from": 624
+      },
+      {
+        "to": 625,
+        "inputIndex": 1,
+        "from": 22
+      },
+      {
+        "to": 626,
+        "inputIndex": 0,
+        "from": 625
+      },
+      {
+        "to": 627,
+        "inputIndex": 0,
+        "from": 9
+      },
+      {
+        "to": 627,
+        "inputIndex": 1,
+        "from": 624
+      },
+      {
+        "to": 627,
+        "inputIndex": 2,
+        "from": 32
+      },
+      {
+        "to": 628,
+        "inputIndex": 0,
+        "from": 627
+      },
+      {
+        "to": 629,
+        "inputIndex": 0,
+        "from": 626
+      },
+      {
+        "to": 629,
+        "inputIndex": 1,
+        "from": 628
+      },
+      {
+        "to": 630,
+        "inputIndex": 0,
+        "from": 40
+      },
+      {
+        "to": 632,
+        "inputIndex": 0,
+        "from": 631
+      },
+      {
+        "to": 632,
+        "inputIndex": 1,
+        "from": 23
+      },
+      {
+        "to": 633,
+        "inputIndex": 0,
+        "from": 632
+      },
+      {
+        "to": 634,
+        "inputIndex": 0,
+        "from": 10
+      },
+      {
+        "to": 634,
+        "inputIndex": 1,
+        "from": 631
+      },
+      {
+        "to": 634,
+        "inputIndex": 2,
+        "from": 32
+      },
+      {
+        "to": 635,
+        "inputIndex": 0,
+        "from": 634
+      },
+      {
+        "to": 636,
+        "inputIndex": 0,
+        "from": 633
+      },
+      {
+        "to": 636,
+        "inputIndex": 1,
+        "from": 635
+      },
+      {
+        "to": 637,
+        "inputIndex": 0,
+        "from": 40
+      },
+      {
+        "to": 639,
+        "inputIndex": 0,
+        "from": 638
+      },
+      {
+        "to": 639,
+        "inputIndex": 1,
+        "from": 24
+      },
+      {
+        "to": 640,
+        "inputIndex": 0,
+        "from": 639
+      },
+      {
+        "to": 641,
+        "inputIndex": 0,
+        "from": 11
+      },
+      {
+        "to": 641,
+        "inputIndex": 1,
+        "from": 638
+      },
+      {
+        "to": 641,
+        "inputIndex": 2,
+        "from": 32
+      },
+      {
+        "to": 642,
+        "inputIndex": 0,
+        "from": 641
+      },
+      {
+        "to": 643,
+        "inputIndex": 0,
+        "from": 640
+      },
+      {
+        "to": 643,
+        "inputIndex": 1,
+        "from": 642
+      },
+      {
+        "to": 644,
+        "inputIndex": 0,
+        "from": 40
+      },
+      {
+        "to": 646,
+        "inputIndex": 0,
+        "from": 645
+      },
+      {
+        "to": 646,
+        "inputIndex": 1,
+        "from": 25
+      },
+      {
+        "to": 647,
+        "inputIndex": 0,
+        "from": 646
+      },
+      {
+        "to": 648,
+        "inputIndex": 0,
+        "from": 12
+      },
+      {
+        "to": 648,
+        "inputIndex": 1,
+        "from": 645
+      },
+      {
+        "to": 648,
+        "inputIndex": 2,
+        "from": 32
+      },
+      {
+        "to": 649,
+        "inputIndex": 0,
+        "from": 648
+      },
+      {
+        "to": 650,
+        "inputIndex": 0,
+        "from": 647
+      },
+      {
+        "to": 650,
+        "inputIndex": 1,
+        "from": 649
+      },
+      {
+        "to": 651,
+        "inputIndex": 0,
+        "from": 40
+      },
+      {
+        "to": 653,
+        "inputIndex": 0,
+        "from": 652
+      },
+      {
+        "to": 653,
+        "inputIndex": 1,
+        "from": 503
+      },
+      {
+        "to": 654,
+        "inputIndex": 0,
+        "from": 653
+      },
+      {
+        "to": 655,
+        "inputIndex": 0,
+        "from": 501
+      },
+      {
+        "to": 655,
+        "inputIndex": 1,
+        "from": 652
+      },
+      {
+        "to": 655,
+        "inputIndex": 2,
+        "from": 32
+      },
+      {
+        "to": 656,
+        "inputIndex": 0,
+        "from": 655
+      },
+      {
+        "to": 657,
+        "inputIndex": 0,
+        "from": 654
+      },
+      {
+        "to": 657,
+        "inputIndex": 1,
+        "from": 656
+      },
+      {
+        "to": 658,
+        "inputIndex": 0,
+        "from": 40
+      },
+      {
+        "to": 660,
+        "inputIndex": 0,
+        "from": 659
+      },
+      {
+        "to": 660,
+        "inputIndex": 1,
+        "from": 513
+      },
+      {
+        "to": 661,
+        "inputIndex": 0,
+        "from": 660
+      },
+      {
+        "to": 662,
+        "inputIndex": 0,
+        "from": 511
+      },
+      {
+        "to": 662,
+        "inputIndex": 1,
+        "from": 659
+      },
+      {
+        "to": 662,
+        "inputIndex": 2,
+        "from": 32
+      },
+      {
+        "to": 663,
+        "inputIndex": 0,
+        "from": 662
+      },
+      {
+        "to": 664,
+        "inputIndex": 0,
+        "from": 661
+      },
+      {
+        "to": 664,
+        "inputIndex": 1,
+        "from": 663
+      },
+      {
+        "to": 665,
+        "inputIndex": 0,
+        "from": 40
+      },
+      {
+        "to": 667,
+        "inputIndex": 0,
+        "from": 666
+      },
+      {
+        "to": 667,
+        "inputIndex": 1,
+        "from": 523
+      },
+      {
+        "to": 668,
+        "inputIndex": 0,
+        "from": 667
+      },
+      {
+        "to": 669,
+        "inputIndex": 0,
+        "from": 521
+      },
+      {
+        "to": 669,
+        "inputIndex": 1,
+        "from": 666
+      },
+      {
+        "to": 669,
+        "inputIndex": 2,
+        "from": 32
+      },
+      {
+        "to": 670,
+        "inputIndex": 0,
+        "from": 669
+      },
+      {
+        "to": 671,
+        "inputIndex": 0,
+        "from": 668
+      },
+      {
+        "to": 671,
+        "inputIndex": 1,
+        "from": 670
+      },
+      {
+        "to": 672,
+        "inputIndex": 0,
+        "from": 40
+      },
+      {
+        "to": 674,
+        "inputIndex": 0,
+        "from": 673
+      },
+      {
+        "to": 674,
+        "inputIndex": 1,
+        "from": 533
+      },
+      {
+        "to": 675,
+        "inputIndex": 0,
+        "from": 674
+      },
+      {
+        "to": 676,
+        "inputIndex": 0,
+        "from": 531
+      },
+      {
+        "to": 676,
+        "inputIndex": 1,
+        "from": 673
+      },
+      {
+        "to": 676,
+        "inputIndex": 2,
+        "from": 32
+      },
+      {
+        "to": 677,
+        "inputIndex": 0,
+        "from": 676
+      },
+      {
+        "to": 678,
+        "inputIndex": 0,
+        "from": 675
+      },
+      {
+        "to": 678,
+        "inputIndex": 1,
+        "from": 677
+      },
+      {
+        "to": 679,
+        "inputIndex": 0,
+        "from": 40
+      },
+      {
+        "to": 681,
+        "inputIndex": 0,
+        "from": 680
+      },
+      {
+        "to": 681,
+        "inputIndex": 1,
+        "from": 26
+      },
+      {
+        "to": 682,
+        "inputIndex": 0,
+        "from": 681
+      },
+      {
+        "to": 683,
+        "inputIndex": 0,
+        "from": 13
+      },
+      {
+        "to": 683,
+        "inputIndex": 1,
+        "from": 680
+      },
+      {
+        "to": 683,
+        "inputIndex": 2,
+        "from": 32
+      },
+      {
+        "to": 684,
+        "inputIndex": 0,
+        "from": 683
+      },
+      {
+        "to": 685,
+        "inputIndex": 0,
+        "from": 682
+      },
+      {
+        "to": 685,
+        "inputIndex": 1,
+        "from": 684
+      },
+      {
+        "to": 686,
+        "inputIndex": 0,
+        "from": 36
+      },
+      {
+        "to": 688,
+        "inputIndex": 0,
+        "from": 687
+      },
+      {
+        "to": 688,
+        "inputIndex": 1,
+        "from": 27
+      },
+      {
+        "to": 689,
+        "inputIndex": 0,
+        "from": 688
+      },
+      {
+        "to": 690,
+        "inputIndex": 0,
+        "from": 14
+      },
+      {
+        "to": 690,
+        "inputIndex": 1,
+        "from": 687
+      },
+      {
+        "to": 690,
+        "inputIndex": 2,
+        "from": 32
+      },
+      {
+        "to": 691,
+        "inputIndex": 0,
+        "from": 690
+      },
+      {
+        "to": 692,
+        "inputIndex": 0,
+        "from": 689
+      },
+      {
+        "to": 692,
+        "inputIndex": 1,
+        "from": 691
+      },
+      {
+        "to": 693,
+        "inputIndex": 0,
+        "from": 41
+      },
+      {
+        "to": 695,
+        "inputIndex": 0,
+        "from": 694
+      },
+      {
+        "to": 695,
+        "inputIndex": 1,
+        "from": 28
+      },
+      {
+        "to": 696,
+        "inputIndex": 0,
+        "from": 695
+      },
+      {
+        "to": 697,
+        "inputIndex": 0,
+        "from": 15
+      },
+      {
+        "to": 697,
+        "inputIndex": 1,
+        "from": 694
+      },
+      {
+        "to": 697,
+        "inputIndex": 2,
+        "from": 32
+      },
+      {
+        "to": 698,
+        "inputIndex": 0,
+        "from": 697
+      },
+      {
+        "to": 699,
+        "inputIndex": 0,
+        "from": 696
+      },
+      {
+        "to": 699,
+        "inputIndex": 1,
+        "from": 698
+      },
+      {
+        "to": 700,
+        "inputIndex": 0,
+        "from": 37
+      },
+      {
+        "to": 702,
+        "inputIndex": 0,
+        "from": 701
+      },
+      {
+        "to": 702,
+        "inputIndex": 1,
+        "from": 29
+      },
+      {
+        "to": 703,
+        "inputIndex": 0,
+        "from": 702
+      },
+      {
+        "to": 704,
+        "inputIndex": 0,
+        "from": 16
+      },
+      {
+        "to": 704,
+        "inputIndex": 1,
+        "from": 701
+      },
+      {
+        "to": 704,
+        "inputIndex": 2,
+        "from": 32
+      },
+      {
+        "to": 705,
+        "inputIndex": 0,
+        "from": 704
+      },
+      {
+        "to": 706,
+        "inputIndex": 0,
+        "from": 703
+      },
+      {
+        "to": 706,
+        "inputIndex": 1,
+        "from": 705
+      },
+      {
+        "to": 707,
+        "inputIndex": 0,
+        "from": 42
+      },
+      {
+        "to": 709,
+        "inputIndex": 0,
+        "from": 708
+      },
+      {
+        "to": 709,
+        "inputIndex": 1,
+        "from": 30
+      },
+      {
+        "to": 710,
+        "inputIndex": 0,
+        "from": 709
+      },
+      {
+        "to": 711,
+        "inputIndex": 0,
+        "from": 17
+      },
+      {
+        "to": 711,
+        "inputIndex": 1,
+        "from": 708
+      },
+      {
+        "to": 711,
+        "inputIndex": 2,
+        "from": 32
+      },
+      {
+        "to": 712,
+        "inputIndex": 0,
+        "from": 711
+      },
+      {
+        "to": 713,
+        "inputIndex": 0,
+        "from": 710
+      },
+      {
+        "to": 713,
+        "inputIndex": 1,
+        "from": 712
+      },
+      {
+        "to": 714,
+        "inputIndex": 0,
+        "from": 38
+      },
+      {
+        "to": 715,
+        "inputIndex": 0,
+        "from": 573
+      },
+      {
+        "to": 715,
+        "inputIndex": 1,
+        "from": 580
+      },
+      {
+        "to": 716,
+        "inputIndex": 0,
+        "from": 715
+      },
+      {
+        "to": 716,
+        "inputIndex": 1,
+        "from": 587
+      },
+      {
+        "to": 717,
+        "inputIndex": 0,
+        "from": 716
+      },
+      {
+        "to": 717,
+        "inputIndex": 1,
+        "from": 594
+      },
+      {
+        "to": 718,
+        "inputIndex": 0,
+        "from": 717
+      },
+      {
+        "to": 718,
+        "inputIndex": 1,
+        "from": 601
+      },
+      {
+        "to": 719,
+        "inputIndex": 0,
+        "from": 718
+      },
+      {
+        "to": 719,
+        "inputIndex": 1,
+        "from": 608
+      },
+      {
+        "to": 720,
+        "inputIndex": 0,
+        "from": 719
+      },
+      {
+        "to": 720,
+        "inputIndex": 1,
+        "from": 615
+      },
+      {
+        "to": 721,
+        "inputIndex": 0,
+        "from": 720
+      },
+      {
+        "to": 721,
+        "inputIndex": 1,
+        "from": 622
+      },
+      {
+        "to": 722,
+        "inputIndex": 0,
+        "from": 721
+      },
+      {
+        "to": 722,
+        "inputIndex": 1,
+        "from": 629
+      },
+      {
+        "to": 723,
+        "inputIndex": 0,
+        "from": 722
+      },
+      {
+        "to": 723,
+        "inputIndex": 1,
+        "from": 636
+      },
+      {
+        "to": 724,
+        "inputIndex": 0,
+        "from": 723
+      },
+      {
+        "to": 724,
+        "inputIndex": 1,
+        "from": 643
+      },
+      {
+        "to": 725,
+        "inputIndex": 0,
+        "from": 724
+      },
+      {
+        "to": 725,
+        "inputIndex": 1,
+        "from": 650
+      },
+      {
+        "to": 726,
+        "inputIndex": 0,
+        "from": 725
+      },
+      {
+        "to": 726,
+        "inputIndex": 1,
+        "from": 657
+      },
+      {
+        "to": 727,
+        "inputIndex": 0,
+        "from": 726
+      },
+      {
+        "to": 727,
+        "inputIndex": 1,
+        "from": 664
+      },
+      {
+        "to": 728,
+        "inputIndex": 0,
+        "from": 727
+      },
+      {
+        "to": 728,
+        "inputIndex": 1,
+        "from": 671
+      },
+      {
+        "to": 729,
+        "inputIndex": 0,
+        "from": 728
+      },
+      {
+        "to": 729,
+        "inputIndex": 1,
+        "from": 678
+      },
+      {
+        "to": 730,
+        "inputIndex": 0,
+        "from": 729
+      },
+      {
+        "to": 730,
+        "inputIndex": 1,
+        "from": 685
+      },
+      {
+        "to": 731,
+        "inputIndex": 0,
+        "from": 730
+      },
+      {
+        "to": 731,
+        "inputIndex": 1,
+        "from": 692
+      },
+      {
+        "to": 732,
+        "inputIndex": 0,
+        "from": 731
+      },
+      {
+        "to": 732,
+        "inputIndex": 1,
+        "from": 699
+      },
+      {
+        "to": 733,
+        "inputIndex": 0,
+        "from": 732
+      },
+      {
+        "to": 733,
+        "inputIndex": 1,
+        "from": 706
+      },
+      {
+        "to": 734,
+        "inputIndex": 0,
+        "from": 733
+      },
+      {
+        "to": 734,
+        "inputIndex": 1,
+        "from": 713
+      },
+      {
+        "to": 735,
+        "inputIndex": 0,
+        "from": 734
+      },
+      {
+        "to": 735,
+        "inputIndex": 1,
+        "from": 574
+      },
+      {
+        "to": 736,
+        "inputIndex": 0,
+        "from": 735
+      },
+      {
+        "to": 736,
+        "inputIndex": 1,
+        "from": 581
+      },
+      {
+        "to": 737,
+        "inputIndex": 0,
+        "from": 736
+      },
+      {
+        "to": 737,
+        "inputIndex": 1,
+        "from": 588
+      },
+      {
+        "to": 738,
+        "inputIndex": 0,
+        "from": 737
+      },
+      {
+        "to": 738,
+        "inputIndex": 1,
+        "from": 595
+      },
+      {
+        "to": 739,
+        "inputIndex": 0,
+        "from": 738
+      },
+      {
+        "to": 739,
+        "inputIndex": 1,
+        "from": 602
+      },
+      {
+        "to": 740,
+        "inputIndex": 0,
+        "from": 739
+      },
+      {
+        "to": 740,
+        "inputIndex": 1,
+        "from": 609
+      },
+      {
+        "to": 741,
+        "inputIndex": 0,
+        "from": 740
+      },
+      {
+        "to": 741,
+        "inputIndex": 1,
+        "from": 616
+      },
+      {
+        "to": 742,
+        "inputIndex": 0,
+        "from": 741
+      },
+      {
+        "to": 742,
+        "inputIndex": 1,
+        "from": 623
+      },
+      {
+        "to": 743,
+        "inputIndex": 0,
+        "from": 742
+      },
+      {
+        "to": 743,
+        "inputIndex": 1,
+        "from": 630
+      },
+      {
+        "to": 744,
+        "inputIndex": 0,
+        "from": 743
+      },
+      {
+        "to": 744,
+        "inputIndex": 1,
+        "from": 637
+      },
+      {
+        "to": 745,
+        "inputIndex": 0,
+        "from": 744
+      },
+      {
+        "to": 745,
+        "inputIndex": 1,
+        "from": 644
+      },
+      {
+        "to": 746,
+        "inputIndex": 0,
+        "from": 745
+      },
+      {
+        "to": 746,
+        "inputIndex": 1,
+        "from": 651
+      },
+      {
+        "to": 747,
+        "inputIndex": 0,
+        "from": 746
+      },
+      {
+        "to": 747,
+        "inputIndex": 1,
+        "from": 658
+      },
+      {
+        "to": 748,
+        "inputIndex": 0,
+        "from": 747
+      },
+      {
+        "to": 748,
+        "inputIndex": 1,
+        "from": 665
+      },
+      {
+        "to": 749,
+        "inputIndex": 0,
+        "from": 748
+      },
+      {
+        "to": 749,
+        "inputIndex": 1,
+        "from": 672
+      },
+      {
+        "to": 750,
+        "inputIndex": 0,
+        "from": 749
+      },
+      {
+        "to": 750,
+        "inputIndex": 1,
+        "from": 679
+      },
+      {
+        "to": 751,
+        "inputIndex": 0,
+        "from": 750
+      },
+      {
+        "to": 751,
+        "inputIndex": 1,
+        "from": 686
+      },
+      {
+        "to": 752,
+        "inputIndex": 0,
+        "from": 751
+      },
+      {
+        "to": 752,
+        "inputIndex": 1,
+        "from": 693
+      },
+      {
+        "to": 753,
+        "inputIndex": 0,
+        "from": 752
+      },
+      {
+        "to": 753,
+        "inputIndex": 1,
+        "from": 700
+      },
+      {
+        "to": 754,
+        "inputIndex": 0,
+        "from": 753
+      },
+      {
+        "to": 754,
+        "inputIndex": 1,
+        "from": 707
+      },
+      {
+        "to": 755,
+        "inputIndex": 0,
+        "from": 754
+      },
+      {
+        "to": 755,
+        "inputIndex": 1,
+        "from": 714
+      },
+      {
+        "to": 756,
+        "inputIndex": 0,
+        "from": 145
+      },
+      {
+        "to": 756,
+        "inputIndex": 1,
+        "from": 755
+      },
+      {
+        "to": 237,
+        "inputIndex": 0,
+        "from": 756
+      },
+      {
+        "to": 238,
+        "inputIndex": 0,
+        "from": 237
+      },
+      {
+        "to": 239,
+        "inputIndex": 0,
+        "from": 238
+      },
+      {
+        "to": 319,
+        "inputIndex": 0,
+        "from": 312
+      },
+      {
+        "to": 319,
+        "inputIndex": 1,
+        "from": 314
+      }
+    ]
+  },
+  "userBlocks": [
+    {
+      "id": "conv5_pool12",
+      "name": "특징 추출 · 5×5 합성곱 → ReLU → 평균 풀링",
+      "nodes": [
+        {
+          "id": 1,
+          "type": "unfold2d",
+          "params": {
+            "kernelRows": 5,
+            "kernelCols": 5,
+            "strideRows": 1,
+            "strideCols": 1,
+            "padding": 0
+          },
+          "x": 60,
+          "y": 60
+        },
+        {
+          "id": 2,
+          "type": "matvec",
+          "params": {},
+          "x": 360,
+          "y": 60
+        },
+        {
+          "id": 3,
+          "type": "reshape",
+          "params": {
+            "shape": "24,24"
+          },
+          "x": 660,
+          "y": 60
+        },
+        {
+          "id": 4,
+          "type": "number",
+          "params": {
+            "value": 0
+          },
+          "x": 960,
+          "y": 60
+        },
+        {
+          "id": 5,
+          "type": "maximum",
+          "params": {},
+          "x": 1260,
+          "y": 60
+        },
+        {
+          "id": 6,
+          "type": "unfold2d",
+          "params": {
+            "kernelRows": 2,
+            "kernelCols": 2,
+            "strideRows": 2,
+            "strideCols": 2,
+            "padding": 0
+          },
+          "x": 60,
+          "y": 270
+        },
+        {
+          "id": 7,
+          "type": "constantVector",
+          "params": {
+            "length": 4,
+            "value": 0.25
+          },
+          "x": 360,
+          "y": 270
+        },
+        {
+          "id": 8,
+          "type": "matvec",
+          "params": {},
+          "x": 660,
+          "y": 270
+        }
+      ],
+      "connections": [
+        {
+          "from": 1,
+          "to": 2,
+          "inputIndex": 0
+        },
+        {
+          "from": 2,
+          "to": 3,
+          "inputIndex": 0
+        },
+        {
+          "from": 3,
+          "to": 5,
+          "inputIndex": 0
+        },
+        {
+          "from": 4,
+          "to": 5,
+          "inputIndex": 1
+        },
+        {
+          "from": 5,
+          "to": 6,
+          "inputIndex": 0
+        },
+        {
+          "from": 6,
+          "to": 8,
+          "inputIndex": 0
+        },
+        {
+          "from": 7,
+          "to": 8,
+          "inputIndex": 1
+        }
+      ],
+      "externalInputs": [
+        {
+          "nodeId": 1,
+          "inputIndex": 0,
+          "label": "그림"
+        },
+        {
+          "nodeId": 2,
+          "inputIndex": 1,
+          "label": "커널"
+        }
+      ],
+      "outputNodeId": 8,
+      "formula": "28×28 → Conv5×5 → ReLU → AvgPool2×2 → 144",
+      "manualBackprop": {
+        "version": 1,
+        "inputCount": 2,
+        "nodes": [
+          {
+            "id": 1,
+            "type": "unfold2d",
+            "params": {
+              "kernelRows": 5,
+              "kernelCols": 5,
+              "strideRows": 1,
+              "strideCols": 1,
+              "padding": 0
+            },
+            "x": 60,
+            "y": 60
+          },
+          {
+            "id": 2,
+            "type": "matvec",
+            "params": {},
+            "x": 360,
+            "y": 60
+          },
+          {
+            "id": 3,
+            "type": "reshape",
+            "params": {
+              "shape": "24,24"
+            },
+            "x": 660,
+            "y": 60
+          },
+          {
+            "id": 4,
+            "type": "number",
+            "params": {
+              "value": 0
+            },
+            "x": 960,
+            "y": 60
+          },
+          {
+            "id": 5,
+            "type": "maximum",
+            "params": {},
+            "x": 1260,
+            "y": 60
+          },
+          {
+            "id": 6,
+            "type": "constantVector",
+            "params": {
+              "length": 4,
+              "value": 0.25
+            },
+            "x": 60,
+            "y": 270
+          },
+          {
+            "id": 7,
+            "type": "outerProduct",
+            "params": {},
+            "x": 360,
+            "y": 270
+          },
+          {
+            "id": 8,
+            "type": "fold2d",
+            "params": {
+              "kernelRows": 2,
+              "kernelCols": 2,
+              "strideRows": 2,
+              "strideCols": 2,
+              "padding": 0
+            },
+            "x": 660,
+            "y": 270
+          },
+          {
+            "id": 9,
+            "type": "equal",
+            "params": {},
+            "x": 960,
+            "y": 270
+          },
+          {
+            "id": 10,
+            "type": "multiply",
+            "params": {},
+            "x": 1260,
+            "y": 270
+          },
+          {
+            "id": 11,
+            "type": "reshape",
+            "params": {
+              "shape": "576"
+            },
+            "x": 60,
+            "y": 480
+          },
+          {
+            "id": 12,
+            "type": "transposeMatvec",
+            "params": {},
+            "x": 360,
+            "y": 480
+          },
+          {
+            "id": 13,
+            "type": "outerProduct",
+            "params": {},
+            "x": 660,
+            "y": 480
+          },
+          {
+            "id": 14,
+            "type": "fold2d",
+            "params": {
+              "kernelRows": 5,
+              "kernelCols": 5,
+              "strideRows": 1,
+              "strideCols": 1,
+              "padding": 0
+            },
+            "x": 960,
+            "y": 480
+          }
+        ],
+        "connections": [
+          {
+            "from": -1,
+            "to": 1,
+            "inputIndex": 0
+          },
+          {
+            "from": 1,
+            "to": 2,
+            "inputIndex": 0
+          },
+          {
+            "from": -2,
+            "to": 2,
+            "inputIndex": 1
+          },
+          {
+            "from": 2,
+            "to": 3,
+            "inputIndex": 0
+          },
+          {
+            "from": 3,
+            "to": 5,
+            "inputIndex": 0
+          },
+          {
+            "from": 4,
+            "to": 5,
+            "inputIndex": 1
+          },
+          {
+            "from": -1000001,
+            "to": 7,
+            "inputIndex": 0
+          },
+          {
+            "from": 6,
+            "to": 7,
+            "inputIndex": 1
+          },
+          {
+            "from": 7,
+            "to": 8,
+            "inputIndex": 0
+          },
+          {
+            "from": 5,
+            "to": 8,
+            "inputIndex": 1
+          },
+          {
+            "from": 5,
+            "to": 9,
+            "inputIndex": 0
+          },
+          {
+            "from": 3,
+            "to": 9,
+            "inputIndex": 1
+          },
+          {
+            "from": 8,
+            "to": 10,
+            "inputIndex": 0
+          },
+          {
+            "from": 9,
+            "to": 10,
+            "inputIndex": 1
+          },
+          {
+            "from": 10,
+            "to": 11,
+            "inputIndex": 0
+          },
+          {
+            "from": 1,
+            "to": 12,
+            "inputIndex": 0
+          },
+          {
+            "from": 11,
+            "to": 12,
+            "inputIndex": 1
+          },
+          {
+            "from": 11,
+            "to": 13,
+            "inputIndex": 0
+          },
+          {
+            "from": -2,
+            "to": 13,
+            "inputIndex": 1
+          },
+          {
+            "from": 13,
+            "to": 14,
+            "inputIndex": 0
+          },
+          {
+            "from": -1,
+            "to": 14,
+            "inputIndex": 1
+          }
+        ],
+        "gradientOutputNodeIds": [
+          14,
+          12
+        ],
+        "editorViewport": {
+          "x": 0,
+          "y": 0,
+          "zoom": 0.75
+        }
+      }
+    },
+    {
+      "id": "dense8_relu128",
+      "name": "특징 통합 · 8분기 Dense 128 + ReLU",
+      "nodes": [
+        {
+          "id": 1,
+          "type": "matvec",
+          "params": {},
+          "x": 60,
+          "y": 60
+        },
+        {
+          "id": 2,
+          "type": "matvec",
+          "params": {},
+          "x": 360,
+          "y": 60
+        },
+        {
+          "id": 3,
+          "type": "matvec",
+          "params": {},
+          "x": 660,
+          "y": 60
+        },
+        {
+          "id": 4,
+          "type": "matvec",
+          "params": {},
+          "x": 960,
+          "y": 60
+        },
+        {
+          "id": 5,
+          "type": "matvec",
+          "params": {},
+          "x": 1260,
+          "y": 60
+        },
+        {
+          "id": 6,
+          "type": "matvec",
+          "params": {},
+          "x": 60,
+          "y": 270
+        },
+        {
+          "id": 7,
+          "type": "matvec",
+          "params": {},
+          "x": 360,
+          "y": 270
+        },
+        {
+          "id": 8,
+          "type": "matvec",
+          "params": {},
+          "x": 660,
+          "y": 270
+        },
+        {
+          "id": 9,
+          "type": "add",
+          "params": {},
+          "x": 960,
+          "y": 270
+        },
+        {
+          "id": 10,
+          "type": "add",
+          "params": {},
+          "x": 1260,
+          "y": 270
+        },
+        {
+          "id": 11,
+          "type": "add",
+          "params": {},
+          "x": 60,
+          "y": 480
+        },
+        {
+          "id": 12,
+          "type": "add",
+          "params": {},
+          "x": 360,
+          "y": 480
+        },
+        {
+          "id": 13,
+          "type": "add",
+          "params": {},
+          "x": 660,
+          "y": 480
+        },
+        {
+          "id": 14,
+          "type": "add",
+          "params": {},
+          "x": 960,
+          "y": 480
+        },
+        {
+          "id": 15,
+          "type": "add",
+          "params": {},
+          "x": 1260,
+          "y": 480
+        },
+        {
+          "id": 16,
+          "type": "add",
+          "params": {},
+          "x": 60,
+          "y": 690
+        },
+        {
+          "id": 17,
+          "type": "constantVector",
+          "params": {
+            "length": 128,
+            "value": 0
+          },
+          "x": 360,
+          "y": 690
+        },
+        {
+          "id": 18,
+          "type": "maximum",
+          "params": {},
+          "x": 660,
+          "y": 690
+        }
+      ],
+      "connections": [
+        {
+          "from": 1,
+          "to": 9,
+          "inputIndex": 0
+        },
+        {
+          "from": 2,
+          "to": 9,
+          "inputIndex": 1
+        },
+        {
+          "from": 3,
+          "to": 10,
+          "inputIndex": 0
+        },
+        {
+          "from": 4,
+          "to": 10,
+          "inputIndex": 1
+        },
+        {
+          "from": 5,
+          "to": 11,
+          "inputIndex": 0
+        },
+        {
+          "from": 6,
+          "to": 11,
+          "inputIndex": 1
+        },
+        {
+          "from": 7,
+          "to": 12,
+          "inputIndex": 0
+        },
+        {
+          "from": 8,
+          "to": 12,
+          "inputIndex": 1
+        },
+        {
+          "from": 9,
+          "to": 13,
+          "inputIndex": 0
+        },
+        {
+          "from": 10,
+          "to": 13,
+          "inputIndex": 1
+        },
+        {
+          "from": 11,
+          "to": 14,
+          "inputIndex": 0
+        },
+        {
+          "from": 12,
+          "to": 14,
+          "inputIndex": 1
+        },
+        {
+          "from": 13,
+          "to": 15,
+          "inputIndex": 0
+        },
+        {
+          "from": 14,
+          "to": 15,
+          "inputIndex": 1
+        },
+        {
+          "from": 15,
+          "to": 16,
+          "inputIndex": 0
+        },
+        {
+          "from": 16,
+          "to": 18,
+          "inputIndex": 0
+        },
+        {
+          "from": 17,
+          "to": 18,
+          "inputIndex": 1
+        }
+      ],
+      "externalInputs": [
+        {
+          "nodeId": 1,
+          "inputIndex": 0,
+          "label": "W1"
+        },
+        {
+          "nodeId": 2,
+          "inputIndex": 0,
+          "label": "W2"
+        },
+        {
+          "nodeId": 3,
+          "inputIndex": 0,
+          "label": "W3"
+        },
+        {
+          "nodeId": 4,
+          "inputIndex": 0,
+          "label": "W4"
+        },
+        {
+          "nodeId": 5,
+          "inputIndex": 0,
+          "label": "W5"
+        },
+        {
+          "nodeId": 6,
+          "inputIndex": 0,
+          "label": "W6"
+        },
+        {
+          "nodeId": 7,
+          "inputIndex": 0,
+          "label": "W7"
+        },
+        {
+          "nodeId": 8,
+          "inputIndex": 0,
+          "label": "W8"
+        },
+        {
+          "nodeId": 1,
+          "inputIndex": 1,
+          "label": "특징1"
+        },
+        {
+          "nodeId": 2,
+          "inputIndex": 1,
+          "label": "특징2"
+        },
+        {
+          "nodeId": 3,
+          "inputIndex": 1,
+          "label": "특징3"
+        },
+        {
+          "nodeId": 4,
+          "inputIndex": 1,
+          "label": "특징4"
+        },
+        {
+          "nodeId": 5,
+          "inputIndex": 1,
+          "label": "특징5"
+        },
+        {
+          "nodeId": 6,
+          "inputIndex": 1,
+          "label": "특징6"
+        },
+        {
+          "nodeId": 7,
+          "inputIndex": 1,
+          "label": "특징7"
+        },
+        {
+          "nodeId": 8,
+          "inputIndex": 1,
+          "label": "특징8"
+        },
+        {
+          "nodeId": 16,
+          "inputIndex": 1,
+          "label": "b"
+        }
+      ],
+      "outputNodeId": 18,
+      "formula": "ReLU(Σ₁⁸ Wᵢxᵢ + b) ∈ R¹²⁸",
+      "manualBackprop": {
+        "version": 1,
+        "inputCount": 17,
+        "nodes": [
+          {
+            "id": 1,
+            "type": "matvec",
+            "params": {},
+            "x": 60,
+            "y": 60
+          },
+          {
+            "id": 2,
+            "type": "matvec",
+            "params": {},
+            "x": 360,
+            "y": 60
+          },
+          {
+            "id": 3,
+            "type": "matvec",
+            "params": {},
+            "x": 660,
+            "y": 60
+          },
+          {
+            "id": 4,
+            "type": "matvec",
+            "params": {},
+            "x": 960,
+            "y": 60
+          },
+          {
+            "id": 5,
+            "type": "matvec",
+            "params": {},
+            "x": 1260,
+            "y": 60
+          },
+          {
+            "id": 6,
+            "type": "matvec",
+            "params": {},
+            "x": 60,
+            "y": 270
+          },
+          {
+            "id": 7,
+            "type": "matvec",
+            "params": {},
+            "x": 360,
+            "y": 270
+          },
+          {
+            "id": 8,
+            "type": "matvec",
+            "params": {},
+            "x": 660,
+            "y": 270
+          },
+          {
+            "id": 9,
+            "type": "add",
+            "params": {},
+            "x": 960,
+            "y": 270
+          },
+          {
+            "id": 10,
+            "type": "add",
+            "params": {},
+            "x": 1260,
+            "y": 270
+          },
+          {
+            "id": 11,
+            "type": "add",
+            "params": {},
+            "x": 60,
+            "y": 480
+          },
+          {
+            "id": 12,
+            "type": "add",
+            "params": {},
+            "x": 360,
+            "y": 480
+          },
+          {
+            "id": 13,
+            "type": "add",
+            "params": {},
+            "x": 660,
+            "y": 480
+          },
+          {
+            "id": 14,
+            "type": "add",
+            "params": {},
+            "x": 960,
+            "y": 480
+          },
+          {
+            "id": 15,
+            "type": "add",
+            "params": {},
+            "x": 1260,
+            "y": 480
+          },
+          {
+            "id": 16,
+            "type": "add",
+            "params": {},
+            "x": 60,
+            "y": 690
+          },
+          {
+            "id": 17,
+            "type": "constantVector",
+            "params": {
+              "length": 128,
+              "value": 0
+            },
+            "x": 360,
+            "y": 690
+          },
+          {
+            "id": 18,
+            "type": "maximum",
+            "params": {},
+            "x": 660,
+            "y": 690
+          },
+          {
+            "id": 19,
+            "type": "equal",
+            "params": {},
+            "x": 960,
+            "y": 690
+          },
+          {
+            "id": 20,
+            "type": "multiply",
+            "params": {},
+            "x": 1260,
+            "y": 690
+          },
+          {
+            "id": 21,
+            "type": "outerProduct",
+            "params": {},
+            "x": 60,
+            "y": 900
+          },
+          {
+            "id": 22,
+            "type": "outerProduct",
+            "params": {},
+            "x": 360,
+            "y": 900
+          },
+          {
+            "id": 23,
+            "type": "outerProduct",
+            "params": {},
+            "x": 660,
+            "y": 900
+          },
+          {
+            "id": 24,
+            "type": "outerProduct",
+            "params": {},
+            "x": 960,
+            "y": 900
+          },
+          {
+            "id": 25,
+            "type": "outerProduct",
+            "params": {},
+            "x": 1260,
+            "y": 900
+          },
+          {
+            "id": 26,
+            "type": "outerProduct",
+            "params": {},
+            "x": 60,
+            "y": 1110
+          },
+          {
+            "id": 27,
+            "type": "outerProduct",
+            "params": {},
+            "x": 360,
+            "y": 1110
+          },
+          {
+            "id": 28,
+            "type": "outerProduct",
+            "params": {},
+            "x": 660,
+            "y": 1110
+          },
+          {
+            "id": 29,
+            "type": "transposeMatvec",
+            "params": {},
+            "x": 960,
+            "y": 1110
+          },
+          {
+            "id": 30,
+            "type": "transposeMatvec",
+            "params": {},
+            "x": 1260,
+            "y": 1110
+          },
+          {
+            "id": 31,
+            "type": "transposeMatvec",
+            "params": {},
+            "x": 60,
+            "y": 1320
+          },
+          {
+            "id": 32,
+            "type": "transposeMatvec",
+            "params": {},
+            "x": 360,
+            "y": 1320
+          },
+          {
+            "id": 33,
+            "type": "transposeMatvec",
+            "params": {},
+            "x": 660,
+            "y": 1320
+          },
+          {
+            "id": 34,
+            "type": "transposeMatvec",
+            "params": {},
+            "x": 960,
+            "y": 1320
+          },
+          {
+            "id": 35,
+            "type": "transposeMatvec",
+            "params": {},
+            "x": 1260,
+            "y": 1320
+          },
+          {
+            "id": 36,
+            "type": "transposeMatvec",
+            "params": {},
+            "x": 60,
+            "y": 1530
+          }
+        ],
+        "connections": [
+          {
+            "from": -1,
+            "to": 1,
+            "inputIndex": 0
+          },
+          {
+            "from": -9,
+            "to": 1,
+            "inputIndex": 1
+          },
+          {
+            "from": -2,
+            "to": 2,
+            "inputIndex": 0
+          },
+          {
+            "from": -10,
+            "to": 2,
+            "inputIndex": 1
+          },
+          {
+            "from": -3,
+            "to": 3,
+            "inputIndex": 0
+          },
+          {
+            "from": -11,
+            "to": 3,
+            "inputIndex": 1
+          },
+          {
+            "from": -4,
+            "to": 4,
+            "inputIndex": 0
+          },
+          {
+            "from": -12,
+            "to": 4,
+            "inputIndex": 1
+          },
+          {
+            "from": -5,
+            "to": 5,
+            "inputIndex": 0
+          },
+          {
+            "from": -13,
+            "to": 5,
+            "inputIndex": 1
+          },
+          {
+            "from": -6,
+            "to": 6,
+            "inputIndex": 0
+          },
+          {
+            "from": -14,
+            "to": 6,
+            "inputIndex": 1
+          },
+          {
+            "from": -7,
+            "to": 7,
+            "inputIndex": 0
+          },
+          {
+            "from": -15,
+            "to": 7,
+            "inputIndex": 1
+          },
+          {
+            "from": -8,
+            "to": 8,
+            "inputIndex": 0
+          },
+          {
+            "from": -16,
+            "to": 8,
+            "inputIndex": 1
+          },
+          {
+            "from": 1,
+            "to": 9,
+            "inputIndex": 0
+          },
+          {
+            "from": 2,
+            "to": 9,
+            "inputIndex": 1
+          },
+          {
+            "from": 3,
+            "to": 10,
+            "inputIndex": 0
+          },
+          {
+            "from": 4,
+            "to": 10,
+            "inputIndex": 1
+          },
+          {
+            "from": 5,
+            "to": 11,
+            "inputIndex": 0
+          },
+          {
+            "from": 6,
+            "to": 11,
+            "inputIndex": 1
+          },
+          {
+            "from": 7,
+            "to": 12,
+            "inputIndex": 0
+          },
+          {
+            "from": 8,
+            "to": 12,
+            "inputIndex": 1
+          },
+          {
+            "from": 9,
+            "to": 13,
+            "inputIndex": 0
+          },
+          {
+            "from": 10,
+            "to": 13,
+            "inputIndex": 1
+          },
+          {
+            "from": 11,
+            "to": 14,
+            "inputIndex": 0
+          },
+          {
+            "from": 12,
+            "to": 14,
+            "inputIndex": 1
+          },
+          {
+            "from": 13,
+            "to": 15,
+            "inputIndex": 0
+          },
+          {
+            "from": 14,
+            "to": 15,
+            "inputIndex": 1
+          },
+          {
+            "from": 15,
+            "to": 16,
+            "inputIndex": 0
+          },
+          {
+            "from": -17,
+            "to": 16,
+            "inputIndex": 1
+          },
+          {
+            "from": 16,
+            "to": 18,
+            "inputIndex": 0
+          },
+          {
+            "from": 17,
+            "to": 18,
+            "inputIndex": 1
+          },
+          {
+            "from": 18,
+            "to": 19,
+            "inputIndex": 0
+          },
+          {
+            "from": 16,
+            "to": 19,
+            "inputIndex": 1
+          },
+          {
+            "from": -1000001,
+            "to": 20,
+            "inputIndex": 0
+          },
+          {
+            "from": 19,
+            "to": 20,
+            "inputIndex": 1
+          },
+          {
+            "from": 20,
+            "to": 21,
+            "inputIndex": 0
+          },
+          {
+            "from": -9,
+            "to": 21,
+            "inputIndex": 1
+          },
+          {
+            "from": 20,
+            "to": 22,
+            "inputIndex": 0
+          },
+          {
+            "from": -10,
+            "to": 22,
+            "inputIndex": 1
+          },
+          {
+            "from": 20,
+            "to": 23,
+            "inputIndex": 0
+          },
+          {
+            "from": -11,
+            "to": 23,
+            "inputIndex": 1
+          },
+          {
+            "from": 20,
+            "to": 24,
+            "inputIndex": 0
+          },
+          {
+            "from": -12,
+            "to": 24,
+            "inputIndex": 1
+          },
+          {
+            "from": 20,
+            "to": 25,
+            "inputIndex": 0
+          },
+          {
+            "from": -13,
+            "to": 25,
+            "inputIndex": 1
+          },
+          {
+            "from": 20,
+            "to": 26,
+            "inputIndex": 0
+          },
+          {
+            "from": -14,
+            "to": 26,
+            "inputIndex": 1
+          },
+          {
+            "from": 20,
+            "to": 27,
+            "inputIndex": 0
+          },
+          {
+            "from": -15,
+            "to": 27,
+            "inputIndex": 1
+          },
+          {
+            "from": 20,
+            "to": 28,
+            "inputIndex": 0
+          },
+          {
+            "from": -16,
+            "to": 28,
+            "inputIndex": 1
+          },
+          {
+            "from": -1,
+            "to": 29,
+            "inputIndex": 0
+          },
+          {
+            "from": 20,
+            "to": 29,
+            "inputIndex": 1
+          },
+          {
+            "from": -2,
+            "to": 30,
+            "inputIndex": 0
+          },
+          {
+            "from": 20,
+            "to": 30,
+            "inputIndex": 1
+          },
+          {
+            "from": -3,
+            "to": 31,
+            "inputIndex": 0
+          },
+          {
+            "from": 20,
+            "to": 31,
+            "inputIndex": 1
+          },
+          {
+            "from": -4,
+            "to": 32,
+            "inputIndex": 0
+          },
+          {
+            "from": 20,
+            "to": 32,
+            "inputIndex": 1
+          },
+          {
+            "from": -5,
+            "to": 33,
+            "inputIndex": 0
+          },
+          {
+            "from": 20,
+            "to": 33,
+            "inputIndex": 1
+          },
+          {
+            "from": -6,
+            "to": 34,
+            "inputIndex": 0
+          },
+          {
+            "from": 20,
+            "to": 34,
+            "inputIndex": 1
+          },
+          {
+            "from": -7,
+            "to": 35,
+            "inputIndex": 0
+          },
+          {
+            "from": 20,
+            "to": 35,
+            "inputIndex": 1
+          },
+          {
+            "from": -8,
+            "to": 36,
+            "inputIndex": 0
+          },
+          {
+            "from": 20,
+            "to": 36,
+            "inputIndex": 1
+          }
+        ],
+        "gradientOutputNodeIds": [
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          20
+        ],
+        "editorViewport": {
+          "x": 0,
+          "y": 0,
+          "zoom": 0.6
+        }
+      }
+    },
+    {
+      "id": "dense_relu64",
+      "name": "분류 은닉층 · Dense 64 + ReLU",
+      "nodes": [
+        {
+          "id": 1,
+          "type": "matvec",
+          "params": {},
+          "x": 60,
+          "y": 60
+        },
+        {
+          "id": 2,
+          "type": "add",
+          "params": {},
+          "x": 360,
+          "y": 60
+        },
+        {
+          "id": 3,
+          "type": "constantVector",
+          "params": {
+            "length": 64,
+            "value": 0
+          },
+          "x": 660,
+          "y": 60
+        },
+        {
+          "id": 4,
+          "type": "maximum",
+          "params": {},
+          "x": 960,
+          "y": 60
+        }
+      ],
+      "connections": [
+        {
+          "from": 1,
+          "to": 2,
+          "inputIndex": 0
+        },
+        {
+          "from": 2,
+          "to": 4,
+          "inputIndex": 0
+        },
+        {
+          "from": 3,
+          "to": 4,
+          "inputIndex": 1
+        }
+      ],
+      "externalInputs": [
+        {
+          "nodeId": 1,
+          "inputIndex": 0,
+          "label": "W"
+        },
+        {
+          "nodeId": 1,
+          "inputIndex": 1,
+          "label": "x"
+        },
+        {
+          "nodeId": 2,
+          "inputIndex": 1,
+          "label": "b"
+        }
+      ],
+      "outputNodeId": 4,
+      "formula": "ReLU(Wx+b)",
+      "manualBackprop": {
+        "version": 1,
+        "inputCount": 3,
+        "nodes": [
+          {
+            "id": 1,
+            "type": "matvec",
+            "params": {},
+            "x": 60,
+            "y": 60
+          },
+          {
+            "id": 2,
+            "type": "add",
+            "params": {},
+            "x": 360,
+            "y": 60
+          },
+          {
+            "id": 3,
+            "type": "constantVector",
+            "params": {
+              "length": 64,
+              "value": 0
+            },
+            "x": 660,
+            "y": 60
+          },
+          {
+            "id": 4,
+            "type": "maximum",
+            "params": {},
+            "x": 960,
+            "y": 60
+          },
+          {
+            "id": 5,
+            "type": "equal",
+            "params": {},
+            "x": 1260,
+            "y": 60
+          },
+          {
+            "id": 6,
+            "type": "multiply",
+            "params": {},
+            "x": 60,
+            "y": 270
+          },
+          {
+            "id": 7,
+            "type": "outerProduct",
+            "params": {},
+            "x": 360,
+            "y": 270
+          },
+          {
+            "id": 8,
+            "type": "transposeMatvec",
+            "params": {},
+            "x": 660,
+            "y": 270
+          }
+        ],
+        "connections": [
+          {
+            "from": -1,
+            "to": 1,
+            "inputIndex": 0
+          },
+          {
+            "from": -2,
+            "to": 1,
+            "inputIndex": 1
+          },
+          {
+            "from": 1,
+            "to": 2,
+            "inputIndex": 0
+          },
+          {
+            "from": -3,
+            "to": 2,
+            "inputIndex": 1
+          },
+          {
+            "from": 2,
+            "to": 4,
+            "inputIndex": 0
+          },
+          {
+            "from": 3,
+            "to": 4,
+            "inputIndex": 1
+          },
+          {
+            "from": 4,
+            "to": 5,
+            "inputIndex": 0
+          },
+          {
+            "from": 2,
+            "to": 5,
+            "inputIndex": 1
+          },
+          {
+            "from": -1000001,
+            "to": 6,
+            "inputIndex": 0
+          },
+          {
+            "from": 5,
+            "to": 6,
+            "inputIndex": 1
+          },
+          {
+            "from": 6,
+            "to": 7,
+            "inputIndex": 0
+          },
+          {
+            "from": -2,
+            "to": 7,
+            "inputIndex": 1
+          },
+          {
+            "from": -1,
+            "to": 8,
+            "inputIndex": 0
+          },
+          {
+            "from": 6,
+            "to": 8,
+            "inputIndex": 1
+          }
+        ],
+        "gradientOutputNodeIds": [
+          7,
+          8,
+          6
+        ],
+        "editorViewport": {
+          "x": 0,
+          "y": 0,
+          "zoom": 0.75
+        }
+      }
+    },
+    {
+      "id": "dense_linear15",
+      "name": "출력층 · 15개 클래스 점수",
+      "nodes": [
+        {
+          "id": 1,
+          "type": "matvec",
+          "params": {},
+          "x": 60,
+          "y": 60
+        },
+        {
+          "id": 2,
+          "type": "add",
+          "params": {},
+          "x": 360,
+          "y": 60
+        }
+      ],
+      "connections": [
+        {
+          "from": 1,
+          "to": 2,
+          "inputIndex": 0
+        }
+      ],
+      "externalInputs": [
+        {
+          "nodeId": 1,
+          "inputIndex": 0,
+          "label": "W"
+        },
+        {
+          "nodeId": 1,
+          "inputIndex": 1,
+          "label": "x"
+        },
+        {
+          "nodeId": 2,
+          "inputIndex": 1,
+          "label": "b"
+        }
+      ],
+      "outputNodeId": 2,
+      "formula": "Wx+b",
+      "manualBackprop": {
+        "version": 1,
+        "inputCount": 3,
+        "nodes": [
+          {
+            "id": 1,
+            "type": "outerProduct",
+            "params": {},
+            "x": 60,
+            "y": 60
+          },
+          {
+            "id": 2,
+            "type": "transposeMatvec",
+            "params": {},
+            "x": 360,
+            "y": 60
+          }
+        ],
+        "connections": [
+          {
+            "from": -1000001,
+            "to": 1,
+            "inputIndex": 0
+          },
+          {
+            "from": -2,
+            "to": 1,
+            "inputIndex": 1
+          },
+          {
+            "from": -1,
+            "to": 2,
+            "inputIndex": 0
+          },
+          {
+            "from": -1000001,
+            "to": 2,
+            "inputIndex": 1
+          }
+        ],
+        "gradientOutputNodeIds": [
+          1,
+          2,
+          -1000001
+        ],
+        "editorViewport": {
+          "x": 0,
+          "y": 0,
+          "zoom": 0.75
+        }
+      }
+    },
+    {
+      "id": "softmax_ce15",
+      "name": "손실 · Softmax Cross Entropy",
+      "nodes": [
+        {
+          "id": 1,
+          "type": "display",
+          "params": {},
+          "x": 60,
+          "y": 60
+        },
+        {
+          "id": 2,
+          "type": "display",
+          "params": {},
+          "x": 360,
+          "y": 60
+        },
+        {
+          "id": 3,
+          "type": "arrayMax",
+          "params": {},
+          "x": 660,
+          "y": 60
+        },
+        {
+          "id": 4,
+          "type": "subtract",
+          "params": {},
+          "x": 960,
+          "y": 60
+        },
+        {
+          "id": 5,
+          "type": "exp",
+          "params": {},
+          "x": 1260,
+          "y": 60
+        },
+        {
+          "id": 6,
+          "type": "sum",
+          "params": {},
+          "x": 60,
+          "y": 270
+        },
+        {
+          "id": 7,
+          "type": "log",
+          "params": {},
+          "x": 360,
+          "y": 270
+        },
+        {
+          "id": 8,
+          "type": "add",
+          "params": {},
+          "x": 660,
+          "y": 270
+        },
+        {
+          "id": 9,
+          "type": "subtract",
+          "params": {},
+          "x": 960,
+          "y": 270
+        },
+        {
+          "id": 10,
+          "type": "multiply",
+          "params": {},
+          "x": 1260,
+          "y": 270
+        },
+        {
+          "id": 11,
+          "type": "sum",
+          "params": {},
+          "x": 60,
+          "y": 480
+        },
+        {
+          "id": 12,
+          "type": "number",
+          "params": {
+            "value": -1
+          },
+          "x": 360,
+          "y": 480
+        },
+        {
+          "id": 13,
+          "type": "multiply",
+          "params": {},
+          "x": 660,
+          "y": 480
+        }
+      ],
+      "connections": [
+        {
+          "from": 1,
+          "to": 3,
+          "inputIndex": 0
+        },
+        {
+          "from": 1,
+          "to": 4,
+          "inputIndex": 0
+        },
+        {
+          "from": 3,
+          "to": 4,
+          "inputIndex": 1
+        },
+        {
+          "from": 4,
+          "to": 5,
+          "inputIndex": 0
+        },
+        {
+          "from": 5,
+          "to": 6,
+          "inputIndex": 0
+        },
+        {
+          "from": 6,
+          "to": 7,
+          "inputIndex": 0
+        },
+        {
+          "from": 3,
+          "to": 8,
+          "inputIndex": 0
+        },
+        {
+          "from": 7,
+          "to": 8,
+          "inputIndex": 1
+        },
+        {
+          "from": 1,
+          "to": 9,
+          "inputIndex": 0
+        },
+        {
+          "from": 8,
+          "to": 9,
+          "inputIndex": 1
+        },
+        {
+          "from": 2,
+          "to": 10,
+          "inputIndex": 0
+        },
+        {
+          "from": 9,
+          "to": 10,
+          "inputIndex": 1
+        },
+        {
+          "from": 10,
+          "to": 11,
+          "inputIndex": 0
+        },
+        {
+          "from": 11,
+          "to": 13,
+          "inputIndex": 0
+        },
+        {
+          "from": 12,
+          "to": 13,
+          "inputIndex": 1
+        }
+      ],
+      "externalInputs": [
+        {
+          "nodeId": 1,
+          "inputIndex": 0,
+          "label": "logits"
+        },
+        {
+          "nodeId": 2,
+          "inputIndex": 0,
+          "label": "정답 one-hot"
+        }
+      ],
+      "outputNodeId": 13,
+      "formula": "-Σ y·log softmax(z)",
+      "manualBackprop": {
+        "version": 1,
+        "inputCount": 2,
+        "nodes": [
+          {
+            "id": 1,
+            "type": "display",
+            "params": {},
+            "x": 60,
+            "y": 60
+          },
+          {
+            "id": 2,
+            "type": "display",
+            "params": {},
+            "x": 360,
+            "y": 60
+          },
+          {
+            "id": 3,
+            "type": "arrayMax",
+            "params": {},
+            "x": 660,
+            "y": 60
+          },
+          {
+            "id": 4,
+            "type": "subtract",
+            "params": {},
+            "x": 960,
+            "y": 60
+          },
+          {
+            "id": 5,
+            "type": "exp",
+            "params": {},
+            "x": 1260,
+            "y": 60
+          },
+          {
+            "id": 6,
+            "type": "sum",
+            "params": {},
+            "x": 60,
+            "y": 270
+          },
+          {
+            "id": 7,
+            "type": "divide",
+            "params": {},
+            "x": 360,
+            "y": 270
+          },
+          {
+            "id": 8,
+            "type": "subtract",
+            "params": {},
+            "x": 660,
+            "y": 270
+          },
+          {
+            "id": 9,
+            "type": "multiply",
+            "params": {},
+            "x": 960,
+            "y": 270
+          },
+          {
+            "id": 10,
+            "type": "log",
+            "params": {},
+            "x": 1260,
+            "y": 270
+          },
+          {
+            "id": 11,
+            "type": "add",
+            "params": {},
+            "x": 60,
+            "y": 480
+          },
+          {
+            "id": 12,
+            "type": "subtract",
+            "params": {},
+            "x": 360,
+            "y": 480
+          },
+          {
+            "id": 13,
+            "type": "number",
+            "params": {
+              "value": -1
+            },
+            "x": 660,
+            "y": 480
+          },
+          {
+            "id": 14,
+            "type": "multiply",
+            "params": {},
+            "x": 960,
+            "y": 480
+          },
+          {
+            "id": 15,
+            "type": "multiply",
+            "params": {},
+            "x": 1260,
+            "y": 480
+          }
+        ],
+        "connections": [
+          {
+            "from": -1,
+            "to": 1,
+            "inputIndex": 0
+          },
+          {
+            "from": -2,
+            "to": 2,
+            "inputIndex": 0
+          },
+          {
+            "from": 1,
+            "to": 3,
+            "inputIndex": 0
+          },
+          {
+            "from": 1,
+            "to": 4,
+            "inputIndex": 0
+          },
+          {
+            "from": 3,
+            "to": 4,
+            "inputIndex": 1
+          },
+          {
+            "from": 4,
+            "to": 5,
+            "inputIndex": 0
+          },
+          {
+            "from": 5,
+            "to": 6,
+            "inputIndex": 0
+          },
+          {
+            "from": 5,
+            "to": 7,
+            "inputIndex": 0
+          },
+          {
+            "from": 6,
+            "to": 7,
+            "inputIndex": 1
+          },
+          {
+            "from": 7,
+            "to": 8,
+            "inputIndex": 0
+          },
+          {
+            "from": 2,
+            "to": 8,
+            "inputIndex": 1
+          },
+          {
+            "from": -1000001,
+            "to": 9,
+            "inputIndex": 0
+          },
+          {
+            "from": 8,
+            "to": 9,
+            "inputIndex": 1
+          },
+          {
+            "from": 6,
+            "to": 10,
+            "inputIndex": 0
+          },
+          {
+            "from": 3,
+            "to": 11,
+            "inputIndex": 0
+          },
+          {
+            "from": 10,
+            "to": 11,
+            "inputIndex": 1
+          },
+          {
+            "from": 1,
+            "to": 12,
+            "inputIndex": 0
+          },
+          {
+            "from": 11,
+            "to": 12,
+            "inputIndex": 1
+          },
+          {
+            "from": 13,
+            "to": 14,
+            "inputIndex": 0
+          },
+          {
+            "from": 12,
+            "to": 14,
+            "inputIndex": 1
+          },
+          {
+            "from": -1000001,
+            "to": 15,
+            "inputIndex": 0
+          },
+          {
+            "from": 14,
+            "to": 15,
+            "inputIndex": 1
+          }
+        ],
+        "gradientOutputNodeIds": [
+          9,
+          15
+        ],
+        "editorViewport": {
+          "x": 0,
+          "y": 0,
+          "zoom": 0.75
+        }
+      }
+    },
+    {
+      "id": "softmax15",
+      "name": "예측 · Softmax 확률",
+      "nodes": [
+        {
+          "id": 1,
+          "type": "display",
+          "params": {},
+          "x": 60,
+          "y": 60
+        },
+        {
+          "id": 2,
+          "type": "arrayMax",
+          "params": {},
+          "x": 360,
+          "y": 60
+        },
+        {
+          "id": 3,
+          "type": "subtract",
+          "params": {},
+          "x": 660,
+          "y": 60
+        },
+        {
+          "id": 4,
+          "type": "exp",
+          "params": {},
+          "x": 960,
+          "y": 60
+        },
+        {
+          "id": 5,
+          "type": "sum",
+          "params": {},
+          "x": 1260,
+          "y": 60
+        },
+        {
+          "id": 6,
+          "type": "divide",
+          "params": {},
+          "x": 60,
+          "y": 270
+        }
+      ],
+      "connections": [
+        {
+          "from": 1,
+          "to": 2,
+          "inputIndex": 0
+        },
+        {
+          "from": 1,
+          "to": 3,
+          "inputIndex": 0
+        },
+        {
+          "from": 2,
+          "to": 3,
+          "inputIndex": 1
+        },
+        {
+          "from": 3,
+          "to": 4,
+          "inputIndex": 0
+        },
+        {
+          "from": 4,
+          "to": 5,
+          "inputIndex": 0
+        },
+        {
+          "from": 4,
+          "to": 6,
+          "inputIndex": 0
+        },
+        {
+          "from": 5,
+          "to": 6,
+          "inputIndex": 1
+        }
+      ],
+      "externalInputs": [
+        {
+          "nodeId": 1,
+          "inputIndex": 0,
+          "label": "logits"
+        }
+      ],
+      "outputNodeId": 6,
+      "formula": "softmax(z)"
+    },
+    {
+      "id": "lr_decay60",
+      "name": "학습률 · 0.02 / (1 + epoch/10)",
+      "nodes": [
+        {
+          "id": 1,
+          "type": "display",
+          "params": {},
+          "x": 60,
+          "y": 60
+        },
+        {
+          "id": 2,
+          "type": "number",
+          "params": {
+            "value": 10
+          },
+          "x": 360,
+          "y": 60
+        },
+        {
+          "id": 3,
+          "type": "divide",
+          "params": {},
+          "x": 660,
+          "y": 60
+        },
+        {
+          "id": 4,
+          "type": "number",
+          "params": {
+            "value": 1
+          },
+          "x": 960,
+          "y": 60
+        },
+        {
+          "id": 5,
+          "type": "add",
+          "params": {},
+          "x": 1260,
+          "y": 60
+        },
+        {
+          "id": 6,
+          "type": "number",
+          "params": {
+            "value": 0.02
+          },
+          "x": 60,
+          "y": 270
+        },
+        {
+          "id": 7,
+          "type": "divide",
+          "params": {},
+          "x": 360,
+          "y": 270
+        }
+      ],
+      "connections": [
+        {
+          "from": 1,
+          "to": 3,
+          "inputIndex": 0
+        },
+        {
+          "from": 2,
+          "to": 3,
+          "inputIndex": 1
+        },
+        {
+          "from": 4,
+          "to": 5,
+          "inputIndex": 0
+        },
+        {
+          "from": 3,
+          "to": 5,
+          "inputIndex": 1
+        },
+        {
+          "from": 6,
+          "to": 7,
+          "inputIndex": 0
+        },
+        {
+          "from": 5,
+          "to": 7,
+          "inputIndex": 1
+        }
+      ],
+      "externalInputs": [
+        {
+          "nodeId": 1,
+          "inputIndex": 0,
+          "label": "epoch (0~59)"
+        }
+      ],
+      "outputNodeId": 7,
+      "formula": "ηₑ = 0.02 / (1 + e/10)"
+    },
+    {
+      "id": "momentum15",
+      "name": "모멘텀 · 0.9v + 평균 기울기",
+      "nodes": [
+        {
+          "id": 1,
+          "type": "display",
+          "params": {},
+          "x": 60,
+          "y": 60
+        },
+        {
+          "id": 2,
+          "type": "display",
+          "params": {},
+          "x": 360,
+          "y": 60
+        },
+        {
+          "id": 3,
+          "type": "number",
+          "params": {
+            "value": 0.9
+          },
+          "x": 660,
+          "y": 60
+        },
+        {
+          "id": 4,
+          "type": "number",
+          "params": {
+            "value": 15
+          },
+          "x": 960,
+          "y": 60
+        },
+        {
+          "id": 5,
+          "type": "multiply",
+          "params": {},
+          "x": 1260,
+          "y": 60
+        },
+        {
+          "id": 6,
+          "type": "divide",
+          "params": {},
+          "x": 60,
+          "y": 270
+        },
+        {
+          "id": 7,
+          "type": "add",
+          "params": {},
+          "x": 360,
+          "y": 270
+        }
+      ],
+      "connections": [
+        {
+          "from": 3,
+          "to": 5,
+          "inputIndex": 0
+        },
+        {
+          "from": 1,
+          "to": 5,
+          "inputIndex": 1
+        },
+        {
+          "from": 2,
+          "to": 6,
+          "inputIndex": 0
+        },
+        {
+          "from": 4,
+          "to": 6,
+          "inputIndex": 1
+        },
+        {
+          "from": 5,
+          "to": 7,
+          "inputIndex": 0
+        },
+        {
+          "from": 6,
+          "to": 7,
+          "inputIndex": 1
+        }
+      ],
+      "externalInputs": [
+        {
+          "nodeId": 1,
+          "inputIndex": 0,
+          "label": "이전 모멘텀 v"
+        },
+        {
+          "nodeId": 2,
+          "inputIndex": 0,
+          "label": "배치 기울기 합"
+        }
+      ],
+      "outputNodeId": 7,
+      "formula": "v ← 0.9v + (Σg)/15"
+    },
+    {
+      "id": "weight_step",
+      "name": "가중치 갱신 · W − ηv",
+      "nodes": [
+        {
+          "id": 1,
+          "type": "display",
+          "params": {},
+          "x": 60,
+          "y": 60
+        },
+        {
+          "id": 2,
+          "type": "display",
+          "params": {},
+          "x": 360,
+          "y": 60
+        },
+        {
+          "id": 3,
+          "type": "display",
+          "params": {},
+          "x": 660,
+          "y": 60
+        },
+        {
+          "id": 4,
+          "type": "multiply",
+          "params": {},
+          "x": 960,
+          "y": 60
+        },
+        {
+          "id": 5,
+          "type": "subtract",
+          "params": {},
+          "x": 1260,
+          "y": 60
+        }
+      ],
+      "connections": [
+        {
+          "from": 2,
+          "to": 4,
+          "inputIndex": 0
+        },
+        {
+          "from": 3,
+          "to": 4,
+          "inputIndex": 1
+        },
+        {
+          "from": 1,
+          "to": 5,
+          "inputIndex": 0
+        },
+        {
+          "from": 4,
+          "to": 5,
+          "inputIndex": 1
+        }
+      ],
+      "externalInputs": [
+        {
+          "nodeId": 1,
+          "inputIndex": 0,
+          "label": "W"
+        },
+        {
+          "nodeId": 2,
+          "inputIndex": 0,
+          "label": "새 모멘텀 v"
+        },
+        {
+          "nodeId": 3,
+          "inputIndex": 0,
+          "label": "학습률 η"
+        }
+      ],
+      "outputNodeId": 5,
+      "formula": "W ← W − ηv"
+    }
+  ],
+  "runtimeVariables": [],
+  "datasetSelection": [
+    "cat",
+    "fish",
+    "house",
+    "tree",
+    "car",
+    "apple",
+    "clock",
+    "star",
+    "umbrella",
+    "airplane",
+    "face",
+    "flower",
+    "cup",
+    "bicycle",
+    "guitar"
+  ],
+  "viewport": {
+    "x": -1050,
+    "y": -1650,
+    "zoom": 0.45
+  },
+  "manualBackprop": {
+    "version": 1,
+    "builtins": []
+  },
+  "migration": {
+    "from": "quickdraw_15class_cnn4_mlp64_32_grouped_manual_backprop",
+    "to": "cnn8_5x5_mlp128_64_momentum_900k",
+    "notes": "Untrained target configuration, not a measured 90% checkpoint. 8 valid 5x5 conv filters; ReLU/2x2 average pool; Dense128/64/15; explicit manual backward; momentum0.9; lr=0.02/(1+epoch/10); batch15 x 1000 x 60 = 900000 sample presentations and 60000 parameter updates. Train indices0..14999; evaluation15000..29999 inherited from source. Dataset must contain at least30000 samples and this index split must represent all15 classes without overlap; sample contents are not embedded. Engine node-execution steps are not determined by this file. Final output is held-out accuracy0..1. No pretrained weights or measured accuracy included."
+  }
+}

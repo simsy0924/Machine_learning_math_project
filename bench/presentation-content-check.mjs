@@ -6,6 +6,9 @@
 // 생성기가 예측한 값을 내는지 검사합니다. 디스크의 파일이 생성기와 다르면(스크립트를
 // 고치고 다시 실행하지 않았으면) 그것도 실패로 봅니다.
 //
+// CNN 단계는 Quick Draw 데이터를 불러와 '예측 확률' 출력의 테스트 정확도를 생성기에 적힌 측정값과
+// 비교합니다. 학습 단계는 '계산'으로 1 epoch를 실제로 학습한 뒤 한 번 더 잽니다(수십 초).
+//
 // bench/presentation-check.mjs 는 발표 모드 전환 로직을, 이 파일은 발표 내용을 검사합니다.
 
 import http from 'node:http';
@@ -66,6 +69,33 @@ async function evaluateStepInPage({ project }) {
   };
 }
 
+// CNN 단계: 데이터를 불러오고 '예측 확률' 출력으로 테스트 구간 정확도를 잽니다.
+// train 이면 '계산'(학습 반복)을 실행한 뒤 다시 잽니다.
+async function evaluateCnnStepInPage({ project, verify }) {
+  await restoreProject(project);
+  const accuracy = () => {
+    const classes = window.quickDrawDataset.getLoadedClassNames();
+    const entries = classes.map(name => datasetCache.get(name));
+    const predict = createDatasetReviewPredictor(verify.probabilityId);
+    let credit = 0;
+    for (let offset = 0; offset < verify.count; offset++) {
+      const sample = datasetReviewSample(entries, verify.start + offset);
+      const image = arrayValue(Float32Array.from(sample.pixels, v => v / 255), [28, 28]);
+      credit += datasetReviewOutcome(predict(image), classes.length, sample.classIndex).credit;
+    }
+    return credit / verify.count;
+  };
+  const before = accuracy();
+  if (!verify.train) return { before, status: '평가만', errors: [], nodeCount: graph.nodes.size };
+  await evaluateGraph();
+  return {
+    before, after: accuracy(),
+    status: document.getElementById('workspaceStatus').textContent,
+    errors: Array.from(graph.nodes.values()).filter(node => node.lastError).map(node => `노드 ${node.id} (${node.type}): ${node.lastError}`),
+    nodeCount: graph.nodes.size
+  };
+}
+
 // ---------- comparison ----------
 
 function numbersOf(value) {
@@ -120,6 +150,26 @@ async function main() {
 
     for (const step of all.steps) {
       const started = Date.now();
+      if (step.verify) {
+        const result = await page.evaluate(evaluateCnnStepInPage, { project: step.project, verify: step.verify });
+        const elapsed = Date.now() - started;
+        const problems = [...result.errors];
+        const accuracyProblem = (label, got, want, tol) => {
+          if (!(Math.abs(got - want) <= tol)) problems.push(`${label} 정확도 ${got} ≠ ${want} (허용 ${tol})`);
+        };
+        accuracyProblem('평가', result.before, step.verify.before, step.verify.tol);
+        if (step.verify.train) accuracyProblem('학습 후', result.after, step.verify.after, step.verify.afterTol);
+        const accuracies = [result.before, result.after].filter(v => v !== undefined).map(v => `${(v * 100).toFixed(2)}%`).join(' → ');
+        const label = `${step.file.padEnd(28)} 노드 ${String(result.nodeCount).padStart(3)} · 정확도 ${accuracies} · ${String(elapsed).padStart(5)} ms · ${result.status}`;
+        if (problems.length) {
+          console.log(`FAIL ${label}`);
+          for (const problem of problems) console.log(`       ${problem}`);
+          failures.push(`${step.file}: ${problems.length}개 문제`);
+        } else {
+          console.log(`OK   ${label}`);
+        }
+        continue;
+      }
       const result = await page.evaluate(evaluateStepInPage, { project: step.project });
       const elapsed = Date.now() - started;
       const problems = [];

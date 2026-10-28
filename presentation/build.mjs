@@ -289,13 +289,13 @@ class Workspace {
     ids.slice(1).forEach((id, k) => { body = this.op('sequence', [body, id], col + k, row); });
     return body;
   }
-  toProject(viewport) {
+  toProject(viewport, datasetSelection = []) {
     return {
       format: FORMAT, version: VERSION,
       graph: { nodes: this.nodes, connections: this.connections },
       userBlocks: Array.from(this.userBlocks.values()),
       runtimeVariables: this.runtimeVariables,
-      datasetSelection: [],
+      datasetSelection,
       viewport
     };
   }
@@ -627,6 +627,190 @@ function build04() {
   return { ws, viewport: { x: 0, y: 0, zoom: 0.45 }, search };
 }
 
+// ---------- CNN: Quick Draw 15종 분류 ----------
+//
+// source/quickdraw-cnn.mmlab(편집 모드에서 만든 학습 작업공간)과 source/quickdraw-cnn.mmlweights.json
+// (그 구조로 60 epoch 학습한 가중치)을 읽어 발표용으로 다시 배치합니다. 사용자 블록 정의, 변수 설정,
+// 순전파·역전파·모멘텀 갱신의 계산은 원본 그대로이고 바뀌는 것은 다음뿐입니다.
+//   · 복제된 평가용 순전파와 혼동행렬 평가 반복을 빼고, 학습 순전파의 점수에 Softmax를 달아
+//     '예측 확률' 출력으로 씁니다(그림별 예측 평가 · 손그림 분류 패널에서 선택).
+//   · 둘 다 계산 사슬 103개를 단계별 '차례로 실행' 사용자 블록 5개로 묶습니다.
+//   · 가중치 갱신이 이번 배치의 새 모멘텀을 쓰도록 연결합니다. 원본은 값 바꾸기가 회차 끝에 반영되는
+//     규칙 때문에 한 배치 전의 모멘텀으로 갱신했습니다.
+//   · 파라미터 21개를 한 줄씩 [누적 · 초기화 · 모멘텀 · 갱신] 표로 배치합니다.
+
+function readSource(name) { return JSON.parse(fs.readFileSync(path.join(HERE, 'source', name), 'utf8')); }
+const CNN_SOURCE = readSource('quickdraw-cnn.mmlab');
+const CNN_WEIGHTS = readSource('quickdraw-cnn.mmlweights.json');
+const CNN_BRANCHES = 8;
+const CNN_PARAMS = [
+  ...Array.from({ length: CNN_BRANCHES }, (_, i) => `K${i + 1}`),
+  ...Array.from({ length: CNN_BRANCHES }, (_, i) => `W1_${i + 1}`),
+  'b1', 'W2', 'b2', 'W3', 'b3'
+];
+const CNN_PARAM_COUNT = CNN_WEIGHTS.variables.reduce((sum, v) => sum + v.value.shape.reduce((a, b) => a * b, 1), 0);
+
+// 그림별 예측 평가로 페이지에서 측정한 정확도 (테스트 구간 15,000~29,999).
+// 생성기에서 흉내내기에는 계산이 커서 측정값을 적어 두고, 내용 검사가 다시 측정해 비교합니다.
+// 1 epoch 학습 후 정확도는 무작위 초기값에서 이 단계의 '계산'을 한 번 실행한 결과입니다.
+const CNN_EVAL = { start: 15000, count: 15000 };
+const CNN_MEASURED = { initial: 0.06686666666666667, oneEpoch: 0.8132666666666667, trained: 0.8758666666666667 };
+const percent = value => `${(value * 100).toFixed(1)}%`;
+
+function sourceVariableParams(name) {
+  const node = CNN_SOURCE.graph.nodes.find(n => n.type === 'variable' && n.params.name === name);
+  if (!node) throw new Error(`원본에 '${name}' 변수가 없습니다.`);
+  return JSON.parse(JSON.stringify(node.params));
+}
+
+function sourceBlock(id) {
+  const definition = CNN_SOURCE.userBlocks.find(block => block.id === id);
+  if (!definition) throw new Error(`원본에 '${id}' 사용자 블록이 없습니다.`);
+  return { id, uses: [], definition };
+}
+
+const CNN_BLOCKS = Object.fromEntries(['conv5_pool12', 'dense8_relu128', 'dense_relu64', 'dense_linear15', 'softmax_ce15', 'softmax15', 'lr_decay60', 'momentum15', 'weight_step']
+  .map(id => [id, sourceBlock(id)]));
+
+// 둘 다 계산 사슬을 묶은 블록. 입력을 위에서부터 차례로 계산하고 마지막 결과를 내보냅니다.
+function runInOrderBlock(id, name, labels) {
+  return defineBlock({
+    id, name, formula: `${labels.length}개를 위에서부터 차례로 계산`,
+    build(b) {
+      let last = b.add('sequence', {}, 0, 0);
+      b.input(last, 0, labels[0]); b.input(last, 1, labels[1]);
+      for (let k = 2; k < labels.length; k++) {
+        const next = b.add('sequence', {}, (k - 1) * 0.7, (k - 1) * 0.6);
+        b.link(last, next, 0); b.input(next, 1, labels[k]);
+        last = next;
+      }
+      b.output(last);
+    }
+  });
+}
+
+const RUN_BACKWARD = runInOrderBlock('run_backward', '역전파 · 출력층부터 차례로', [
+  '손실', '출력층 15', '은닉층 64', '은닉층 128', ...Array.from({ length: CNN_BRANCHES }, (_, i) => `합성곱 ${i + 1}`)
+]);
+const RUN_ACCUMULATE = runInOrderBlock('run_accumulate', '기울기 누적 · g ← g + ∂L/∂p', CNN_PARAMS.map(p => `g${p}`));
+const RUN_UPDATE = runInOrderBlock('run_update', '파라미터 갱신 · 모멘텀 → 가중치', CNN_PARAMS.flatMap(p => [`v_${p}`, p]));
+const RUN_RESET = runInOrderBlock('run_reset', '기울기 초기화 · g ← 0', CNN_PARAMS.map(p => `g${p}`));
+
+function zeroLike(ws, params, x, y) {
+  return params.mode === 'matrix'
+    ? ws.add('matrix', { rows: params.rows, cols: params.cols, init: 'constant', value: 0, seed: 1, scale: 0.05 }, x / COL, y / ROW)
+    : ws.add('constantVector', { length: params.length, value: 0 }, x / COL, y / ROW);
+}
+
+function backwardParams(upstream, gradients) {
+  const params = { manualBackpropMode: 'backward', manualBackpropUpstream: upstream };
+  gradients.forEach((name, k) => { params[`manualBackpropGradient${k}`] = name; });
+  return params;
+}
+
+// trained = true 이면 학습된 가중치를 저장된 런타임 값으로 함께 넣습니다.
+function buildCnn({ trained }) {
+  const ws = new Workspace();
+  const at = (x, y) => [x / COL, y / ROW];
+  const variable = (name, x, y) => ws.add('variable', sourceVariableParams(name), ...at(x, y));
+  const op = (type, inputs, x, y, params = {}) => ws.op(type, inputs, ...at(x, y), params);
+  const custom = (id, inputs, x, y, params = {}) => {
+    ws.use(CNN_BLOCKS[id] ?? id);
+    const nodeId = ws.add(`custom:${(CNN_BLOCKS[id] ?? id).id}`, params, ...at(x, y));
+    inputs.forEach((from, k) => ws.link(from, nodeId, k));
+    return nodeId;
+  };
+
+  // ---- 데이터: 학습 그림 번호 = batch × 15 + k ----
+  const batch = variable('batch', 0, 0);
+  const fifteen = ws.number(15, ...at(0, 190));
+  const k = variable('k', 0, 380);
+  const dataset = ws.add('dataset', {}, ...at(0, 570));
+  const index = op('add', [op('multiply', [batch, fifteen], 300, 90), k], 600, 300);
+  const sample = op('datasetSampleByIndex', [dataset, index], 900, 560);
+  const image = op('sampleImage', [sample], 1200, 760);
+  const oneHot = op('sampleOneHot', [sample], 1200, 1900);
+
+  // ---- 순전파: 합성곱 8분기 → Dense 128 → Dense 64 → Dense 15 ----
+  const P = Object.fromEntries(CNN_PARAMS.map(name => [name, null]));
+  const conv = [];
+  for (let i = 0; i < CNN_BRANCHES; i++) {
+    P[`K${i + 1}`] = variable(`K${i + 1}`, 1500, i * 240 + 60);
+    conv.push(custom('conv5_pool12', [image, P[`K${i + 1}`]], 1800, i * 240));
+  }
+  for (let i = 0; i < CNN_BRANCHES; i++) P[`W1_${i + 1}`] = variable(`W1_${i + 1}`, 2150, i * 240);
+  P.b1 = variable('b1', 2150, 1920);
+  const h1 = custom('dense8_relu128', [...conv.map((_, i) => P[`W1_${i + 1}`]), ...conv, P.b1], 2500, 300);
+  P.W2 = variable('W2', 2850, 120); P.b2 = variable('b2', 2850, 900);
+  const h2 = custom('dense_relu64', [P.W2, h1, P.b2], 3150, 500);
+  P.W3 = variable('W3', 3450, 120); P.b3 = variable('b3', 3450, 900);
+  const logits = custom('dense_linear15', [P.W3, h2, P.b3], 3750, 500);
+  const loss = custom('softmax_ce15', [logits, oneHot], 4100, 500);
+  const probability = custom('softmax15', [logits], 4100, 1000);
+  // '계산'은 학습 반복 전에 이 값들을 한 번 계산합니다. 학습 후 값은 '선택 계산'으로 봅니다.
+  ws.display(loss, ...at(4450, 500));
+  ws.display(probability, ...at(4450, 1000));
+
+  // ---- 역전파: 순전파 바로 아래에 같은 열로 ----
+  const BY = 2300;
+  const gradientVariables = ['gLoss', 'dLogits', 'dh2', 'dh1', ...Array.from({ length: CNN_BRANCHES }, (_, i) => `dP${i + 1}`)];
+  gradientVariables.forEach((name, i) => variable(name, 4500 + Math.floor(i / 6) * 300, BY + (i % 6) * 220));
+  const backward = [
+    custom('softmax_ce15', [logits, oneHot], 4100, BY, backwardParams('gLoss', ['dLogits', ''])),
+    custom('dense_linear15', [P.W3, h2, P.b3], 3750, BY, backwardParams('dLogits', ['dW3_local', 'dh2', 'db3_local'])),
+    custom('dense_relu64', [P.W2, h1, P.b2], 3150, BY, backwardParams('dh2', ['dW2_local', 'dh1', 'db2_local'])),
+    custom('dense8_relu128', [...conv.map((_, i) => P[`W1_${i + 1}`]), ...conv, P.b1], 2500, BY, backwardParams('dh1', [
+      ...conv.map((_, i) => `dW1_${i + 1}_local`), ...conv.map((_, i) => `dP${i + 1}`), 'db1_local'
+    ])),
+    ...conv.map((_, i) => custom('conv5_pool12', [image, P[`K${i + 1}`]], 1800, BY + i * 240, backwardParams(`dP${i + 1}`, ['', `dK${i + 1}_local`])))
+  ];
+  const runBackward = custom(RUN_BACKWARD, backward, 5200, BY);
+
+  // ---- 파라미터 21개: 한 줄에 하나씩 ----
+  const TY = BY + CNN_BRANCHES * 240 + 500, RH = 230;
+  const epoch = variable('epoch', 5100, TY - 420);
+  const lr = custom('lr_decay60', [epoch], 5400, TY - 420);
+  const accumulate = [], reset = [], update = [];
+  CNN_PARAMS.forEach((name, row) => {
+    const y = TY + row * RH;
+    const shape = sourceVariableParams(name);
+    // 누적: g ← g + (이번 그림의 기울기)
+    const local = variable(`d${name}_local`, 0, y);
+    const g = variable(`g${name}`, 300, y);
+    accumulate.push(op('setVariable', [op('add', [g, local], 600, y)], 900, y, { variable: `g${name}` }));
+    // 초기화: g ← 0
+    reset.push(op('setVariable', [zeroLike(ws, shape, 1500, y)], 1800, y, { variable: `g${name}` }));
+    // 갱신: v ← 0.9v + g/15,  p ← p − ηv
+    const v = variable(`v_${name}`, 2700, y);
+    const momentum = custom('momentum15', [v, g], 3000, y);
+    update.push(op('setVariable', [momentum], 3300, y, { variable: `v_${name}` }));
+    const param = variable(name, 3700, y);
+    update.push(op('setVariable', [custom('weight_step', [param, momentum, lr], 4000, y)], 4300, y, { variable: name }));
+  });
+  const midRow = TY + (CNN_PARAMS.length / 2) * RH;
+  const runAccumulate = custom(RUN_ACCUMULATE, accumulate, 1150, midRow - 600);
+  const runReset = custom(RUN_RESET, reset, 2100, midRow - 600);
+  const runUpdate = custom(RUN_UPDATE, update, 4650, midRow - 1300);
+
+  // ---- 학습 반복: 그림 15장마다 기울기를 모아 한 번 갱신 ----
+  const perSample = op('sequence', [runBackward, runAccumulate], 5500, BY);
+  const samples = op('repeat', [perSample], 5800, BY, { count: 15, start: 0, indexVariable: 'k' });
+  const perBatch = op('sequence', [op('sequence', [samples, runUpdate], 6100, BY), runReset], 6400, BY);
+  const batches = op('repeat', [perBatch], 6700, BY, { count: 1000, start: 0, indexVariable: 'batch' });
+  op('repeat', [batches], 7000, BY, { count: 1, start: 0, indexVariable: 'epoch' });
+
+  if (trained) {
+    for (const saved of CNN_WEIGHTS.variables) {
+      ws.runtimeVariables.push({ name: saved.name, signature: variableSignature(sourceVariableParams(saved.name)), value: saved.value });
+    }
+  }
+  // 내용 검사: 예측 확률 출력으로 테스트 구간 정확도를 재고, train 이면 '계산'(1 epoch) 뒤에 다시 잽니다.
+  const verify = trained
+    ? { probabilityId: probability, ...CNN_EVAL, before: CNN_MEASURED.trained, tol: 0.002 }
+    : { probabilityId: probability, ...CNN_EVAL, before: CNN_MEASURED.initial, tol: 0.002, train: true, after: CNN_MEASURED.oneEpoch, afterTol: 0.01 };
+  return { ws, datasetSelection: CNN_SOURCE.datasetSelection, verify, viewport: { x: 20, y: 20, zoom: 0.32 } };
+}
+
 // ---------- 단계 목록과 설명 ----------
 
 function buildAll() {
@@ -640,7 +824,9 @@ function buildAll() {
     { id: '01', title: '1. 퍼셉트론: AND · OR · NAND', file: '01-perceptron.mmlab', build: build01() },
     { id: '02', title: '2. XOR 게이트 조립', file: '02-xor.mmlab', build: build02() },
     { id: '03', title: '3. 신경망의 기본 발상 Wx+b: XOR 학습 실패', file: '03-linear-fail.mmlab', build: s03 },
-    { id: '04', title: '4. 임계값 활성화: 표현은 되지만 학습은?', file: '04-threshold-search.mmlab', build: s04 }
+    { id: '04', title: '4. 임계값 활성화: 표현은 되지만 학습은?', file: '04-threshold-search.mmlab', build: s04 },
+    { id: 'cnn-train', title: 'CNN 학습: 무작위 가중치에서 1 epoch', file: 'cnn-1-train.mmlab', build: buildCnn({ trained: false }) },
+    { id: 'cnn-trained', title: 'CNN 완성: 60 epoch 학습 결과 평가와 손그림 분류', file: 'cnn-2-trained.mmlab', build: buildCnn({ trained: true }) }
   ];
 
   const descriptions = {
@@ -743,14 +929,45 @@ function buildAll() {
       '',
       '핵심: 기울기 정보가 없으면 탐색은 결국 ‘찍기’입니다. 파라미터 9개는 천 번쯤 찍으면 되지만, 마지막 단계의 CNN은 파라미터가 157,015개입니다.',
       '매끄럽게 미분되는 활성화 함수와, 기울기를 따라 내려가는 방법(역전파)이 필요한 이유입니다.'
+    ],
+    'cnn-train': [
+      `Quick Draw 그림 15종을 분류하는 합성곱 신경망(CNN)입니다. 파라미터 ${CNN_PARAM_COUNT.toLocaleString()}개.`,
+      '합성곱, ReLU, 평균 풀링, Dense, Softmax Cross Entropy 모두 일반 수학 블록을 묶은 사용자 블록이고, 역전파도 블록마다 직접 작성한 식입니다.',
+      '',
+      `위: 순전파. 그림 28×28 → 5×5 합성곱 ${CNN_BRANCHES}개(ReLU, 2×2 평균 풀링 → 각 144) → Dense 128 + ReLU → Dense 64 + ReLU → 15종 점수 → 손실, 예측 확률.`,
+      '가운데: 역전파. 순전파 블록 바로 아래에 같은 블록을 ‘역전파 실행’으로 두고, 손실부터 거꾸로 기울기를 넘깁니다(dLogits → dh2 → dh1 → dP1~8). 오른쪽 ‘역전파 · 출력층부터 차례로’ 블록이 그 순서를 정합니다.',
+      `아래: 파라미터 ${CNN_PARAMS.length}개를 한 줄에 하나씩.`,
+      '  누적: 그림 15장 동안 g ← g + ∂L/∂p',
+      '  갱신: 15장마다 v ← 0.9v + g/15 (모멘텀),  p ← p − η·v,  학습률 η = 0.02 / (1 + epoch/10)',
+      '  초기화: g ← 0',
+      '반복: 그림 15장(k) × 배치 1,000개(batch) × 1 epoch = 학습 그림 15,000장(0~14,999번).',
+      '',
+      '시연',
+      `  1. ‘예측 확률’ 블록을 선택하고 오른쪽 ‘그림별 예측 평가’(시작 15,000, 15,000장)로 학습 전 정확도를 봅니다 → ${percent(CNN_MEASURED.initial)} (15종 찍기 수준).`,
+      '  2. ‘계산’ → 1 epoch 학습 (수십 초).',
+      `  3. 다시 평가 → ${percent(CNN_MEASURED.oneEpoch)}. 학습에 쓰지 않은 그림 15,000장으로 잰 정확도입니다.`,
+      '값 보기는 ‘계산’을 시작할 때의 값입니다. 학습 후 값은 블록을 선택하고 ‘선택 계산’으로 봅니다.'
+    ],
+    'cnn-trained': [
+      '같은 신경망을 60 epoch(그림 900,000장, 가중치 갱신 60,000번) 학습한 가중치를 넣어 둔 상태입니다. 발표 중에 돌리기에는 40분 가까이 걸려 미리 학습했습니다.',
+      '',
+      '시연',
+      `  1. ‘예측 확률’ 블록을 선택하고 ‘그림별 예측 평가’ → 테스트 그림 15,000장 정확도 ${percent(CNN_MEASURED.trained)}.`,
+      '     종류별 정확도와 ‘틀린 그림 랜덤 보기’로 어떤 그림을 헷갈리는지 봅니다.',
+      '  2. 그림판에 직접 그리고 ‘손그림 분류’ → 15종 확률.',
+      '',
+      `정리: 1 epoch ${percent(CNN_MEASURED.oneEpoch)} → 60 epoch ${percent(CNN_MEASURED.trained)}. 가중치 ${CNN_PARAM_COUNT.toLocaleString()}개를 사람이 정하지 않고, 직접 만든 수학 블록과 역전파로 데이터에서 찾았습니다.`,
+      '',
+      '주의: 이 단계에서 ‘계산’을 누르면 학습률 0.02로 1 epoch를 더 학습해 가중치가 바뀝니다. 바뀌었다면 이전 → 다음으로 단계를 다시 불러오세요.'
     ]
   };
 
   return {
     steps: steps.map(step => ({
       id: step.id, title: step.title, file: step.file,
-      project: step.build.ws.toProject(step.build.viewport),
-      checks: step.build.ws.checks
+      project: step.build.ws.toProject(step.build.viewport, step.build.datasetSelection),
+      checks: step.build.ws.checks,
+      verify: step.build.verify
     })),
     descriptions: Object.fromEntries(Object.entries(descriptions).map(([id, lines]) => [id, lines.join('\n')])),
     notes: { linear: s03.sim, search: s04.search }
