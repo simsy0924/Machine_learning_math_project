@@ -31,12 +31,22 @@ function userBlockStableParamsKey(params) {
   return keys.map(key => `${key}:${JSON.stringify(source[key])}`).join('|');
 }
 
+// Each distinct expression is interned to a short id, so a key names its inputs
+// by id instead of embedding their keys. Nesting full keys made a chain of n
+// blocks escape its quotes n times, doubling the key length per block; a chain
+// of ~40 둘 다 계산 blocks then crashed the page. The table is shared so forward
+// plans and manual backward plans still agree on the key of the same expression.
+const USER_BLOCK_EXPRESSION_IDS = new Map();
+
 function userBlockExpressionKeyFor(type, params, inputExpressionKeys) {
-  return JSON.stringify([
-    String(type || ''),
-    userBlockStableParamsKey(params),
-    inputExpressionKeys
-  ]);
+  // JSON escapes control characters, so the separators cannot occur inside a part.
+  const structure = `${String(type || '')}\u0000${userBlockStableParamsKey(params)}\u0000${inputExpressionKeys.join('\u0001')}`;
+  let key = USER_BLOCK_EXPRESSION_IDS.get(structure);
+  if (key === undefined) {
+    key = `E:${USER_BLOCK_EXPRESSION_IDS.size}`;
+    USER_BLOCK_EXPRESSION_IDS.set(structure, key);
+  }
+  return key;
 }
 
 function compileUserBlockPlan(definition) {
