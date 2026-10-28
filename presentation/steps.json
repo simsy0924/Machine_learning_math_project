@@ -39,6 +39,16 @@
       "id": "04",
       "title": "4. 임계값 활성화: 표현은 되지만 학습은?",
       "file": "04-threshold-search.mmlab"
+    },
+    {
+      "id": "cnn-train",
+      "title": "CNN 학습: 무작위 가중치에서 1 epoch",
+      "file": "cnn-1-train.mmlab"
+    },
+    {
+      "id": "cnn-trained",
+      "title": "CNN 완성: 60 epoch 학습 결과 평가와 손그림 분류",
+      "file": "cnn-2-trained.mmlab"
     }
   ]
 }

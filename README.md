@@ -578,7 +578,7 @@ python -m http.server 8000
 
 좌상단 발표 모드 ON/OFF 버튼으로 전환합니다. 단계 이동 시 원본 `.mmlab`을 다시 읽고, OFF로 돌아오면 편집 모드의 작업과 가중치를 복원합니다. 발표 수정본은 내보내기로 별도 다운로드합니다.
 
-발표 단계 파일(`presentation/*.mmlab`, `steps.json`, `descriptions.json`)은 `node presentation/build.mjs`가 생성합니다. 현재 0단계(블록 사용법 4개)부터 4단계(임계값 신경망의 탐색 학습)까지 8개 단계가 들어 있습니다. 단계 목록과 생성기 구조는 [presentation/README.md](presentation/README.md)를 참고하세요.
+발표 단계 파일(`presentation/*.mmlab`, `steps.json`, `descriptions.json`)은 `node presentation/build.mjs`가 생성합니다. 현재 0단계(블록 사용법 4개)부터 4단계(임계값 신경망의 탐색 학습)까지와, Quick Draw 15종 CNN 2개 단계(1 epoch 직접 학습, 60 epoch 학습 가중치로 평가·손그림 분류)까지 10개 단계가 들어 있습니다. 단계 목록과 생성기 구조는 [presentation/README.md](presentation/README.md)를 참고하세요.
 
 - 상태 분리 회귀 테스트: `node bench/presentation-check.mjs` (외부 패키지 불필요)
-- 발표 내용 검사: `node bench/presentation-content-check.mjs` (헤드리스 크로뮴에서 모든 단계를 계산해 값 보기 결과를 확인)
+- 발표 내용 검사: `node bench/presentation-content-check.mjs` (헤드리스 크로뮴에서 모든 단계를 계산해 값 보기 결과를 확인하고, CNN 단계는 실제로 1 epoch 학습해 테스트 정확도를 확인. 약 1분)
