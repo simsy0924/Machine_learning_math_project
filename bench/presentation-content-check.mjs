@@ -148,7 +148,9 @@ async function main() {
     await page.goto(`http://127.0.0.1:${port}/index.html`, { waitUntil: 'load' });
     await page.waitForFunction(() => typeof window.quickDrawDataset !== 'undefined');
 
-    for (const step of all.steps) {
+    // STEPS=18,19 처럼 주면 그 단계만 페이지에서 계산합니다 (디스크 비교는 항상 전체).
+    const only = process.env.STEPS ? new Set(process.env.STEPS.split(',')) : null;
+    for (const step of all.steps.filter(s => !only || only.has(s.id))) {
       const started = Date.now();
       if (step.verify) {
         const result = await page.evaluate(evaluateCnnStepInPage, { project: step.project, verify: step.verify });
@@ -205,7 +207,7 @@ async function main() {
     for (const failure of failures) console.log(`  ${failure}`);
     process.exit(1);
   }
-  console.log(`\n모든 단계 통과 (${all.steps.length}개)`);
+  console.log(`\n모든 단계 통과 (${process.env.STEPS ? process.env.STEPS.split(',').length : all.steps.length}개)`);
 }
 
 main().catch(error => { console.error(error); process.exit(1); });

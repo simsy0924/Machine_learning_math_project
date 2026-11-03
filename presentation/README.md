@@ -37,6 +37,11 @@ node bench/presentation-content-check.mjs    # 실제 페이지에서 모든 단
 | `15` | `15-minibatch.mmlab` | 미니배치 15장: 기울기 누적 → 평균으로 갱신 → 초기화 (72.1%) |
 | `16` | `16-evaluation.mmlab` | 15단계 가중치로 평가용 15,000장을 블록으로 평가: 맞은 수, 정확도, 혼동 행렬(그림), 종류별 정확도 |
 | `17` | `17-mlp.mmlab` | 은닉층 ReLU 64 를 더한 MLP 를 미니배치로 5 epoch (76.9%) |
+| `18` | `18-convolution.mmlab` | 합성곱 = 슬라이딩 창 펼치기 + 행렬×벡터, 손으로 넣은 세로·가로 윤곽 필터의 특징맵 |
+| `19` | `19-relu-pool.mmlab` | ReLU + 2×2 평균 풀링을 한 단계씩, conv5_pool12 블록 하나와 같은 결과 |
+| `20` | `20-conv-backward.mmlab` | 슬라이딩 창 합치기(겹친 수), 출력 한 칸의 역전파로 수용 영역과 ∂K, 수치 미분 확인 |
+| `21` | `21-eight-filters.mmlab` | 학습된 필터 8개와 특징맵, 8분기 Dense 128 |
+| `22` | `22-cnn-structure.mmlab` | 전체 CNN 순전파와 역전파 실행 순서, 학습 전 그림 한 장의 기울기 |
 | `cnn-train` | `cnn-1-train.mmlab` | Quick Draw 15종 CNN: 무작위 초기값에서 `계산`으로 1 epoch 학습 (테스트 정확도 6.7% → 81.3%) |
 | `cnn-trained` | `cnn-2-trained.mmlab` | 같은 CNN에 60 epoch 학습 가중치를 넣은 상태: 그림별 예측 평가 87.9%, 손그림 분류 |
 
@@ -58,6 +63,8 @@ node bench/presentation-content-check.mjs    # 실제 페이지에서 모든 단
 - 5~10단계의 기대값은 페이지와 같은 규칙(배열 원소는 float32, 숫자·합·행렬×벡터 누적은 double)으로 흉내낸 `sim`으로 만듭니다. 9·10단계의 초깃값은 학습이 성공하는 첫 시드를 고릅니다.
 - 14~16단계의 소프트맥스 회귀는 생성기가 `data/*.bin`을 읽어 페이지와 같은 순서로 직접 학습·평가합니다(`srTrain`, `srEvaluate`). 16단계의 가중치와 기대값도 여기서 나옵니다. 17단계 MLP 정확도는 계산이 커서 페이지에서 잰 값(`MLP_MEASURED`)을 적어 둡니다.
 - 같은 이름의 변수 블록을 여러 개 둘 때는 설정(형태·초기값·시드·범위)을 똑같이 맞추세요. 설정이 다르면 서로 값을 초기화합니다.
+- 18~22단계의 기대값은 합성곱 블록과 같은 순서로 계산하는 시뮬레이터(`simConvPool`, `simConvPoolBack`, `simCnnForward`)로 만듭니다.
+- `STEPS=18,19 node bench/presentation-content-check.mjs`처럼 주면 그 단계만 페이지에서 계산합니다.
 - 3단계 경사하강과 4단계 탐색은 페이지와 같은 float32 계산과 같은 난수(`js/values.js`의 LCG)로 미리 흉내내어 기대값과 설명에 들어갈 숫자를 만듭니다.
 
 ## 발표 모드 동작

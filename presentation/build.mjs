@@ -1250,8 +1250,10 @@ function backwardParams(upstream, gradients) {
 }
 
 // trained = true 이면 학습된 가중치를 저장된 런타임 값으로 함께 넣습니다.
-function buildCnn({ trained }) {
+// training = false 이면 학습 반복 없이 그림 한 장의 순전파와 역전파만 둡니다 (22단계).
+function buildCnn({ trained, training = true }) {
   const ws = new Workspace();
+  const once = training ? null : simCnnForward(cnnParams(initialArray), qdImage(0).x, 0);
   const at = (x, y) => [x / COL, y / ROW];
   const variable = (name, x, y) => ws.add('variable', sourceVariableParams(name), ...at(x, y));
   const op = (type, inputs, x, y, params = {}) => ws.op(type, inputs, ...at(x, y), params);
@@ -1289,8 +1291,8 @@ function buildCnn({ trained }) {
   const loss = custom('softmax_ce15', [logits, oneHot], 4100, 500);
   const probability = custom('softmax15', [logits], 4100, 1000);
   // '계산'은 학습 반복 전에 이 값들을 한 번 계산합니다. 학습 후 값은 '선택 계산'으로 봅니다.
-  ws.display(loss, ...at(4450, 500));
-  ws.display(probability, ...at(4450, 1000));
+  ws.display(loss, ...at(4450, 500), once && { approx: once.loss, tol: 1e-5 });
+  ws.display(probability, ...at(4450, 1000), once && { approx: once.p, tol: 1e-6 });
 
   // ---- 역전파: 순전파 바로 아래에 같은 열로 ----
   const BY = 2300;
@@ -1306,6 +1308,16 @@ function buildCnn({ trained }) {
     ...conv.map((_, i) => custom('conv5_pool12', [image, P[`K${i + 1}`]], 1800, BY + i * 240, backwardParams(`dP${i + 1}`, ['', `dK${i + 1}_local`])))
   ];
   const runBackward = custom(RUN_BACKWARD, backward, 5200, BY);
+
+  if (!training) {
+    // 역전파 블록보다 나중에 만든 변수 블록이라 이번 그림의 기울기를 읽습니다.
+    CNN_PARAMS.forEach((name, n) => variable(`d${name}_local`, 5600 + Math.floor(n / 7) * 300, BY + (n % 7) * 220));
+    const dLogits = variable('dLogits', 6600, BY);
+    ws.display(dLogits, ...at(6900, BY), { approx: once.dLogits, tol: 1e-6 });
+    ws.display(op('reshape', [variable('dK1_local', 6600, BY + 300)], 6900, BY + 300, { shape: '5,5' }), ...at(7200, BY + 300), null, { view: 'image' });
+    ws.display(op('reshape', [variable('dW1_1_local', 6600, BY + 600)], 6900, BY + 600, { shape: '128,144' }), ...at(7200, BY + 600), null, { view: 'image' });
+    return { ws, datasetSelection: CNN_SOURCE.datasetSelection, viewport: { x: 20, y: 20, zoom: 0.32 }, once };
+  }
 
   // ---- 파라미터 21개: 한 줄에 하나씩 ----
   const TY = BY + CNN_BRANCHES * 240 + 500, RH = 230;
@@ -1731,6 +1743,216 @@ function build17() {
   };
 }
 
+// ---------- Part 4: 합성곱 신경망 ----------
+//
+// 합성곱 블록(conv5_pool12)과 같은 순서로 계산하는 시뮬레이터. 배열 원소는 float32,
+// 행렬×벡터 누적은 double, 슬라이딩 창 합치기의 겹치는 칸은 float32 로 차례로 더합니다.
+
+const CONV = { size: 28, kernel: 5, map: 24, pool: 12 };
+
+// 슬라이딩 창 펼치기: 창(가로 우선) × 창 안의 칸(가로 우선) → 원본 칸 번호
+function windowIndices(height, width, k, stride) {
+  const rows = Math.floor((height - k) / stride) + 1, cols = Math.floor((width - k) / stride) + 1;
+  const out = [];
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const w = [];
+    for (let kr = 0; kr < k; kr++) for (let kc = 0; kc < k; kc++) w.push((r * stride + kr) * width + c * stride + kc);
+    out.push(w);
+  }
+  return out;
+}
+const CONV_WINDOWS = windowIndices(CONV.size, CONV.size, CONV.kernel, 1);
+const POOL_WINDOWS = windowIndices(CONV.map, CONV.map, 2, 2);
+
+const simWindowDot = (windows, x, weights) => windows.map(w => { let s = 0; for (let e = 0; e < w.length; e++) s += x[w[e]] * weights[e]; return f32(s); });
+function simConvPool(x, K) {
+  const conv = simWindowDot(CONV_WINDOWS, x, K);
+  const relu = conv.map(v => f32(Math.max(v, 0)));
+  const pooled = simWindowDot(POOL_WINDOWS, relu, [0.25, 0.25, 0.25, 0.25]);
+  return { conv, relu, pooled };
+}
+// 역전파: g(144) → 풀링을 되돌려 24×24 → ReLU 통과 칸만 → ∂K = Pᵀd,  ∂그림 = fold(d ⊗ K)
+function simConvPoolBack(x, K, g) {
+  const { conv, relu } = simConvPool(x, K);
+  const spread = new Float32Array(CONV.map * CONV.map);
+  POOL_WINDOWS.forEach((w, n) => w.forEach(t => { spread[t] += f32(g[n] * 0.25); }));
+  const d = Array.from(spread, (v, t) => f32(v * (relu[t] === conv[t] ? 1 : 0)));
+  const dK = Array.from({ length: CONV.kernel * CONV.kernel }, (_, e) => { let s = 0; CONV_WINDOWS.forEach((w, n) => { s += x[w[e]] * d[n]; }); return f32(s); });
+  const dx = new Float32Array(CONV.size * CONV.size);
+  CONV_WINDOWS.forEach((w, n) => w.forEach((t, e) => { dx[t] += f32(d[n] * K[e]); }));
+  return { dK, dx: Array.from(dx) };
+}
+
+function weightArray(name) {
+  const saved = CNN_WEIGHTS.variables.find(v => v.name === name);
+  const bytes = Buffer.from(saved.value.data, 'base64');
+  return Array.from(new Float32Array(bytes.buffer, bytes.byteOffset, bytes.length / 4));
+}
+function initialArray(name) {
+  const p = sourceVariableParams(name);
+  const length = p.mode === 'matrix' ? p.rows * p.cols : p.length;
+  return p.init === 'random' ? Array.from(lcgFloat32(length, p.seed, p.scale)) : new Array(length).fill(p.value);
+}
+const simMatvec = (data, rows, cols, v) => sim.matvec({ rows, cols, data }, v);
+
+// 8분기 Dense 128 + ReLU: 블록 안의 더하기 순서 ((1+2)+(3+4)) + ((5+6)+(7+8)) 그대로
+function simDense8(params, features) {
+  const m = features.map((f, i) => simMatvec(params[`W1_${i + 1}`], 128, 144, f));
+  const s = [sim.add(m[0], m[1]), sim.add(m[2], m[3]), sim.add(m[4], m[5]), sim.add(m[6], m[7])];
+  return sim.max(sim.add(sim.add(sim.add(s[0], s[1]), sim.add(s[2], s[3])), params.b1), 0);
+}
+function simCnnForward(params, x, label) {
+  const features = Array.from({ length: CNN_BRANCHES }, (_, i) => simConvPool(x, params[`K${i + 1}`]).pooled);
+  const h1 = simDense8(params, features);
+  const h2 = sim.max(sim.add(simMatvec(params.W2, 64, 128, h1), params.b2), 0);
+  const z = sim.add(simMatvec(params.W3, 15, 64, h2), params.b3);
+  const p = simSoftmax(z);
+  const y = oneHot(label);
+  const m = Math.max(...z);
+  const lse = m + Math.log(sim.sum(sim.exp(sim.sub(z, m))));
+  const loss = sim.sum(sim.mul(y, sim.sub(z, lse))) * -1;
+  return { features, h1, z, p, loss, dLogits: sim.sub(p, y) };
+}
+const cnnParams = source => Object.fromEntries(CNN_PARAMS.map(name => [name, source(name)]));
+
+// 그림 한 장 (집 0번: 직선이 많아 윤곽선이 잘 보입니다)
+const CONV_SAMPLE = 2;
+const EDGE = [-1, -1, 0, 1, 1];
+const EDGE_KERNELS = {
+  세로윤곽: Array.from({ length: 25 }, (_, q) => EDGE[q % 5]),
+  가로윤곽: Array.from({ length: 25 }, (_, q) => EDGE[Math.floor(q / 5)])
+};
+const imageView = { view: 'image' };
+
+function sampleImageNodes(ws, index, col, row) {
+  const dataset = ws.add('dataset', {}, col, row + 1);
+  const sample = ws.op('datasetSampleByIndex', [dataset, ws.number(index, col, row)], col + 1, row);
+  return ws.op('sampleImage', [sample], col + 2, row);
+}
+
+// ---------- 18단계: 합성곱 = 슬라이딩 창 펼치기 + 행렬×벡터 ----------
+
+function build18() {
+  const ws = new Workspace();
+  const { x } = qdImage(CONV_SAMPLE);
+  const image = sampleImageNodes(ws, CONV_SAMPLE, 0, 0);
+  ws.display(image, 3, 0, { approx: Array.from(x), tol: 1e-7, shape: [28, 28] }, imageView);
+  const patches = ws.op('unfold2d', [image], 3, 1.5, { kernelRows: 5, kernelCols: 5, strideRows: 1, strideCols: 1, padding: 0 });
+  ws.display(patches, 4, 1.5, { approx: CONV_WINDOWS.flatMap(w => w.map(t => x[t])), tol: 1e-7, shape: [576, 25] });
+  Object.entries(EDGE_KERNELS).forEach(([name, K], n) => {
+    const R = 3 + n * 2.4;
+    const kernel = ws.variable(name, { mode: 'vector', length: 25, value: 0 }, 3, R, K);
+    ws.display(ws.op('reshape', [kernel], 4, R + 0.8, { shape: '5,5' }), 5, R + 0.8, { expect: K, shape: [5, 5] }, imageView);
+    const conv = ws.op('matvec', [patches, kernel], 5, R);
+    ws.display(ws.op('reshape', [conv], 6, R, { shape: '24,24' }), 7, R, { approx: simWindowDot(CONV_WINDOWS, x, K), tol: 1e-6, shape: [24, 24] }, imageView);
+  });
+  return { ws, datasetSelection: QD_CLASSES, viewport: { x: 0, y: 0, zoom: 0.6 } };
+}
+
+// ---------- 19단계: ReLU + 평균 풀링 = conv5_pool12 ----------
+
+function build19() {
+  const ws = new Workspace();
+  const { x } = qdImage(CONV_SAMPLE);
+  const K = EDGE_KERNELS.세로윤곽;
+  const expected = simConvPool(x, K);
+  const image = sampleImageNodes(ws, CONV_SAMPLE, 0, 0);
+  ws.display(image, 3, 1, null, imageView);
+  const kernel = ws.variable('세로윤곽', { mode: 'vector', length: 25, value: 0 }, 0, 2.4, K);
+  // 한 단계씩
+  const patches = ws.op('unfold2d', [image], 3, 0, { kernelRows: 5, kernelCols: 5, strideRows: 1, strideCols: 1, padding: 0 });
+  const map = ws.op('reshape', [ws.op('matvec', [patches, kernel], 4, 0)], 5, 0, { shape: '24,24' });
+  ws.display(map, 6, 0, { approx: expected.conv, tol: 1e-6, shape: [24, 24] }, imageView);
+  const relu = ws.op('maximum', [map, ws.number(0, 6, 1.4)], 7, 0);
+  ws.display(relu, 8, 0, { approx: expected.relu, tol: 1e-6, shape: [24, 24] }, imageView);
+  const windows = ws.op('unfold2d', [relu], 8, 1.4, { kernelRows: 2, kernelCols: 2, strideRows: 2, strideCols: 2, padding: 0 });
+  const pooled = ws.op('matvec', [windows, ws.add('constantVector', { length: 4, value: 0.25 }, 8, 2.2)], 9, 1.4);
+  ws.display(ws.op('reshape', [pooled], 10, 1.4, { shape: '12,12' }), 11, 1.4, { approx: expected.pooled, tol: 1e-6, shape: [12, 12] }, imageView);
+  // 같은 계산을 블록 하나로
+  const block = ws.custom(CNN_BLOCKS.conv5_pool12, [image, kernel], 3, 3.4);
+  ws.display(block, 4, 3.4, { approx: expected.pooled, tol: 1e-6, shape: [144] });
+  ws.display(ws.op('reshape', [block], 5, 4.2, { shape: '12,12' }), 6, 4.2, null, imageView);
+  return { ws, datasetSelection: QD_CLASSES, viewport: { x: 0, y: 0, zoom: 0.5 } };
+}
+
+// ---------- 20단계: 합성곱의 역전파 ----------
+
+// 되돌릴 출력 칸: 세로 윤곽 필터가 가장 크게 반응한 칸.
+const RECEPTIVE = { kernelIndex: 12, h: 0.01 };
+function receptiveCell() {
+  const pooled = simConvPool(qdImage(CONV_SAMPLE).x, EDGE_KERNELS.세로윤곽).pooled;
+  return pooled.indexOf(Math.max(...pooled));
+}
+
+function build20() {
+  const ws = new Workspace();
+  const { x } = qdImage(CONV_SAMPLE);
+  const K = EDGE_KERNELS.세로윤곽;
+  const cell = receptiveCell();
+  const g = oneHot(cell, 144);
+  const back = simConvPoolBack(x, K, g);
+  const image = sampleImageNodes(ws, CONV_SAMPLE, 0, 0);
+  const kernel = ws.variable('세로윤곽', { mode: 'vector', length: 25, value: 0 }, 0, 2.4, K);
+
+  // 위: 펼쳤다가 합치면 각 칸이 몇 개의 창에 들어가는지(겹친 수)가 나옵니다.
+  const ones = ws.variable('1로_채운_그림', { mode: 'matrix', rows: 28, cols: 28, value: 1 }, 3, 0);
+  const unfoldOnes = ws.op('unfold2d', [ones], 4, 0, { kernelRows: 5, kernelCols: 5, strideRows: 1, strideCols: 1, padding: 0 });
+  const overlap = ws.op('fold2d', [unfoldOnes, ones], 5, 0, { kernelRows: 5, kernelCols: 5, strideRows: 1, strideCols: 1, padding: 0 });
+  const counts = new Array(784).fill(0);
+  CONV_WINDOWS.forEach(w => w.forEach(t => { counts[t] += 1; }));
+  ws.display(overlap, 6, 0, { expect: counts, shape: [28, 28] }, imageView);
+
+  // 가운데: 12×12 출력 중 한 칸만 g = 1 로 두고 역전파 실행
+  ws.variable('g', { mode: 'vector', length: 144, value: 0 }, 3, 2, g);
+  ws.display(ws.op('reshape', [ws.variable('g', { mode: 'vector', length: 144, value: 0 }, 4, 2.8)], 5, 2.8, { shape: '12,12' }), 6, 2.8, null, imageView);
+  ws.custom(CNN_BLOCKS.conv5_pool12, [image, kernel], 3, 4, backwardParams2('g', ['그림기울기', 'dK']));
+  const dImage = ws.variable('그림기울기', { mode: 'matrix', rows: 28, cols: 28, value: 0 }, 4, 4);
+  ws.display(dImage, 5, 4, { approx: back.dx, tol: 1e-6, shape: [28, 28] }, imageView);
+  const dK = ws.variable('dK', { mode: 'vector', length: 25, value: 0 }, 4, 5.4);
+  ws.display(dK, 5, 6.2, { approx: back.dK, tol: 1e-6 });
+  ws.display(ws.op('reshape', [dK], 5, 5.4, { shape: '5,5' }), 6, 5.4, { approx: back.dK, tol: 1e-6, shape: [5, 5] }, imageView);
+
+  // 아래: 수치 미분으로 확인 — K 의 가운데 칸만 ±h, 출력 그 한 칸의 변화
+  const h = ws.number(RECEPTIVE.h, 0, 7.5);
+  const e = ws.variable('e_가운데', { mode: 'vector', length: 25, value: 0 }, 0, 8.3, oneHot(RECEPTIVE.kernelIndex, 25));
+  const gNode = ws.variable('g', { mode: 'vector', length: 144, value: 0 }, 0, 9.1);
+  const step = ws.op('multiply', [e, h], 1, 8);
+  const at = (op, row) => ws.op('dot', [gNode, ws.custom(CNN_BLOCKS.conv5_pool12, [image, ws.op(op, [kernel, step], 2, row)], 3, row)], 4, row);
+  const numeric = ws.op('divide', [ws.op('subtract', [at('add', 7.5), at('subtract', 8.5)], 5, 7.5), ws.number(2 * RECEPTIVE.h, 5, 8.5)], 6, 7.5);
+  ws.display(numeric, 7, 7.5, { approx: back.dK[RECEPTIVE.kernelIndex], tol: 1e-3 });
+  return { ws, datasetSelection: QD_CLASSES, viewport: { x: 0, y: 0, zoom: 0.5 }, back, cell };
+}
+
+// ---------- 21단계: 학습된 필터 8개와 Dense 128 ----------
+
+function build21() {
+  const ws = new Workspace();
+  const { x } = qdImage(CONV_SAMPLE);
+  const trained = cnnParams(weightArray);
+  const image = sampleImageNodes(ws, CONV_SAMPLE, 0, 0);
+  ws.display(image, 3, 0, null, imageView);
+  const variable = (name, col, row) => {
+    ws.runtimeVariables.push({ name, signature: variableSignature(sourceVariableParams(name)), value: CNN_WEIGHTS.variables.find(v => v.name === name).value });
+    return ws.add('variable', sourceVariableParams(name), col, row);
+  };
+  const features = [], weights = [];
+  for (let i = 0; i < CNN_BRANCHES; i++) {
+    const R = 1.4 + i * 1.3;
+    const K = variable(`K${i + 1}`, 1, R);
+    ws.display(ws.op('reshape', [K], 2, R, { shape: '5,5' }), 3, R, { approx: trained[`K${i + 1}`], tol: 1e-9, shape: [5, 5] }, imageView);
+    const f = ws.custom(CNN_BLOCKS.conv5_pool12, [image, K], 4, R);
+    ws.display(ws.op('reshape', [f], 5, R, { shape: '12,12' }), 6, R, { approx: simConvPool(x, trained[`K${i + 1}`]).pooled, tol: 1e-6, shape: [12, 12] }, imageView);
+    features.push(f);
+    weights.push(variable(`W1_${i + 1}`, 7, R));
+  }
+  const b1 = variable('b1', 7, 1.4 + CNN_BRANCHES * 1.3);
+  const h = ws.custom(CNN_BLOCKS.dense8_relu128, [...weights, ...features, b1], 8, 4);
+  const expected = simDense8(trained, Array.from({ length: CNN_BRANCHES }, (_, i) => simConvPool(x, trained[`K${i + 1}`]).pooled));
+  ws.display(h, 9, 4, { approx: expected, tol: 1e-5 });
+  ws.display(ws.op('reshape', [h], 9, 5, { shape: '8,16' }), 10, 5, { approx: expected, tol: 1e-5, shape: [8, 16] }, imageView);
+  return { ws, datasetSelection: QD_CLASSES, viewport: { x: 0, y: 0, zoom: 0.4 } };
+}
+
 // ---------- 단계 목록과 설명 ----------
 
 function buildAll() {
@@ -1738,6 +1960,7 @@ function buildAll() {
   const s04 = build04();
   const s05 = build05(), s07 = build07(), s08 = build08(), s09 = build09(), s10 = build10();
   const s16 = build16();
+  const s20 = build20(), s22 = buildCnn({ trained: false, training: false });
   const steps = [
     { id: '00a', title: '0-1. 입력 블록과 값 보기', file: '00a-input-blocks.mmlab', build: build00a() },
     { id: '00b', title: '0-2. 수학 연산 블록', file: '00b-math-blocks.mmlab', build: build00b() },
@@ -1760,6 +1983,11 @@ function buildAll() {
     { id: '15', title: '15. 미니배치: 15장의 기울기를 모아 한 번에', file: '15-minibatch.mmlab', build: build15() },
     { id: '16', title: '16. 평가: 정확도와 혼동 행렬', file: '16-evaluation.mmlab', build: s16 },
     { id: '17', title: '17. 은닉층을 더한 MLP', file: '17-mlp.mmlab', build: build17() },
+    { id: '18', title: '18. 합성곱 = 슬라이딩 창 펼치기 + 행렬 × 벡터', file: '18-convolution.mmlab', build: build18() },
+    { id: '19', title: '19. ReLU + 평균 풀링: 특징 144개', file: '19-relu-pool.mmlab', build: build19() },
+    { id: '20', title: '20. 합성곱의 역전파: 슬라이딩 창 합치기', file: '20-conv-backward.mmlab', build: s20 },
+    { id: '21', title: '21. 학습된 필터 8개와 Dense 128', file: '21-eight-filters.mmlab', build: build21() },
+    { id: '22', title: '22. 전체 순전파와 역전파 실행 순서', file: '22-cnn-structure.mmlab', build: s22 },
     { id: 'cnn-train', title: 'CNN 학습: 무작위 가중치에서 1 epoch', file: 'cnn-1-train.mmlab', build: buildCnn({ trained: false }) },
     { id: 'cnn-trained', title: 'CNN 완성: 60 epoch 학습 결과 평가와 손그림 분류', file: 'cnn-2-trained.mmlab', build: buildCnn({ trained: true }) }
   ];
@@ -2014,6 +2242,68 @@ function buildAll() {
       `결과: ${percent(MLP_MEASURED.after)}.  소프트맥스 회귀는 ${percent(srResults().batched.accuracy)}에서 더 학습해도 거의 오르지 않습니다(10 epoch 72.0%).`,
       '은닉층이 픽셀들의 조합(획, 모양)을 먼저 만들고 그 위에서 분류하기 때문입니다.',
       '그렇다면 그림의 ‘모양’을 처음부터 잘 찾는 층은 없을까? → 합성곱.'
+    ],
+    '18': [
+      '17단계의 MLP는 그림을 784개 숫자로 펼쳐서 봅니다. 픽셀이 어디에 붙어 있는지(이웃 관계)는 쓰지 않습니다.',
+      '합성곱은 작은 창(필터)을 그림 위로 밀면서, 창마다 같은 가중치로 가중합을 냅니다. 같은 모양이 어디에 있든 찾아냅니다.',
+      '',
+      '이 도구에서 합성곱은 새 연산이 아니라 두 블록의 조합입니다.',
+      `  1. 슬라이딩 창 펼치기: 28×28 그림에서 5×5 창을 한 칸씩 옮기며 576개(24 × 24)를 꺼내 576 × 25 행렬로.`,
+      '  2. 행렬 × 벡터: 각 창(한 줄)과 필터 K(25칸)의 내적 → 576개 → 24 × 24 특징맵.',
+      '',
+      '아래: 손으로 넣은 필터 두 개 (그림 보기: 빨강 +, 파랑 −).',
+      '  세로 윤곽: 왼쪽 두 열 −1, 오른쪽 두 열 +1 → 세로 선의 양옆에서 크게 반응',
+      '  가로 윤곽: 위 두 행 −1, 아래 두 행 +1 → 가로 선(지붕, 바닥)에서 반응',
+      '같은 집 그림에서 필터에 따라 다른 선이 드러납니다. CNN은 이 필터 값을 학습으로 찾습니다.'
+    ],
+    '19': [
+      '특징맵을 정리하는 두 단계:',
+      '  ReLU: 음수를 0으로 → 필터 모양과 맞는 곳만 남김',
+      '  2 × 2 평균 풀링: 2 × 2 창(겹치지 않게)을 펼쳐 0.25씩 곱해 더함 → 24 × 24 → 12 × 12 = 144개',
+      '풀링은 위치가 조금 달라도 같은 값이 나오게 하고, 숫자 개수를 1/4로 줄입니다.',
+      '',
+      '위: 한 단계씩.  펼치기 → 행렬×벡터 → 24×24 → ReLU → 2×2 펼치기 → 평균 → 12×12',
+      '아래: 같은 계산을 묶은 ‘특징 추출 · 5×5 합성곱 → ReLU → 평균 풀링’ 블록 하나. 결과가 같습니다.',
+      '마지막 CNN은 이 블록을 필터 8개로 8번 씁니다.'
+    ],
+    '20': [
+      '역전파는 순전파를 거꾸로 따라갑니다. 핵심은 ‘슬라이딩 창 펼치기’의 반대인 ‘슬라이딩 창 합치기’:',
+      '  펼친 창의 값을 원래 자리로 되돌리고, 여러 창이 겹친 칸은 더합니다.',
+      '위: 1로 채운 그림을 펼쳤다가 합치면 칸마다 몇 개의 창에 들어갔는지가 나옵니다 (가운데 25, 모서리 1).',
+      '',
+      '이 블록의 역전파 정의 (g: 144칸의 기울기):',
+      '  풀링 되돌리기:  g ⊗ [0.25, 0.25, 0.25, 0.25] → 합치기(2×2) → 24×24',
+      '  ReLU 되돌리기:  양수였던 칸만 통과',
+      '  ∂K = (펼친 그림)ᵀ · d          (전치 행렬 × 벡터)',
+      '  ∂그림 = 합치기(d ⊗ K)          (5×5 창을 원래 자리로)',
+      '',
+      `가운데: 12×12 출력 중 세로 윤곽 필터가 가장 크게 반응한 칸 하나만 g = 1로 두고 역전파 실행.`,
+      '  ∂그림: 그 출력 칸이 보는 그림 영역(6 × 6)에만 필터 모양이 찍힙니다 (수용 영역).',
+      '  ∂K: 그 영역의 그림 조각 = ‘필터를 이 그림 조각 쪽으로 바꾸면 반응이 커진다’.',
+      `아래: K의 가운데 칸만 ±${RECEPTIVE.h} 움직인 수치 미분이 ∂K의 가운데 칸과 같습니다.`
+    ],
+    '21': [
+      '합성곱 필터 8개(마지막 CNN에서 60 epoch 학습한 값)를 같은 집 그림에 적용했습니다.',
+      '  왼쪽: 필터 K1~K8 (5×5, 빨강 +, 파랑 −)',
+      '  가운데: 각 필터의 12×12 특징 (144개씩)',
+      '사람이 정하지 않았는데도 가로선, 세로선, 대각선, 모서리에 반응하는 필터들이 생겼습니다.',
+      '',
+      '오른쪽: ‘특징 통합 · 8분기 Dense 128 + ReLU’ 블록.',
+      '  h = ReLU(W₁·특징1 + W₂·특징2 + … + W₈·특징8 + b),   Wᵢ: 128 × 144',
+      '8 × 144 = 1,152개 특징을 128개로 모읍니다. 맨 아래 그림 보기는 h를 8 × 16으로 펼친 것.',
+      '역전파는 10단계 층 블록과 같은 식을 8번:  ∂Wᵢ = g ⊗ 특징ᵢ,  ∂특징ᵢ = Wᵢᵀ g  (그리고 ReLU 통과 칸만).'
+    ],
+    '22': [
+      `전체 CNN: 그림 28×28 → 합성곱 ${CNN_BRANCHES}개 → Dense 128 + ReLU → Dense 64 + ReLU → 15종 점수 → 손실 / 예측 확률. 파라미터 ${CNN_PARAM_COUNT.toLocaleString()}개.`,
+      '위: 순전파. 지금까지 만든 블록을 그대로 이었습니다 (19 → 21 → 17 → 13단계 블록).',
+      '가운데: 역전파. 순전파 블록 바로 아래에 같은 블록을 ‘역전파 실행’으로 두고, 손실부터 거꾸로 기울기 변수를 넘깁니다.',
+      '  손실 → dLogits → 출력층 → dh2 → 은닉층 64 → dh1 → Dense 128 → dP1~dP8 → 합성곱 8개',
+      '  오른쪽 ‘역전파 · 출력층부터 차례로’ 블록이 이 순서를 정합니다. 순서는 프로그램이 정하지 않고 직접 짰습니다.',
+      '',
+      '여기서는 학습 전(무작위 가중치) 그림 한 장만 계산합니다.',
+      `  손실 ${s22.once.loss.toFixed(3)} (15종 찍기면 ln 15 ≈ 2.708),  dLogits = p − y`,
+      '  오른쪽 아래: 이번 그림의 기울기. dK1(5×5)과 dW1_1(128×144)을 그림으로.',
+      '이 기울기로 파라미터 21개를 갱신하는 반복은 다음 파트에서.'
     ],
     'cnn-train': [
       `Quick Draw 그림 15종을 분류하는 합성곱 신경망(CNN)입니다. 파라미터 ${CNN_PARAM_COUNT.toLocaleString()}개.`,
