@@ -401,8 +401,11 @@ const BLOCKS = {
 
   // ---------- 확인 ----------
   display: {
-    title: '값 보기', kind: 'sink', inputs: ['x'], description: '계산 결과를 그대로 보여준다.',
+    title: '값 보기', kind: 'sink', inputs: ['x'], description: '계산 결과를 그대로 보여준다. 2차원 배열은 그림으로도 볼 수 있다.',
     formula: () => 'x',
+    // viewOnly: changing how a value is shown does not invalidate computed values.
+    controls: [{ key: 'view', label: '보기', type: 'select', default: 'text', viewOnly: true,
+      options: [{ value: 'text', label: '숫자' }, { value: 'image', label: '그림 (2차원 배열)' }] }],
     compute: (n, [x]) => x
   },
 

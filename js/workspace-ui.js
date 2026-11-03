@@ -28,9 +28,67 @@ function formatValue(value, compact = false) {
   return String(value);
 }
 
+function isImageView(node) {
+  return node.type === 'display' && node.params?.view === 'image';
+}
+
+// 값 보기의 그림 보기: one pixel per element. Values with negatives use a
+// diverging scale (blue < 0 < red, symmetric around 0) so a filter's sign is
+// visible; non-negative values use white (0) to black (max), like ink on paper.
+function drawValueImage(canvas, value) {
+  const [rows, cols] = value.shape;
+  canvas.width = cols;
+  canvas.height = rows;
+  const data = value.data;
+  let min = Infinity, max = -Infinity;
+  for (let i = 0; i < data.length; i++) {
+    if (data[i] < min) min = data[i];
+    if (data[i] > max) max = data[i];
+  }
+  const signed = min < 0;
+  const scale = signed ? Math.max(-min, max) : max;
+  const image = canvas.getContext('2d').createImageData(cols, rows);
+  for (let i = 0; i < data.length; i++) {
+    const t = scale > 0 && Number.isFinite(data[i]) ? data[i] / scale : 0;
+    const k = i * 4;
+    if (signed) {
+      const fade = Math.round(255 * (1 - Math.min(1, Math.abs(t))));
+      image.data[k] = t > 0 ? 255 : fade;
+      image.data[k + 1] = fade;
+      image.data[k + 2] = t < 0 ? 255 : fade;
+    } else {
+      const level = Math.round(255 * (1 - Math.min(1, t)));
+      image.data[k] = image.data[k + 1] = image.data[k + 2] = level;
+    }
+    image.data[k + 3] = 255;
+  }
+  canvas.getContext('2d').putImageData(image, 0, 0);
+  // Fit inside the fixed box while keeping square pixels.
+  const zoom = Math.min(166 / cols, 140 / rows);
+  canvas.style.width = `${cols * zoom}px`;
+  canvas.style.height = `${rows * zoom}px`;
+  const digits = v => Number(v.toFixed(3));
+  return `${rows}×${cols} · ${digits(min)} ~ ${digits(max)}`;
+}
+
 function updateNodePreview(node) {
-  const el = nodesLayer.querySelector(`[data-node-id="${node.id}"] .node-preview`);
-  if (el) el.textContent = node.lastError ? `오류: ${node.lastError}` : formatValue(node.lastValue, true);
+  const nodeEl = nodesLayer.querySelector(`[data-node-id="${node.id}"]`);
+  const el = nodeEl?.querySelector('.node-preview');
+  if (!el) return;
+  const box = nodeEl.querySelector('.node-image');
+  const imageView = isImageView(node);
+  box.hidden = !imageView;
+  const canvas = box.querySelector('canvas');
+  canvas.hidden = true;
+  if (node.lastError) { el.textContent = `오류: ${node.lastError}`; return; }
+  if (imageView && isArrayValue(node.lastValue) && node.lastValue.shape.length === 2) {
+    el.textContent = drawValueImage(canvas, node.lastValue);
+    canvas.hidden = false;
+    return;
+  }
+  el.textContent = imageView && node.lastValue !== undefined
+    ? `${formatValue(node.lastValue, true)} · 2차원 배열만 그림으로 보입니다`
+    : formatValue(node.lastValue, true);
 }
 
 function invalidatePreviews() {
@@ -48,6 +106,13 @@ function invalidatePreviews() {
 // below can skip the DOM while nothing about the wiring has changed.
 let markedInputPortKeys = new Set();
 
+// A 변수 or 값 바꾸기 is identified by its variable name, so show it in the head.
+function nodeHeadTitle(node, def) {
+  if (node.type === 'variable') return `${def.title} ${node.params.name ?? ''}`;
+  if (node.type === 'setVariable') return `${def.title} → ${node.params.variable ?? ''}`;
+  return def.title;
+}
+
 function renderNode(node) {
   const def = getBlockDef(node.type);
   const el = document.createElement('div');
@@ -59,7 +124,7 @@ function renderNode(node) {
     const safeLabel = escapeHtml(label);
     return `<div class="port-row"><span class="port input" data-node-id="${node.id}" data-port-index="${index}" data-port-label="${safeLabel}" title="입력 ${safeLabel}"></span><span class="port-label">${safeLabel}</span></div>`;
   }).join('');
-  el.innerHTML = `<div class="node-head"><span>${escapeHtml(def.title)}</span><span class="node-kind">${kindLabel(def.kind)}</span></div><div class="node-body">${inputsHtml}${def.inputs.length ? '' : '<span class="muted">입력 없음</span>'}<div class="node-preview">계산 전</div><div class="port-row output-row"><span class="port-label">출력</span><span class="port output" data-node-id="${node.id}" title="출력"></span></div></div>`;
+  el.innerHTML = `<div class="node-head"><span>${escapeHtml(nodeHeadTitle(node, def))}</span><span class="node-kind">${kindLabel(def.kind)}</span></div><div class="node-body">${inputsHtml}${def.inputs.length ? '' : '<span class="muted">입력 없음</span>'}<div class="node-image"${isImageView(node) ? '' : ' hidden'}><canvas hidden></canvas></div><div class="node-preview">계산 전</div><div class="port-row output-row"><span class="port-label">출력</span><span class="port output" data-node-id="${node.id}" title="출력"></span></div></div>`;
   nodesLayer.appendChild(el);
   markedInputPortKeys.clear(); // these ports are new, so they carry no marks yet
 
@@ -322,6 +387,15 @@ function renderInspector() {
     input.addEventListener('input', () => {
       node.params[control.key] = input.value;
       inspectorFormula.textContent = def.formula(node);
+      const head = nodesLayer.querySelector(`[data-node-id="${node.id}"] .node-head span`);
+      if (head) head.textContent = nodeHeadTitle(node, def);
+      if (control.viewOnly) {
+        // The block's height changes, so its output port moves with it.
+        updateNodePreview(node);
+        updateWires();
+        notifyWorkspaceChanged();
+        return;
+      }
       for (const graphNode of graph.nodes.values()) {
         graphNode.lastValue = undefined;
         graphNode.lastError = null;

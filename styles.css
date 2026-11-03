@@ -84,6 +84,9 @@ button:disabled { opacity: .4; cursor: default; }
 .node-head { padding: 10px 11px; min-height: 40px; border-bottom: 1px solid #eceef0; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .node-kind { color: #888e97; font-size: 10px; font-weight: 700; }
 .node-body { padding: 9px 12px 10px; min-height: 40px; color: #656a73; font-size: 11px; line-height: 1.4; }
+.node-image { display: flex; align-items: center; justify-content: center; height: 140px; margin-top: 6px; background: repeating-conic-gradient(#f1f2f4 0% 25%, #fff 0% 50%) 0 0 / 12px 12px; border-radius: 6px; }
+.node-image[hidden], .node-image canvas[hidden] { display: none; }
+.node-image canvas { image-rendering: pixelated; border: 1px solid #c9ccd1; }
 .node-preview { margin-top: 5px; color: #20242a; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .node.source .node-head { border-top: 4px solid #3478c9; border-radius: 11px 11px 0 0; }
 .node.data .node-head { border-top: 4px solid #cc5f7a; border-radius: 11px 11px 0 0; }
