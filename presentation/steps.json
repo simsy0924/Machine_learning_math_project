@@ -106,6 +106,31 @@
       "file": "17-mlp.mmlab"
     },
     {
+      "id": "18",
+      "title": "18. 합성곱 = 슬라이딩 창 펼치기 + 행렬 × 벡터",
+      "file": "18-convolution.mmlab"
+    },
+    {
+      "id": "19",
+      "title": "19. ReLU + 평균 풀링: 특징 144개",
+      "file": "19-relu-pool.mmlab"
+    },
+    {
+      "id": "20",
+      "title": "20. 합성곱의 역전파: 슬라이딩 창 합치기",
+      "file": "20-conv-backward.mmlab"
+    },
+    {
+      "id": "21",
+      "title": "21. 학습된 필터 8개와 Dense 128",
+      "file": "21-eight-filters.mmlab"
+    },
+    {
+      "id": "22",
+      "title": "22. 전체 순전파와 역전파 실행 순서",
+      "file": "22-cnn-structure.mmlab"
+    },
+    {
       "id": "cnn-train",
       "title": "CNN 학습: 무작위 가중치에서 1 epoch",
       "file": "cnn-1-train.mmlab"
