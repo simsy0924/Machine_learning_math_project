@@ -24,6 +24,12 @@ node bench/presentation-content-check.mjs    # 실제 페이지에서 모든 단
 | `02` | `02-xor.mmlab` | 게이트를 쌓아 XOR 조립, XOR 게이트 블록 |
 | `03` | `03-linear-fail.mmlab` | 활성화 없는 선형 모형을 델타 규칙으로 학습, XOR 실패 (손실 1.0에서 멈춤) |
 | `04` | `04-threshold-search.mmlab` | 임계값 2-2-1 신경망: 손으로 넣은 가중치로 표현 확인, 무작위 탐색으로 학습 |
+| `05` | `05-gradient-descent.mmlab` | 경사하강 (w − 3)²: η = 0.1 은 수렴, η = 1.1 은 발산 |
+| `06` | `06-smooth-activation.mmlab` | 계단 함수 · 시그모이드 · ReLU 와 기울기를 그래프 그림으로, 수치 미분과 σ(1 − σ) 비교 |
+| `07` | `07-chain-rule.mmlab` | 연쇄 법칙: z = w·x, y = σ(z) 를 역전파 실행으로 계산하고 수치 미분과 비교 (곱하기의 역전파 정의 포함) |
+| `08` | `08-neuron-and.mmlab` | 뉴런 하나(선형 모형 → 시그모이드)를 역전파와 경사하강으로 AND 학습 |
+| `09` | `09-xor-backprop.mmlab` | 2-2-1 시그모이드 신경망으로 XOR 학습 성공 (03단계와 대비) |
+| `10` | `10-dense-layer.mmlab` | 층 블록 Wx + b 의 역전파 (∂W = g⊗x, ∂x = Wᵀg, ∂b = g) 로 09단계를 다시 조립, 한 줄씩 학습 |
 | `cnn-train` | `cnn-1-train.mmlab` | Quick Draw 15종 CNN: 무작위 초기값에서 `계산`으로 1 epoch 학습 (테스트 정확도 6.7% → 81.3%) |
 | `cnn-trained` | `cnn-2-trained.mmlab` | 같은 CNN에 60 epoch 학습 가중치를 넣은 상태: 그림별 예측 평가 87.9%, 손그림 분류 |
 
@@ -41,6 +47,8 @@ node bench/presentation-content-check.mjs    # 실제 페이지에서 모든 단
 - `계산`은 블록을 만든 순서(id 순)로 한 번씩 계산하므로, 반복이 끝난 뒤의 값을 보이려면 반복 블록보다 나중에 만든 변수 블록으로 읽습니다.
 - CNN 단계는 `source/quickdraw-cnn.mmlab`(편집 모드의 학습 작업공간)에서 사용자 블록 정의와 변수 설정을 그대로 가져오고, `source/quickdraw-cnn.mmlweights.json`을 학습된 단계의 저장 값으로 넣습니다. 이 가중치는 `cnn-train` 단계의 epoch 반복만 60으로 바꿔 학습한 것입니다. 원본과 다른 점은 `build.mjs`의 CNN 절 머리 주석에 정리했습니다(평가용 순전파 복제 제거, 둘 다 계산 사슬을 '차례로 실행' 블록으로 묶기, 가중치 갱신이 새 모멘텀을 쓰도록 연결, 파라미터별 한 줄 배치).
 - CNN 정확도는 생성기에서 흉내내기에 계산이 커서 페이지에서 잰 값을 `CNN_MEASURED`에 적어 두고, 검증 스크립트가 다시 재서 비교합니다. 구조나 가중치를 바꾸면 다시 재서 고치세요.
+- 역전파 정의는 `defineBlock({ backward })`로 사용자 블록에, `MULTIPLY_BACKWARD`처럼 단계의 `builtins`로 기본 블록에 붙입니다. 역전파 실행 블록은 위에서 내려온 기울기 변수를 읽고 입력별 기울기를 변수에 바로 씁니다.
+- 5~10단계의 기대값은 페이지와 같은 규칙(배열 원소는 float32, 숫자·합·행렬×벡터 누적은 double)으로 흉내낸 `sim`으로 만듭니다. 9·10단계의 초깃값은 학습이 성공하는 첫 시드를 고릅니다.
 - 3단계 경사하강과 4단계 탐색은 페이지와 같은 float32 계산과 같은 난수(`js/values.js`의 LCG)로 미리 흉내내어 기대값과 설명에 들어갈 숫자를 만듭니다.
 
 ## 발표 모드 동작
