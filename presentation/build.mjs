@@ -51,7 +51,35 @@ function variableSignature(p) {
 
 // ---------- 사용자 블록 정의 ----------
 
-function defineBlock({ id, name, formula, uses = [], build }) {
+// 수동 역전파 정의의 소스: 입력 i, 순전파 출력 y, 위에서 내려온 기울기 g (js/manual-backprop.js 와 같은 id).
+const BACKWARD_SOURCE = { input: i => -(i + 1), y: -1000002, g: -1000001 };
+
+// backward(bb) 는 입력마다 기울기를 내는 블록을 만들고 bb.outputs([...]) 로 입력 순서대로 지정합니다.
+function defineBackward(inputCount, build) {
+  const bb = {
+    nodes: [], connections: [], nextId: 1, gradientOutputNodeIds: null,
+    ...BACKWARD_SOURCE,
+    add(type, params, col, row) {
+      const nodeId = this.nextId++;
+      this.nodes.push({ id: nodeId, type, params: params ?? {}, x: 60 + Math.round(col * COL), y: 60 + Math.round(row * ROW) });
+      return nodeId;
+    },
+    op(type, inputs, col, row, params = {}) {
+      const nodeId = this.add(type, params, col, row);
+      inputs.forEach((from, index) => this.connections.push({ from, to: nodeId, inputIndex: index }));
+      return nodeId;
+    },
+    outputs(ids) { this.gradientOutputNodeIds = ids; }
+  };
+  build(bb);
+  if (bb.gradientOutputNodeIds?.length !== inputCount) throw new Error('입력마다 기울기 출력이 하나씩 필요합니다.');
+  return {
+    version: 1, inputCount, nodes: bb.nodes, connections: bb.connections,
+    gradientOutputNodeIds: bb.gradientOutputNodeIds, editorViewport: { x: 0, y: 0, zoom: 0.75 }
+  };
+}
+
+function defineBlock({ id, name, formula, uses = [], build, backward = null }) {
   const b = {
     nodes: [], connections: [], externalInputs: [], outputNodeId: null, nextId: 1,
     add(type, params, col, row) {
@@ -65,10 +93,9 @@ function defineBlock({ id, name, formula, uses = [], build }) {
   };
   build(b);
   if (b.outputNodeId == null) throw new Error(`${id}: 출력 블록이 없습니다.`);
-  return {
-    id, uses,
-    definition: { id, name, nodes: b.nodes, connections: b.connections, externalInputs: b.externalInputs, outputNodeId: b.outputNodeId, formula }
-  };
+  const definition = { id, name, nodes: b.nodes, connections: b.connections, externalInputs: b.externalInputs, outputNodeId: b.outputNodeId, formula };
+  if (backward) definition.manualBackprop = defineBackward(b.externalInputs.length, backward);
+  return { id, uses, definition };
 }
 
 // 임계값 함수. step(z) = 1 (z > 0), 0 (그 외) = 1 − [max(z, 0) = 0]
@@ -103,9 +130,20 @@ const PERCEPTRON = defineBlock({
   }
 });
 
+// 역전파: ∂x₁ = g·w₁, ∂x₂ = g·w₂, ∂w₁ = Σ g·x₁, ∂w₂ = Σ g·x₂, ∂b = Σ g
+// (w 와 b 는 숫자 하나가 네 경우 모두에 쓰이므로 네 경우의 기울기를 더합니다.)
 const LINEAR = defineBlock({
   id: 'linear2', name: '선형 모형 · w₁x₁ + w₂x₂ + b', formula: 'ŷ = w₁x₁ + w₂x₂ + b',
-  build(b) { b.output(weightedSum(b)); }
+  build(b) { b.output(weightedSum(b)); },
+  backward(bb) {
+    const [x1, x2, w1, w2] = [0, 1, 2, 3].map(bb.input);
+    const dx1 = bb.op('multiply', [bb.g, w1], 0, 0);
+    const dx2 = bb.op('multiply', [bb.g, w2], 0, 1);
+    const dw1 = bb.op('sum', [bb.op('multiply', [bb.g, x1], 1, 0)], 2, 0);
+    const dw2 = bb.op('sum', [bb.op('multiply', [bb.g, x2], 1, 1)], 2, 1);
+    const db = bb.op('sum', [bb.g], 2, 2);
+    bb.outputs([dx1, dx2, dw1, dw2, db]);
+  }
 });
 
 function gate(id, name, formula, w1, w2, bias) {
@@ -141,6 +179,7 @@ const XOR = defineBlock({
   }
 });
 
+// 역전파: ∂ŷ = g·2(ŷ − y), ∂y = −∂ŷ
 const SQ_ERR = defineBlock({
   id: 'sq_err', name: '손실 · Σ(ŷ − y)²', formula: 'Σ(ŷ − y)²',
   build(b) {
@@ -148,6 +187,12 @@ const SQ_ERR = defineBlock({
     const sq = b.add('multiply', {}, 1, 0); b.link(e, sq, 0); b.link(e, sq, 1);
     const out = b.add('sum', {}, 2, 0); b.link(sq, out, 0);
     b.input(e, 0, 'ŷ'); b.input(e, 1, 'y'); b.output(out);
+  },
+  backward(bb) {
+    const two = bb.add('number', { value: 2 }, 0, 1), zero = bb.add('number', { value: 0 }, 2, 1);
+    const e = bb.op('subtract', [bb.input(0), bb.input(1)], 0, 0);
+    const dyhat = bb.op('multiply', [bb.g, bb.op('multiply', [two, e], 1, 0)], 2, 0);
+    bb.outputs([dyhat, bb.op('subtract', [zero, dyhat], 3, 1)]);
   }
 });
 
@@ -257,8 +302,8 @@ class Workspace {
     }
     return id;
   }
-  display(from, col, row, check = null) {
-    const id = this.add('display', {}, col, row);
+  display(from, col, row, check = null, params = {}) {
+    const id = this.add('display', params, col, row);
     this.link(from, id, 0);
     if (check) this.checks.push({ id, ...check });
     return id;
@@ -272,9 +317,9 @@ class Workspace {
     }
     return this;
   }
-  custom(block, inputs, col, row) {
+  custom(block, inputs, col, row, params = {}) {
     this.use(block);
-    const id = this.add(`custom:${block.id}`, {}, col, row);
+    const id = this.add(`custom:${block.id}`, params, col, row);
     inputs.forEach((from, index) => this.link(from, id, index));
     return id;
   }
@@ -289,8 +334,9 @@ class Workspace {
     ids.slice(1).forEach((id, k) => { body = this.op('sequence', [body, id], col + k, row); });
     return body;
   }
-  toProject(viewport, datasetSelection = []) {
-    return {
+  // builtins: 기본 블록(곱하기 등)에 붙인 역전파 정의 [{ type, definition }].
+  toProject(viewport, datasetSelection = [], builtins = null) {
+    const project = {
       format: FORMAT, version: VERSION,
       graph: { nodes: this.nodes, connections: this.connections },
       userBlocks: Array.from(this.userBlocks.values()),
@@ -298,6 +344,8 @@ class Workspace {
       datasetSelection,
       viewport
     };
+    if (builtins) project.manualBackprop = { version: 1, builtins };
+    return project;
   }
 }
 
@@ -627,6 +675,498 @@ function build04() {
   return { ws, viewport: { x: 0, y: 0, zoom: 0.45 }, search };
 }
 
+// ---------- Part 2: 기울기와 역전파 ----------
+//
+// 페이지 계산 규칙을 흉내내는 작은 시뮬레이터: 배열 원소는 float32 로 저장되고, 숫자와
+// 합·내적·행렬×벡터의 누적은 double 입니다 (js/values.js).
+const f32 = Math.fround;
+const isVec = v => Array.isArray(v);
+function zip(a, b, op) {
+  if (isVec(a) && isVec(b)) return a.map((x, i) => f32(op(x, b[i])));
+  if (isVec(a)) return a.map(x => f32(op(x, b)));
+  if (isVec(b)) return b.map(y => f32(op(a, y)));
+  return op(a, b);
+}
+const sim = {
+  add: (a, b) => zip(a, b, (x, y) => x + y),
+  sub: (a, b) => zip(a, b, (x, y) => x - y),
+  mul: (a, b) => zip(a, b, (x, y) => x * y),
+  div: (a, b) => zip(a, b, (x, y) => x / y),
+  max: (a, b) => zip(a, b, Math.max),
+  exp: a => isVec(a) ? a.map(x => f32(Math.exp(x))) : Math.exp(a),
+  sum: a => a.reduce((s, x) => s + x, 0),
+  dot: (a, b) => a.reduce((s, x, i) => s + x * b[i], 0),
+  // m: { rows, cols, data } 행 우선
+  matvec: (m, v) => Array.from({ length: m.rows }, (_, r) => { let s = 0; for (let c = 0; c < m.cols; c++) s += m.data[r * m.cols + c] * v[c]; return f32(s); }),
+  tmatvec: (m, v) => Array.from({ length: m.cols }, (_, c) => { let s = 0; for (let r = 0; r < m.rows; r++) s += m.data[r * m.cols + c] * v[r]; return f32(s); }),
+  outer: (a, b) => ({ rows: a.length, cols: b.length, data: a.flatMap(x => b.map(y => f32(x * y))) })
+};
+// 블록과 같은 순서로 계산합니다.
+const simSigmoid = z => sim.div(1, sim.add(sim.exp(sim.sub(0, z)), 1));
+const simSigmoidBack = (g, y) => sim.mul(g, sim.mul(y, sim.sub(1, y)));
+const simLinear = (x1, x2, w1, w2, b) => sim.add(sim.add(sim.mul(w1, x1), sim.mul(w2, x2)), b);
+const simSqErr = (yhat, y) => { const e = sim.sub(yhat, y); return sim.sum(sim.mul(e, e)); };
+const simSqErrBack = (g, yhat, y) => sim.mul(g, sim.mul(2, sim.sub(yhat, y)));
+const simStep = z => sim.sub(1, zip(sim.max(z, 0), 0, (a, b) => (a === b ? 1 : 0)));
+const round3 = v => Math.round(v * 1000) / 1000;
+
+// σ(x) = 1 / (1 + e^(−x)).  역전파: ∂x = g · y(1 − y)  (y = σ(x), 순전파 출력)
+const SIGMOID = defineBlock({
+  id: 'sigmoid', name: '시그모이드 · σ(x) = 1 / (1 + e⁻ˣ)', formula: '1 / (1 + e⁻ˣ)',
+  build(b) {
+    const zero = b.add('number', { value: 0 }, 0, 1), one = b.add('number', { value: 1 }, 2, 1);
+    const neg = b.add('subtract', {}, 0, 0); b.link(zero, neg, 0);
+    const e = b.add('exp', {}, 1, 0); b.link(neg, e, 0);
+    const den = b.add('add', {}, 2, 0); b.link(e, den, 0); b.link(one, den, 1);
+    const out = b.add('divide', {}, 3, 0); b.link(one, out, 0); b.link(den, out, 1);
+    b.input(neg, 1, 'x'); b.output(out);
+  },
+  backward(bb) {
+    const one = bb.add('number', { value: 1 }, 0, 1);
+    const slope = bb.op('multiply', [bb.y, bb.op('subtract', [one, bb.y], 0, 0)], 1, 0);
+    bb.outputs([bb.op('multiply', [bb.g, slope], 2, 0)]);
+  }
+});
+
+// 층 하나. 역전파: ∂W = g ⊗ x, ∂x = Wᵀg, ∂b = g
+const DENSE = defineBlock({
+  id: 'dense', name: '층 · Wx + b', formula: 'Wx + b',
+  build(b) {
+    const m = b.add('matvec', {}, 0, 0);
+    const out = b.add('add', {}, 1, 0); b.link(m, out, 0);
+    b.input(m, 0, 'W'); b.input(m, 1, 'x'); b.input(out, 1, 'b'); b.output(out);
+  },
+  backward(bb) {
+    const dW = bb.op('outerProduct', [bb.g, bb.input(1)], 0, 0);
+    const dx = bb.op('transposeMatvec', [bb.input(0), bb.g], 0, 1);
+    bb.outputs([dW, dx, bb.g]);
+  }
+});
+
+// 함수 그래프를 그림(행렬)으로: 칸 (r, c) = 1  ⇔  |y_c − 높이_r| ≤ 두께.
+// 같은 입력을 여러 곳에 쓰므로 안에서 값 보기로 갈라 씁니다.
+const PLOT = defineBlock({
+  id: 'plot', name: '그래프 그리기 · |y − 높이| ≤ 두께', formula: '[ |y_c − h_r| ≤ δ ]',
+  build(b) {
+    const py = b.add('display', {}, 0, 0), ph = b.add('display', {}, 0, 1);
+    const zero = b.add('number', { value: 0 }, 0, 2), one = b.add('number', { value: 1 }, 0, 3);
+    // 1로 채운 벡터: y·0 + 1, 높이·0 + 1
+    const ones = (source, row) => {
+      const zeroed = b.add('multiply', {}, 1, row); b.link(source, zeroed, 0); b.link(zero, zeroed, 1);
+      const filled = b.add('add', {}, 2, row); b.link(zeroed, filled, 0); b.link(one, filled, 1);
+      return filled;
+    };
+    const onesY = ones(py, 0), onesH = ones(ph, 1);
+    const heights = b.add('outerProduct', {}, 3, 0); b.link(ph, heights, 0); b.link(onesY, heights, 1);
+    const curve = b.add('outerProduct', {}, 3, 1); b.link(onesH, curve, 0); b.link(py, curve, 1);
+    const d = b.add('subtract', {}, 4, 0); b.link(heights, d, 0); b.link(curve, d, 1);
+    const nd = b.add('subtract', {}, 4, 1); b.link(zero, nd, 0); b.link(d, nd, 1);
+    const abs = b.add('maximum', {}, 5, 0); b.link(d, abs, 0); b.link(nd, abs, 1);
+    const over = b.add('subtract', {}, 6, 0); b.link(abs, over, 0);
+    const clip = b.add('maximum', {}, 7, 0); b.link(over, clip, 0); b.link(zero, clip, 1);
+    const hit = b.add('equal', {}, 8, 0); b.link(clip, hit, 0); b.link(zero, hit, 1);
+    b.input(py, 0, 'y'); b.input(ph, 0, '높이 목록'); b.input(over, 1, '두께'); b.output(hit);
+  }
+});
+
+// 기본 블록 '곱하기'의 역전파 정의: ∂a = g·b, ∂b = g·a
+const MULTIPLY_BACKWARD = {
+  type: 'multiply',
+  definition: defineBackward(2, bb => {
+    bb.outputs([bb.op('multiply', [bb.g, bb.input(1)], 0, 0), bb.op('multiply', [bb.g, bb.input(0)], 0, 1)]);
+  })
+};
+
+function backwardParams2(upstream, gradients) {
+  const params = { manualBackpropMode: 'backward', manualBackpropUpstream: upstream };
+  gradients.forEach((name, k) => { params[`manualBackpropGradient${k}`] = name; });
+  return params;
+}
+
+// ---------- 5단계: 경사하강 ----------
+
+const GD = { target: 3, start: 0, steps: 50, good: 0.1, bad: 1.1 };
+
+function simulateGd(lr) {
+  let w = GD.start;
+  for (let i = 0; i < GD.steps; i++) {
+    const g = 2 * (w - GD.target);
+    w = w - lr * g;
+  }
+  return { w, loss: (w - GD.target) * (w - GD.target) };
+}
+
+function build05() {
+  const ws = new Workspace();
+  const three = ws.number(GD.target, 0, 0);
+  const two = ws.number(2, 0, 1);
+  const rows = [];
+  [['w', GD.good, 0.5], ['u', GD.bad, 3.5]].forEach(([name, lr, R]) => {
+    const v = ws.variable(name, { value: GD.start, trainable: 'yes' }, 1, R);
+    const eta = ws.number(lr, 1, R + 1);
+    const d = ws.op('subtract', [v, three], 2, R);
+    ws.display(ws.op('multiply', [d, d], 3, R), 4, R, { expect: (GD.start - GD.target) ** 2 });
+    const g = ws.op('multiply', [two, d], 3, R + 1);
+    const set = ws.op('setVariable', [ws.custom(SGD_STEP, [v, eta, g], 4, R + 1)], 5, R + 1, { variable: name });
+    rows.push({ name, lr, set, R });
+  });
+  const body = ws.op('sequence', [rows[0].set, rows[1].set], 6, 1);
+  ws.op('repeat', [body], 7, 1, { count: GD.steps, start: 0, indexVariable: 'i' });
+  // 반복 뒤에 만든 변수 블록이라 학습 후 값을 읽습니다.
+  for (const row of rows) {
+    const result = simulateGd(row.lr);
+    const after = ws.variable(row.name, { value: GD.start, trainable: 'yes' }, 8, row.R);
+    ws.display(after, 9, row.R, { approx: result.w, tol: Math.max(1e-9, Math.abs(result.w) * 1e-9) });
+    const d = ws.op('subtract', [after, three], 9, row.R + 1);
+    ws.display(ws.op('multiply', [d, d], 10, row.R + 1), 11, row.R + 1, { approx: result.loss, tol: Math.max(1e-9, result.loss * 1e-9) });
+  }
+  return { ws, viewport: { x: 0, y: 0, zoom: 0.55 }, good: simulateGd(GD.good), bad: simulateGd(GD.bad) };
+}
+
+// ---------- 6단계: 매끄러운 활성화 함수 ----------
+
+const PLOT_X = Array.from({ length: 61 }, (_, i) => round3(-6 + 0.2 * i));
+const levels = (top, count = 41) => Array.from({ length: count }, (_, i) => round3(top - (top / (count - 1)) * i));
+const DIFF_H = 0.01;
+
+function build06() {
+  const ws = new Workspace();
+  const xs = ws.variable('x', { mode: 'vector', length: PLOT_X.length, value: 0 }, 0, 0, PLOT_X);
+  const h01 = ws.variable('높이0_1', { mode: 'vector', length: 41, value: 0 }, 0, 1, levels(1));
+  const hDer = ws.variable('높이0_0.3', { mode: 'vector', length: 41, value: 0 }, 0, 2, levels(0.3));
+  const hRelu = ws.variable('높이0_6', { mode: 'vector', length: 41, value: 0 }, 0, 3, levels(6));
+  const w01 = ws.number(0.03, 0, 4), wDer = ws.number(0.009, 0, 5), wRelu = ws.number(0.18, 0, 6);
+  const h = ws.number(DIFF_H, 0, 7), twoH = ws.number(2 * DIFF_H, 0, 8);
+  const image = { view: 'image' };
+  const plot = (y, heights, width, col, row) => ws.display(ws.custom(PLOT, [y, heights, width], col, row), col + 1, row, null, image);
+  // 수치 미분 (f(x + h) − f(x − h)) / 2h
+  const xPlus = ws.op('add', [xs, h], 1, 7.5), xMinus = ws.op('subtract', [xs, h], 1, 8.5);
+  const numeric = (block, col, row) => ws.op('divide', [ws.op('subtract', [ws.custom(block, [xPlus], col, row), ws.custom(block, [xMinus], col, row + 1)], col + 1, row), twoH], col + 2, row);
+
+  const x = Float32Array.from(PLOT_X);
+  const sigma = simSigmoid(Array.from(x));
+  const slope = sim.mul(sigma, sim.sub(1, sigma));
+
+  // 위: 계단 함수와 그 기울기
+  plot(ws.custom(STEP, [xs], 2, 0), h01, w01, 3, 0);
+  plot(numeric(STEP, 2, 1.5), h01, w01, 5, 1.5);
+  // 가운데: 시그모이드, 기울기 σ(1 − σ), 수치 미분과 비교
+  const s = ws.custom(SIGMOID, [xs], 2, 4);
+  ws.display(s, 3, 3.2, { approx: sigma, tol: 1e-6 });
+  plot(s, h01, w01, 3, 4);
+  const one = ws.number(1, 2, 5.2);
+  const ds = ws.op('multiply', [s, ws.op('subtract', [one, s], 3, 5.2)], 4, 5.2);
+  ws.display(ds, 5, 5.2, { approx: slope, tol: 1e-6 });
+  plot(ds, hDer, wDer, 6, 5.2);
+  const gap = ws.op('subtract', [numeric(SIGMOID, 2, 7.5), ds], 5, 7.5);
+  const absGap = ws.op('maximum', [gap, ws.op('subtract', [ws.number(0, 5, 8.5), gap], 6, 8.5)], 6, 7.5);
+  ws.display(ws.op('arrayMax', [absGap], 7, 7.5), 8, 7.5, { approx: 0, tol: 1e-4 });
+  // 아래: ReLU 와 그 기울기(= 계단 함수)
+  const r = ws.custom(RELU, [xs], 2, 10);
+  plot(r, hRelu, wRelu, 3, 10);
+  plot(ws.custom(STEP, [xs], 5, 10), h01, w01, 6, 10);
+  return { ws, viewport: { x: 0, y: 0, zoom: 0.5 } };
+}
+
+// ---------- 7단계: 연쇄 법칙과 수동 역전파 ----------
+
+const CHAIN = { w: 0.5, x: 2, h: 0.001 };
+
+function build07() {
+  const ws = new Workspace();
+  const w = ws.variable('w', { value: CHAIN.w }, 0, 0);
+  const x = ws.variable('x', { value: CHAIN.x }, 0, 1);
+  const z = ws.op('multiply', [w, x], 1, 0);
+  const y = ws.custom(SIGMOID, [z], 2, 0);
+  const sig = v => 1 / (1 + Math.exp(-v));
+  const zv = CHAIN.w * CHAIN.x, yv = sig(zv), slope = yv * (1 - yv);
+  ws.display(z, 2, 1, { approx: zv, tol: 1e-12 });
+  ws.display(y, 3, 0, { approx: yv, tol: 1e-12 });
+
+  // 역전파: 출력 쪽부터. g = ∂y/∂y = 1 → σ 역전파가 dz 를, 곱하기 역전파가 dw, dx 를 씁니다.
+  ws.variable('g', { value: 1 }, 0, 3);
+  const backSig = ws.custom(SIGMOID, [z], 2, 3, backwardParams2('g', ['dz']));
+  const backMul = ws.op('multiply', [w, x], 1, 4.2, backwardParams2('dz', ['dw', 'dx']));
+  ws.op('sequence', [backSig, backMul], 3, 3.6);
+  // 역전파 블록보다 나중에 만든 변수 블록이라 기록된 기울기를 읽습니다.
+  ws.display(ws.variable('dz', { value: 0 }, 4, 3), 5, 3, { approx: slope, tol: 1e-6 });
+  ws.display(ws.variable('dw', { value: 0 }, 4, 4), 5, 4, { approx: slope * CHAIN.x, tol: 1e-6 });
+  ws.display(ws.variable('dx', { value: 0 }, 4, 5), 5, 5, { approx: slope * CHAIN.w, tol: 1e-6 });
+
+  // 확인: w 를 ±h 만큼 움직인 수치 미분
+  const h = ws.number(CHAIN.h, 0, 7);
+  const yAt = (wv, row) => ws.custom(SIGMOID, [ws.op('multiply', [wv, x], 2, row)], 3, row);
+  const up = yAt(ws.op('add', [w, h], 1, 7), 7), down = yAt(ws.op('subtract', [w, h], 1, 8), 8);
+  const numeric = ws.op('divide', [ws.op('subtract', [up, down], 4, 7.5), ws.number(2 * CHAIN.h, 4, 8.5)], 5, 7.5);
+  const expected = (sig((CHAIN.w + CHAIN.h) * CHAIN.x) - sig((CHAIN.w - CHAIN.h) * CHAIN.x)) / (2 * CHAIN.h);
+  ws.display(numeric, 6, 7.5, { approx: expected, tol: 1e-9 });
+  return { ws, viewport: { x: 0, y: 0, zoom: 0.6 }, builtins: [MULTIPLY_BACKWARD], chain: { zv, yv, slope } };
+}
+
+// ---------- 8·9단계 공통: 한 회차 = 순전파 → 역전파 → 값 바꾸기 ----------
+
+// 역전파 실행 블록을 순서대로 묶고, 그 뒤에 값 바꾸기들을 묶어 반복합니다.
+function trainingLoop(ws, backward, updates, col, row, count) {
+  const body = ws.op('sequence', [ws.chain(backward, col, row), ws.chain(updates, col, row + 1)], col + backward.length, row);
+  return ws.op('repeat', [body], col + backward.length + 1, row, { count, start: 0, indexVariable: 'i' });
+}
+
+// ---------- 8단계: 뉴런 하나를 경사하강으로 (AND) ----------
+
+const NEURON = { lr: 2, steps: 500, init: { w1: 0, w2: 0, b: 0 } };
+const AND_TABLE = [0, 0, 0, 1];
+
+function simulateNeuron() {
+  let { w1, w2, b } = NEURON.init;
+  const x1 = TRUTH.x1, x2 = TRUTH.x2, t = AND_TABLE;
+  const forward = () => simSigmoid(simLinear(x1, x2, w1, w2, b));
+  const before = forward();
+  for (let i = 0; i < NEURON.steps; i++) {
+    const y = forward();
+    const dz = simSigmoidBack(simSqErrBack(1, y, t), y);
+    const d = [sim.sum(sim.mul(dz, x1)), sim.sum(sim.mul(dz, x2)), sim.sum(dz)];
+    w1 = w1 - NEURON.lr * d[0]; w2 = w2 - NEURON.lr * d[1]; b = b - NEURON.lr * d[2];
+  }
+  const after = forward();
+  return { before, lossBefore: simSqErr(before, t), w1, w2, b, after, lossAfter: simSqErr(after, t) };
+}
+
+function build08() {
+  const ws = new Workspace();
+  const sim8 = simulateNeuron();
+  const { x1, x2 } = truthInputs(ws, 0, 0, false);
+  const t = ws.variable('t', { mode: 'vector', length: 4, value: 0 }, 0, 2, AND_TABLE);
+  const params = ['w1', 'w2', 'b'].map((name, k) => ws.variable(name, { value: NEURON.init[name], trainable: 'yes' }, 0, 3 + k));
+  const eta = ws.number(NEURON.lr, 0, 6);
+
+  // 순전파
+  const z = ws.custom(LINEAR, [x1, x2, ...params], 1.2, 1);
+  const y = ws.custom(SIGMOID, [z], 2.2, 1);
+  ws.display(y, 3.2, 0, { approx: sim8.before, tol: 1e-6 });
+  const loss = ws.custom(SQ_ERR, [y, t], 3.2, 1);
+  ws.display(loss, 4.2, 1, { approx: sim8.lossBefore, tol: 1e-6 });
+
+  // 역전파 (손실 → σ → 선형 모형)와 갱신
+  const gradNames = ['dw1', 'dw2', 'db'];
+  ['gL', 'dy', 'dz', ...gradNames].forEach((name, k) => ws.variable(name, { value: name === 'gL' ? 1 : 0 }, 5.4 + (k % 3), 3 + Math.floor(k / 3) * 0.8));
+  const backward = [
+    ws.custom(SQ_ERR, [y, t], 3.2, 4.8, backwardParams2('gL', ['dy', ''])),
+    ws.custom(SIGMOID, [z], 2.2, 4.8, backwardParams2('dy', ['dz'])),
+    ws.custom(LINEAR, [x1, x2, ...params], 1.2, 4.8, backwardParams2('dz', ['', '', ...gradNames]))
+  ];
+  const updates = params.map((p, k) => {
+    const grad = ws.variable(gradNames[k], { value: 0 }, 1.2 + k, 7);
+    return ws.op('setVariable', [ws.custom(SGD_STEP, [p, eta, grad], 1.2 + k, 8)], 1.2 + k, 9, { variable: ['w1', 'w2', 'b'][k] });
+  });
+  trainingLoop(ws, backward, updates, 4.6, 6.4, NEURON.steps);
+
+  // 학습 후
+  const A = 11;
+  const after = ['w1', 'w2', 'b'].map((name, k) => ws.variable(name, { value: NEURON.init[name], trainable: 'yes' }, 0, A + k));
+  after.forEach((v, k) => ws.display(v, 1, A + k, { approx: [sim8.w1, sim8.w2, sim8.b][k], tol: 1e-4 }));
+  const yAfter = ws.custom(SIGMOID, [ws.custom(LINEAR, [x1, x2, ...after], 2, A)], 3, A);
+  ws.display(yAfter, 4, A, { approx: sim8.after, tol: 1e-4 });
+  ws.display(ws.custom(SQ_ERR, [yAfter, t], 4, A + 1), 5, A + 1, { approx: sim8.lossAfter, tol: 1e-4 });
+  return { ws, viewport: { x: 0, y: 0, zoom: 0.5 }, sim: sim8 };
+}
+
+// ---------- 9단계: 2-2-1 신경망으로 XOR 학습 ----------
+
+const XOR_NET = { lr: 2, steps: 3000, scale: 1 };
+const XOR_PARAMS = ['w11', 'w12', 'b1', 'w21', 'w22', 'b2', 'v1', 'v2', 'c'];
+
+function xorForward(p) {
+  const h1 = simSigmoid(simLinear(TRUTH.x1, TRUTH.x2, p.w11, p.w12, p.b1));
+  const h2 = simSigmoid(simLinear(TRUTH.x1, TRUTH.x2, p.w21, p.w22, p.b2));
+  return { h1, h2, y: simSigmoid(simLinear(h1, h2, p.v1, p.v2, p.c)) };
+}
+
+function simulateXorNet(init) {
+  const p = { ...init };
+  const t = TRUTH.xor;
+  const before = xorForward(p).y;
+  for (let i = 0; i < XOR_NET.steps; i++) {
+    const { h1, h2, y } = xorForward(p);
+    const dzo = simSigmoidBack(simSqErrBack(1, y, t), y);
+    const dz1 = simSigmoidBack(sim.mul(dzo, p.v1), h1);
+    const dz2 = simSigmoidBack(sim.mul(dzo, p.v2), h2);
+    const g = {
+      w11: sim.sum(sim.mul(dz1, TRUTH.x1)), w12: sim.sum(sim.mul(dz1, TRUTH.x2)), b1: sim.sum(dz1),
+      w21: sim.sum(sim.mul(dz2, TRUTH.x1)), w22: sim.sum(sim.mul(dz2, TRUTH.x2)), b2: sim.sum(dz2),
+      v1: sim.sum(sim.mul(dzo, h1)), v2: sim.sum(sim.mul(dzo, h2)), c: sim.sum(dzo)
+    };
+    for (const name of XOR_PARAMS) p[name] = p[name] - XOR_NET.lr * g[name];
+  }
+  const after = xorForward(p).y;
+  return { init, before, lossBefore: simSqErr(before, t), params: p, after, lossAfter: simSqErr(after, t) };
+}
+
+// 초깃값: 고정 시드 난수를 소수 셋째 자리로 반올림. 학습이 성공하는 첫 시드를 고릅니다.
+function chooseXorInit() {
+  for (let seed = 1; seed < 200; seed++) {
+    const r = lcgFloat32(XOR_PARAMS.length, seed, XOR_NET.scale);
+    const init = Object.fromEntries(XOR_PARAMS.map((name, k) => [name, round3(r[k])]));
+    const result = simulateXorNet(init);
+    if (result.lossAfter < 0.02) return { seed, ...result };
+  }
+  throw new Error('XOR 을 학습하는 초깃값을 찾지 못했습니다.');
+}
+
+function build09() {
+  const ws = new Workspace();
+  const sim9 = chooseXorInit();
+  const { x1, x2 } = truthInputs(ws, 0, 0, false);
+  const t = ws.variable('t', { mode: 'vector', length: 4, value: 0 }, 0, 2, TRUTH.xor);
+  const P = Object.fromEntries(XOR_PARAMS.map((name, k) => [name, ws.variable(name, { value: sim9.init[name], trainable: 'yes' }, 0, 3 + k * 0.75)]));
+  const eta = ws.number(XOR_NET.lr, 0, 10);
+
+  // 순전파: 은닉 뉴런 h1, h2 → 출력 뉴런 y
+  const z1 = ws.custom(LINEAR, [x1, x2, P.w11, P.w12, P.b1], 1.3, 0);
+  const h1 = ws.custom(SIGMOID, [z1], 2.3, 0);
+  const z2 = ws.custom(LINEAR, [x1, x2, P.w21, P.w22, P.b2], 1.3, 1.6);
+  const h2 = ws.custom(SIGMOID, [z2], 2.3, 1.6);
+  const zo = ws.custom(LINEAR, [h1, h2, P.v1, P.v2, P.c], 3.3, 0.8);
+  const y = ws.custom(SIGMOID, [zo], 4.3, 0.8);
+  ws.display(y, 5.3, 0, { approx: sim9.before, tol: 1e-6 });
+  ws.display(ws.custom(SQ_ERR, [y, t], 5.3, 1), 6.3, 1, { approx: sim9.lossBefore, tol: 1e-6 });
+
+  // 역전파: 손실 → 출력 σ → 출력 선형 → (은닉 σ → 은닉 선형) × 2
+  const gradOf = name => `d${name}`;
+  ['gL', 'dy', 'dzo', 'dh1', 'dh2', 'dz1', 'dz2'].forEach((name, k) => ws.variable(name, { value: name === 'gL' ? 1 : 0 }, 7.5 + (k % 4), 0 + Math.floor(k / 4) * 0.8));
+  const B = 3.6;
+  const backward = [
+    ws.custom(SQ_ERR, [y, t], 5.3, B, backwardParams2('gL', ['dy', ''])),
+    ws.custom(SIGMOID, [zo], 4.3, B, backwardParams2('dy', ['dzo'])),
+    ws.custom(LINEAR, [h1, h2, P.v1, P.v2, P.c], 3.3, B, backwardParams2('dzo', ['dh1', 'dh2', 'dv1', 'dv2', 'dc'])),
+    ws.custom(SIGMOID, [z1], 2.3, B, backwardParams2('dh1', ['dz1'])),
+    ws.custom(LINEAR, [x1, x2, P.w11, P.w12, P.b1], 1.3, B, backwardParams2('dz1', ['', '', 'dw11', 'dw12', 'db1'])),
+    ws.custom(SIGMOID, [z2], 2.3, B + 1.6, backwardParams2('dh2', ['dz2'])),
+    ws.custom(LINEAR, [x1, x2, P.w21, P.w22, P.b2], 1.3, B + 1.6, backwardParams2('dz2', ['', '', 'dw21', 'dw22', 'db2']))
+  ];
+  const updates = XOR_PARAMS.map((name, k) => {
+    const grad = ws.variable(gradOf(name), { value: 0 }, 1 + k, 7.6);
+    return ws.op('setVariable', [ws.custom(SGD_STEP, [P[name], eta, grad], 1 + k, 8.6)], 1 + k, 9.6, { variable: name });
+  });
+  trainingLoop(ws, backward, updates, 6.5, 4.4, XOR_NET.steps);
+
+  // 학습 후
+  const A = 12;
+  const after = Object.fromEntries(XOR_PARAMS.map((name, k) => [name, ws.variable(name, { value: sim9.init[name], trainable: 'yes' }, 0, A + k * 0.75)]));
+  const a1 = ws.custom(SIGMOID, [ws.custom(LINEAR, [x1, x2, after.w11, after.w12, after.b1], 1.3, A)], 2.3, A);
+  const a2 = ws.custom(SIGMOID, [ws.custom(LINEAR, [x1, x2, after.w21, after.w22, after.b2], 1.3, A + 1.6)], 2.3, A + 1.6);
+  const yAfter = ws.custom(SIGMOID, [ws.custom(LINEAR, [a1, a2, after.v1, after.v2, after.c], 3.3, A + 0.8)], 4.3, A + 0.8);
+  ws.display(yAfter, 5.3, A, { approx: sim9.after, tol: 1e-3 });
+  ws.display(ws.custom(SQ_ERR, [yAfter, t], 5.3, A + 1), 6.3, A + 1, { approx: sim9.lossAfter, tol: 1e-3 });
+  return { ws, viewport: { x: 0, y: 0, zoom: 0.45 }, sim: sim9 };
+}
+
+// ---------- 10단계: 층 블록 Wx + b 로 다시 조립 ----------
+
+// 은닉층 W1 (2×2), b1 (2), 출력층 W2 (1×2), b2 (1). 그림 한 장(진리표 한 줄)씩 학습합니다.
+const LAYER_NET = { lr: 2, epochs: 1000, scale: 1 };
+const XOR_X = { rows: 2, cols: 4, data: [...TRUTH.x1, ...TRUTH.x2] };
+
+function layerForward(p, x) {
+  const z1 = sim.add(sim.matvec(p.W1, x), p.b1);
+  const h = simSigmoid(z1);
+  const z2 = sim.add(sim.matvec(p.W2, h), p.b2);
+  return { h, y: simSigmoid(z2) };
+}
+
+function simulateLayerNet(seed) {
+  const p = {
+    W1: { rows: 2, cols: 2, data: Array.from(lcgFloat32(4, seed, LAYER_NET.scale)) },
+    b1: [0, 0],
+    W2: { rows: 1, cols: 2, data: Array.from(lcgFloat32(2, seed + 1, LAYER_NET.scale)) },
+    b2: [0]
+  };
+  const columns = [0, 1, 2, 3].map(k => [TRUTH.x1[k], TRUTH.x2[k]]);
+  const outputs = () => columns.map(x => layerForward(p, x).y[0]);
+  const before = outputs();
+  for (let e = 0; e < LAYER_NET.epochs; e++) {
+    for (let k = 0; k < 4; k++) {
+      const x = columns[k], t = TRUTH.xor[k];
+      const { h, y } = layerForward(p, x);
+      const dz2 = simSigmoidBack(simSqErrBack(1, y, t), y);
+      const dW2 = sim.outer(dz2, h), dh = sim.tmatvec(p.W2, dz2);
+      const dz1 = simSigmoidBack(dh, h);
+      const dW1 = sim.outer(dz1, x);
+      const step = (m, d) => ({ ...m, data: sim.sub(m.data, sim.mul(LAYER_NET.lr, d.data)) });
+      Object.assign(p, { W1: step(p.W1, dW1), b1: sim.sub(p.b1, sim.mul(LAYER_NET.lr, dz1)), W2: step(p.W2, dW2), b2: sim.sub(p.b2, sim.mul(LAYER_NET.lr, dz2)) });
+    }
+  }
+  const after = outputs();
+  const loss = after.reduce((s, y, k) => s + (y - TRUTH.xor[k]) ** 2, 0);
+  return { seed, before, after, loss, params: p };
+}
+
+function chooseLayerSeed() {
+  for (let seed = 1; seed < 200; seed++) {
+    const result = simulateLayerNet(seed);
+    if (result.loss < 0.02) return result;
+  }
+  throw new Error('XOR 을 학습하는 층 초깃값을 찾지 못했습니다.');
+}
+
+function build10() {
+  const ws = new Workspace();
+  const sim10 = chooseLayerSeed();
+  const X = ws.variable('X', { mode: 'matrix', rows: 2, cols: 4, value: 0 }, 0, 0, XOR_X.data);
+  const T = ws.variable('t', { mode: 'vector', length: 4, value: 0 }, 0, 1, TRUTH.xor);
+  const idx = ws.variable('번호', { mode: 'vector', length: 4, value: 0 }, 0, 2, [0, 1, 2, 3]);
+  const k = ws.variable('k', { value: 0 }, 0, 3);
+  const weight = (name, rows, cols, seed, col, row) => ws.variable(name, { mode: 'matrix', rows, cols, init: 'random', seed, scale: LAYER_NET.scale, trainable: 'yes' }, col, row);
+  const bias = (name, length, col, row) => ws.variable(name, { mode: 'vector', length, value: 0, trainable: 'yes' }, col, row);
+  const P = { W1: weight('W1', 2, 2, sim10.seed, 0, 4.5), b1: bias('b1', 2, 0, 5.5), W2: weight('W2', 1, 2, sim10.seed + 1, 0, 6.5), b2: bias('b2', 1, 0, 7.5) };
+  const eta = ws.number(LAYER_NET.lr, 0, 8.5);
+
+  // k번째 줄: x = X·[번호 = k],  정답 = t·[번호 = k]
+  const pick = ws.op('equal', [idx, k], 1, 2.5);
+  const x = ws.op('matvec', [X, pick], 2, 1);
+  const target = ws.op('dot', [T, pick], 2, 2.5);
+  const z1 = ws.custom(DENSE, [P.W1, x, P.b1], 3, 1);
+  const h = ws.custom(SIGMOID, [z1], 4, 1);
+  const z2 = ws.custom(DENSE, [P.W2, h, P.b2], 5, 1);
+  const y = ws.custom(SIGMOID, [z2], 6, 1);
+  ws.custom(SQ_ERR, [y, target], 7, 1);
+
+  ['gL', 'dy', 'dz2', 'dh', 'dz1', 'dW2', 'db2', 'dW1', 'db1'].forEach((name, n) => {
+    const shape = { dy: [1], dz2: [1], db2: [1], dh: [2], dz1: [2], db1: [2], dW2: [1, 2], dW1: [2, 2] }[name];
+    const params = !shape ? { value: 1 } : shape.length === 1 ? { mode: 'vector', length: shape[0], value: 0 } : { mode: 'matrix', rows: shape[0], cols: shape[1], value: 0 };
+    ws.variable(name, params, 8.5 + (n % 3), Math.floor(n / 3) * 0.8);
+  });
+  const B = 3.6;
+  const backward = [
+    ws.custom(SQ_ERR, [y, target], 7, B, backwardParams2('gL', ['dy', ''])),
+    ws.custom(SIGMOID, [z2], 6, B, backwardParams2('dy', ['dz2'])),
+    ws.custom(DENSE, [P.W2, h, P.b2], 5, B, backwardParams2('dz2', ['dW2', 'dh', 'db2'])),
+    ws.custom(SIGMOID, [z1], 4, B, backwardParams2('dh', ['dz1'])),
+    ws.custom(DENSE, [P.W1, x, P.b1], 3, B, backwardParams2('dz1', ['dW1', '', 'db1']))
+  ];
+  const updates = ['W1', 'b1', 'W2', 'b2'].map((name, n) => {
+    const gradParams = { W1: { mode: 'matrix', rows: 2, cols: 2, value: 0 }, b1: { mode: 'vector', length: 2, value: 0 }, W2: { mode: 'matrix', rows: 1, cols: 2, value: 0 }, b2: { mode: 'vector', length: 1, value: 0 } }[name];
+    const grad = ws.variable(`d${name}`, gradParams, 2 + n, 6.2);
+    return ws.op('setVariable', [ws.custom(SGD_STEP, [P[name], eta, grad], 2 + n, 7.2)], 2 + n, 8.2, { variable: name });
+  });
+  const body = ws.op('sequence', [ws.chain(backward, 6.5, 6.2), ws.chain(updates, 6.5, 7.2)], 11, 6.2);
+  const rows = ws.op('repeat', [body], 12, 6.2, { count: 4, start: 0, indexVariable: 'k' });
+  ws.op('repeat', [rows], 13, 6.2, { count: LAYER_NET.epochs, start: 0, indexVariable: 'epoch' });
+  ws.variable('epoch', { value: 0 }, 13, 7.2);
+
+  // 학습 후: 진리표 네 줄을 하나씩 넣어 봅니다.
+  const A = 10.5;
+  const after = {
+    W1: weight('W1', 2, 2, sim10.seed, 0, A), b1: bias('b1', 2, 0, A + 1),
+    W2: weight('W2', 1, 2, sim10.seed + 1, 0, A + 2), b2: bias('b2', 1, 0, A + 3)
+  };
+  [0, 1, 2, 3].forEach(n => {
+    const xn = ws.variable(`x${n + 1}`, { mode: 'vector', length: 2, value: 0 }, 1, A + n, [TRUTH.x1[n], TRUTH.x2[n]]);
+    const out = ws.custom(SIGMOID, [ws.custom(DENSE, [after.W2, ws.custom(SIGMOID, [ws.custom(DENSE, [after.W1, xn, after.b1], 2, A + n)], 3, A + n), after.b2], 4, A + n)], 5, A + n);
+    ws.display(out, 6, A + n, { approx: [sim10.after[n]], tol: 1e-3 });
+  });
+  return { ws, viewport: { x: 0, y: 0, zoom: 0.45 }, sim: sim10 };
+}
+
 // ---------- CNN: Quick Draw 15종 분류 ----------
 //
 // source/quickdraw-cnn.mmlab(편집 모드에서 만든 학습 작업공간)과 source/quickdraw-cnn.mmlweights.json
@@ -817,6 +1357,7 @@ function buildCnn({ trained }) {
 function buildAll() {
   const s03 = build03();
   const s04 = build04();
+  const s05 = build05(), s07 = build07(), s08 = build08(), s09 = build09(), s10 = build10();
   const steps = [
     { id: '00a', title: '0-1. 입력 블록과 값 보기', file: '00a-input-blocks.mmlab', build: build00a() },
     { id: '00b', title: '0-2. 수학 연산 블록', file: '00b-math-blocks.mmlab', build: build00b() },
@@ -826,6 +1367,12 @@ function buildAll() {
     { id: '02', title: '2. XOR 게이트 조립', file: '02-xor.mmlab', build: build02() },
     { id: '03', title: '3. 신경망의 기본 발상 Wx+b: XOR 학습 실패', file: '03-linear-fail.mmlab', build: s03 },
     { id: '04', title: '4. 임계값 활성화: 표현은 되지만 학습은?', file: '04-threshold-search.mmlab', build: s04 },
+    { id: '05', title: '5. 경사하강: 기울기를 따라 내려가기', file: '05-gradient-descent.mmlab', build: s05 },
+    { id: '06', title: '6. 매끄러운 활성화 함수: 시그모이드와 ReLU', file: '06-smooth-activation.mmlab', build: build06() },
+    { id: '07', title: '7. 연쇄 법칙과 수동 역전파', file: '07-chain-rule.mmlab', build: s07 },
+    { id: '08', title: '8. 뉴런 하나를 경사하강으로 학습: AND', file: '08-neuron-and.mmlab', build: s08 },
+    { id: '09', title: '9. 2-2-1 신경망으로 XOR 학습 성공', file: '09-xor-backprop.mmlab', build: s09 },
+    { id: '10', title: '10. 층 블록 Wx + b 와 그 역전파', file: '10-dense-layer.mmlab', build: s10 },
     { id: 'cnn-train', title: 'CNN 학습: 무작위 가중치에서 1 epoch', file: 'cnn-1-train.mmlab', build: buildCnn({ trained: false }) },
     { id: 'cnn-trained', title: 'CNN 완성: 60 epoch 학습 결과 평가와 손그림 분류', file: 'cnn-2-trained.mmlab', build: buildCnn({ trained: true }) }
   ];
@@ -931,6 +1478,77 @@ function buildAll() {
       '핵심: 기울기 정보가 없으면 탐색은 결국 ‘찍기’입니다. 파라미터 9개는 천 번쯤 찍으면 되지만, 마지막 단계의 CNN은 파라미터가 157,015개입니다.',
       '매끄럽게 미분되는 활성화 함수와, 기울기를 따라 내려가는 방법(역전파)이 필요한 이유입니다.'
     ],
+    '05': [
+      '04단계는 ‘조금 나아지는 방향’이 없어서 막혔습니다. 기울기는 바로 그 방향을 알려 줍니다.',
+      `손실 L(w) = (w − ${GD.target})² 의 기울기는 dL/dw = 2(w − ${GD.target}). 기울기의 반대쪽으로 조금씩 움직이면 L이 작아집니다.`,
+      '  w ← w − η · dL/dw   (η: 학습률, 한 걸음의 크기)',
+      '',
+      `위: w = ${GD.start}에서 시작, η = ${GD.good}. 반복 ${GD.steps}회 → w = ${s05.good.w.toFixed(5)}. 3에 다가갑니다.`,
+      `아래: 같은 식에 η = ${GD.bad}. 반복 ${GD.steps}회 → u = ${Math.round(s05.bad.w).toLocaleString()}. 한 걸음이 너무 커서 3을 지나쳐 반대편으로 더 멀리 튀고, 점점 발산합니다.`,
+      '',
+      `왜? 한 번 갱신하면 (w − 3)이 (1 − 2η)배가 됩니다. η = ${GD.good}이면 ${1 - 2 * GD.good}배씩 줄고, η = ${GD.bad}이면 ${round3(1 - 2 * GD.bad)}배씩 부호를 바꾸며 커집니다.`,
+      '시연: η 숫자 블록을 0.5(한 번에 도착), 0.9(진동하며 수렴)로 바꿔 계산해 봅니다.'
+    ],
+    '06': [
+      '경사하강에는 기울기가 필요합니다. 04단계의 계단 함수는 기울기가 거의 모든 곳에서 0이라 쓸 수 없었습니다.',
+      '',
+      '위: 계단 함수와 그 수치 미분 (f(x + h) − f(x − h)) / 2h. x = 0 한 점을 빼면 0입니다.',
+      '가운데: 시그모이드 σ(x) = 1 / (1 + e⁻ˣ). 지수, 더하기, 나누기 블록으로 조립했습니다(블록 안을 열어 확인).',
+      '  0과 1 사이를 매끄럽게 잇는 ‘부드러운 계단’이고, 기울기는 σ\'(x) = σ(x)(1 − σ(x)) 로 순전파 값만으로 계산됩니다.',
+      `  오른쪽 끝 값 보기: 수치 미분과 σ(1 − σ)의 최대 차이 → 거의 0 (h = ${DIFF_H}).`,
+      '아래: ReLU = max(x, 0). 기울기는 x > 0이면 1, 아니면 0, 즉 계단 함수입니다. 계산이 싸서 마지막 CNN에서 씁니다.',
+      '',
+      '그래프는 ‘그래프 그리기’ 블록이 만든 행렬을 값 보기의 그림 보기로 본 것입니다(가로 x: −6~6).'
+    ],
+    '07': [
+      '합성 함수의 미분은 바깥 함수의 기울기 × 안쪽 함수의 기울기 (연쇄 법칙).',
+      `  z = w × x,  y = σ(z)  →  ∂y/∂w = σ\'(z) · x,   ∂y/∂x = σ\'(z) · w`,
+      '',
+      '이 도구에는 자동 미분이 없습니다. 블록마다 ‘역전파 정의’를 직접 씁니다(블록 선택 → 인스펙터 ‘역전파 정의 편집’).',
+      '정의 안에서 쓸 수 있는 값: 입력, 순전파 출력 y, 위에서 내려온 기울기 g = ∂L/∂y.',
+      '  곱하기:   ∂a = g × b,   ∂b = g × a',
+      '  시그모이드: ∂x = g × y(1 − y)',
+      '',
+      `위: w = ${CHAIN.w}, x = ${CHAIN.x} 일 때 순전파 z = ${s07.chain.zv}, y = ${s07.chain.yv.toFixed(4)}.`,
+      '가운데: 역전파 실행. 블록을 ‘역전파 실행’으로 두면 위에서 내려온 기울기 변수를 읽어 입력별 기울기를 변수에 씁니다. 순서는 출력 쪽부터 직접 정합니다(둘 다 계산).',
+      `  g = 1 → σ 역전파 → dz = ${s07.chain.slope.toFixed(4)} → 곱하기 역전파 → dw = ${(s07.chain.slope * CHAIN.x).toFixed(4)}, dx = ${(s07.chain.slope * CHAIN.w).toFixed(4)}`,
+      `아래: 확인. w를 ±${CHAIN.h}만큼 움직인 수치 미분도 ${(s07.chain.slope * CHAIN.x).toFixed(4)}.`
+    ],
+    '08': [
+      '이제 뉴런 하나(선형 모형 → 시그모이드)를 경사하강으로 학습합니다. 목표는 AND = [0,0,0,1].',
+      '',
+      '위: 순전파. 가중치가 모두 0이라 예측은 [0.5, 0.5, 0.5, 0.5], 손실 Σ(y − t)² = 1.',
+      '가운데: 한 회차 = 역전파(손실 → 시그모이드 → 선형 모형) → 값 바꾸기 3개.',
+      '  손실 역전파:  ∂y = 2(y − t)',
+      '  선형 모형 역전파:  ∂w₁ = Σ g·x₁,  ∂w₂ = Σ g·x₂,  ∂b = Σ g   (네 경우의 기울기를 더함)',
+      `  w ← w − η·∂w  (η = ${NEURON.lr}), 반복 ${NEURON.steps}회`,
+      `아래: 학습 후 w₁ = ${s08.sim.w1.toFixed(2)}, w₂ = ${s08.sim.w2.toFixed(2)}, b = ${s08.sim.b.toFixed(2)}. 예측 [${s08.sim.after.map(v => v.toFixed(2)).join(', ')}], 손실 ${s08.sim.lossAfter.toFixed(4)}.`,
+      '',
+      '1단계에서 손으로 넣은 AND 가중치(1, 1, −1.5)와 비율이 비슷합니다. 이번에는 데이터에서 스스로 찾았습니다.'
+    ],
+    '09': [
+      '04단계와 같은 2-2-1 구조(파라미터 9개)에서 계단 함수를 시그모이드로 바꿨습니다. 이제 기울기로 학습할 수 있습니다.',
+      '',
+      '위: 은닉 뉴런 h₁, h₂ → 출력 뉴런 y. 초깃값은 고정 시드 난수입니다.',
+      '가운데: 역전파 7개를 출력 쪽부터 차례로. 출력 뉴런의 선형 모형 역전파가 ∂h₁ = g·v₁, ∂h₂ = g·v₂ 를 은닉 뉴런으로 넘겨 줍니다. 이것이 역전파(오차를 뒤로 전달)입니다.',
+      `  η = ${XOR_NET.lr}, 반복 ${XOR_NET.steps.toLocaleString()}회`,
+      `아래: 학습 후 예측 [${s09.sim.after.map(v => v.toFixed(2)).join(', ')}], 손실 ${s09.sim.lossAfter.toFixed(4)}.`,
+      '',
+      `03단계(선형 모형)는 손실 1.00에서 멈췄고, 04단계는 무작위 탐색이 필요했습니다. 은닉층 + 매끄러운 활성화 + 역전파로 XOR을 학습했습니다.`
+    ],
+    '10': [
+      '09단계의 뉴런 두 개를 행렬 하나로 묶으면 ‘층’입니다:  h = σ(W₁x + b₁),  y = σ(W₂h + b₂).',
+      '',
+      '층 블록 Wx + b 의 역전파 (g = ∂L/∂(Wx + b)):',
+      '  ∂W = g ⊗ x   (외적)',
+      '  ∂x = Wᵀg      (전치 행렬 × 벡터, 앞 층으로 넘길 기울기)',
+      '  ∂b = g',
+      '한 번 정의해 두면 크기에 상관없이 씁니다. 마지막 CNN의 Dense 층들도 이 식 그대로입니다.',
+      '',
+      '위: 진리표 k번째 줄 x = X·[번호 = k] 를 하나씩 꺼내 순전파.',
+      `가운데: 역전파 5개 → W, b 갱신. 줄 4개(k) × ${LAYER_NET.epochs.toLocaleString()}번(epoch). 09단계는 네 줄을 한꺼번에, 여기서는 한 줄씩 갱신합니다.`,
+      `아래: 학습 후 네 줄의 예측 ${s10.sim.after.map(v => v.toFixed(2)).join(', ')}.`
+    ],
     'cnn-train': [
       `Quick Draw 그림 15종을 분류하는 합성곱 신경망(CNN)입니다. 파라미터 ${CNN_PARAM_COUNT.toLocaleString()}개.`,
       '합성곱, ReLU, 평균 풀링, Dense, Softmax Cross Entropy 모두 일반 수학 블록을 묶은 사용자 블록이고, 역전파도 블록마다 직접 작성한 식입니다.',
@@ -966,7 +1584,7 @@ function buildAll() {
   return {
     steps: steps.map(step => ({
       id: step.id, title: step.title, file: step.file,
-      project: step.build.ws.toProject(step.build.viewport, step.build.datasetSelection),
+      project: step.build.ws.toProject(step.build.viewport, step.build.datasetSelection, step.build.builtins),
       checks: step.build.ws.checks,
       verify: step.build.verify
     })),

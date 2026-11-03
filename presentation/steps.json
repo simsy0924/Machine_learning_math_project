@@ -41,6 +41,36 @@
       "file": "04-threshold-search.mmlab"
     },
     {
+      "id": "05",
+      "title": "5. 경사하강: 기울기를 따라 내려가기",
+      "file": "05-gradient-descent.mmlab"
+    },
+    {
+      "id": "06",
+      "title": "6. 매끄러운 활성화 함수: 시그모이드와 ReLU",
+      "file": "06-smooth-activation.mmlab"
+    },
+    {
+      "id": "07",
+      "title": "7. 연쇄 법칙과 수동 역전파",
+      "file": "07-chain-rule.mmlab"
+    },
+    {
+      "id": "08",
+      "title": "8. 뉴런 하나를 경사하강으로 학습: AND",
+      "file": "08-neuron-and.mmlab"
+    },
+    {
+      "id": "09",
+      "title": "9. 2-2-1 신경망으로 XOR 학습 성공",
+      "file": "09-xor-backprop.mmlab"
+    },
+    {
+      "id": "10",
+      "title": "10. 층 블록 Wx + b 와 그 역전파",
+      "file": "10-dense-layer.mmlab"
+    },
+    {
       "id": "cnn-train",
       "title": "CNN 학습: 무작위 가중치에서 1 epoch",
       "file": "cnn-1-train.mmlab"
