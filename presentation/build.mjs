@@ -1352,12 +1352,392 @@ function buildCnn({ trained }) {
   return { ws, datasetSelection: CNN_SOURCE.datasetSelection, verify, viewport: { x: 20, y: 20, zoom: 0.32 } };
 }
 
+// ---------- Part 3: 실제 데이터 (Quick Draw 15종) ----------
+//
+// 데이터 번호 i → 종류 i mod 15 의 ⌊i / 15⌋번째 그림 (데이터 샘플 블록).
+// 학습용 0~14,999 (종류마다 1,000장), 평가용 15,000~29,999.
+
+const QD_CLASSES = CNN_SOURCE.datasetSelection;
+const QD = { classes: QD_CLASSES.length, pixels: 784, train: 15000, test: { start: 15000, count: 15000 } };
+let qdBytes = null;
+
+// js/dataset.js getNormalizedImage 와 같은 값: 바이트 / 255 를 float32 로.
+function qdImage(i) {
+  qdBytes ??= QD_CLASSES.map(name => fs.readFileSync(path.join(HERE, '..', 'data', `${name}.bin`)));
+  const label = i % QD.classes, k = Math.floor(i / QD.classes);
+  const bytes = qdBytes[label], x = new Float32Array(QD.pixels);
+  for (let j = 0; j < QD.pixels; j++) x[j] = bytes[k * QD.pixels + j] / 255;
+  return { x, label };
+}
+const oneHot = (index, length = QD.classes) => Array.from({ length }, (_, k) => (k === index ? 1 : 0));
+
+// 소프트맥스 회귀 784 → 15 를 페이지와 같은 순서로 계산합니다 (출력층 · 손실 · 예측 확률 블록,
+// 경사 한 걸음, 값 바꾸기). batch = 1 이면 그림마다 갱신, 15 이면 15장 기울기를 더해 평균으로 갱신.
+function srLogits(W, b, x, z) {
+  for (let r = 0; r < QD.classes; r++) {
+    let s = 0;
+    for (let j = 0, base = r * QD.pixels; j < QD.pixels; j++) s += W[base + j] * x[j];
+    z[r] = s;
+  }
+  for (let r = 0; r < QD.classes; r++) z[r] = z[r] + b[r];
+}
+function srSoftmax(z, p) {
+  let m = -Infinity;
+  for (const v of z) if (v > m) m = v;
+  const e = new Float32Array(z.length);
+  for (let r = 0; r < z.length; r++) e[r] = Math.exp(Math.fround(z[r] - m));
+  let S = 0;
+  for (let r = 0; r < z.length; r++) S += e[r];
+  for (let r = 0; r < z.length; r++) p[r] = e[r] / S;
+}
+function srTrain({ lr, batch }) {
+  const size = QD.classes * QD.pixels;
+  const W = new Float32Array(size), b = new Float32Array(QD.classes);
+  const gW = new Float32Array(size), gb = new Float32Array(QD.classes);
+  const z = new Float32Array(QD.classes), p = new Float32Array(QD.classes);
+  for (let i = 0; i < QD.train; i++) {
+    const { x, label } = qdImage(i);
+    srLogits(W, b, x, z); srSoftmax(z, p);
+    for (let r = 0; r < QD.classes; r++) {
+      const d = Math.fround(p[r] - (r === label ? 1 : 0));
+      for (let j = 0, base = r * QD.pixels; j < QD.pixels; j++) gW[base + j] = gW[base + j] + Math.fround(d * x[j]);
+      gb[r] = gb[r] + d;
+    }
+    if ((i + 1) % batch) continue;
+    // 그림마다 갱신할 때는 평균 블록이 없습니다 (÷1 은 값이 같음).
+    for (let q = 0; q < size; q++) { W[q] = W[q] - Math.fround(lr * Math.fround(gW[q] / batch)); gW[q] = 0; }
+    for (let r = 0; r < QD.classes; r++) { b[r] = b[r] - Math.fround(lr * Math.fround(gb[r] / batch)); gb[r] = 0; }
+  }
+  return { W, b };
+}
+// 평가: 최고 확률이 여럿이면 정답이 그중에 있을 때 1 / 동률 수 (평가 패널과 같은 규칙).
+function srEvaluate({ W, b }) {
+  const z = new Float32Array(QD.classes), p = new Float32Array(QD.classes);
+  const confusion = new Float64Array(QD.classes * QD.classes);
+  let correct = 0;
+  for (let i = QD.test.start; i < QD.test.start + QD.test.count; i++) {
+    const { x, label } = qdImage(i);
+    srLogits(W, b, x, z); srSoftmax(z, p);
+    let m = -Infinity;
+    for (const v of p) if (v > m) m = v;
+    const winners = [];
+    for (let r = 0; r < QD.classes; r++) if (p[r] === m) winners.push(r);
+    if (winners.includes(label)) correct += 1 / winners.length;
+    for (const r of winners) confusion[label * QD.classes + r] += 1 / winners.length;
+  }
+  const perClass = Array.from({ length: QD.classes }, (_, c) => confusion[c * QD.classes + c] / (QD.test.count / QD.classes));
+  return { correct, accuracy: correct / QD.test.count, confusion, perClass };
+}
+
+const SR_ONLINE = { lr: 0.005, batch: 1 };
+const SR_BATCH = { lr: 0.1, batch: 15 };
+const MLP = { lr: 0.1, epochs: 5, hidden: 64, seed1: 5, seed2: 7, scale1: 0.0875, scale2: 0.25 };
+// 17단계 MLP 는 흉내내기에 계산이 커서 페이지에서 잰 값을 적어 둡니다 (내용 검사가 다시 잽니다).
+const MLP_MEASURED = { after: 0.7688666666666667 };
+let srCache = null;
+function srResults() {
+  if (srCache) return srCache;
+  const online = srTrain(SR_ONLINE), batched = srTrain(SR_BATCH);
+  srCache = { online: srEvaluate(online), batched: { ...srEvaluate(batched), weights: batched } };
+  return srCache;
+}
+
+// 데이터 블록 → 그림, 784 벡터, 종류 벡터
+function sampleFront(ws, index, col, row) {
+  const dataset = ws.add('dataset', {}, col, row + 1);
+  const sample = ws.op('datasetSampleByIndex', [dataset, index], col + 1, row);
+  const image = ws.op('sampleImage', [sample], col + 2, row);
+  const x = ws.op('flatten', [image], col + 3, row);
+  const y = ws.op('sampleOneHot', [sample], col + 3, row + 1);
+  return { sample, image, x, y };
+}
+
+const qdMatrix = (name, rows, cols, extra = {}) => ({ mode: 'matrix', rows, cols, value: 0, ...extra });
+const qdVector = (length, extra = {}) => ({ mode: 'vector', length, value: 0, ...extra });
+
+// ---------- 11단계: 데이터 블록 ----------
+
+function build11() {
+  const ws = new Workspace();
+  const dataset = ws.add('dataset', {}, 0, 0);
+  [0, 1, 15, 15000].forEach((i, n) => {
+    const R = n * 1.4;
+    const index = ws.number(i, 0, R + 1);
+    const sample = ws.op('datasetSampleByIndex', [dataset, index], 1, R);
+    const image = ws.op('sampleImage', [sample], 2, R);
+    const { x, label } = qdImage(i);
+    ws.display(image, 3, R, { approx: Array.from(x), tol: 1e-7, shape: [28, 28] }, { view: 'image' });
+    ws.display(ws.op('sampleLabel', [sample], 4, R), 5, R, { expect: label });
+    ws.display(ws.op('sampleOneHot', [sample], 4, R + 0.7), 5, R + 0.7, { expect: oneHot(label) });
+    if (n === 0) ws.display(ws.op('flatten', [image], 6, R), 7, R, { approx: Array.from(x), tol: 1e-7, shape: [784] });
+  });
+  return { ws, datasetSelection: QD_CLASSES, viewport: { x: 0, y: 0, zoom: 0.6 } };
+}
+
+// ---------- 12단계: Softmax ----------
+
+const SOFTMAX_Z = [2, 1, 0.1];
+const simSoftmax = z => { const m = Math.max(...z); const e = sim.exp(sim.sub(z, m)); return sim.div(e, sim.sum(e)); };
+
+function build12() {
+  const ws = new Workspace();
+  const shifted = SOFTMAX_Z.map(v => v + 1000);
+  const rows = [['z', SOFTMAX_Z, 0], ['z_큰값', shifted, 3]];
+  for (const [name, values, R] of rows) {
+    const z = ws.variable(name, qdVector(3), 0, R, values);
+    const zf = Array.from(Float32Array.from(values));
+    ws.display(z, 1, R, { approx: zf, tol: 1e-9 });
+    // 그대로: e^z / Σe^z
+    const e = ws.op('exp', [z], 1, R + 1);
+    const naive = ws.op('divide', [e, ws.op('sum', [e], 2, R + 1.6)], 3, R + 1);
+    ws.display(naive, 4, R + 1, R === 0 ? { approx: sim.div(sim.exp(zf), sim.sum(sim.exp(zf))), tol: 1e-7 } : null);
+    // 안정화: 최댓값을 빼고 계산
+    const p = ws.custom(CNN_BLOCKS.softmax15, [z], 2, R);
+    ws.display(p, 3, R, { approx: simSoftmax(zf), tol: 1e-7 });
+    ws.display(ws.op('sum', [p], 4, R), 5, R, { approx: 1, tol: 1e-6 });
+  }
+  return { ws, viewport: { x: 0, y: 0, zoom: 0.65 } };
+}
+
+// ---------- 13단계: 교차 엔트로피와 기울기 p − y ----------
+
+const CE = { z: SOFTMAX_Z, label: 1, h: 0.01 };
+
+function simCrossEntropy(z, y) {
+  const m = Math.max(...z);
+  const lse = m + Math.log(sim.sum(sim.exp(sim.sub(z, m))));
+  return sim.sum(sim.mul(y, sim.sub(z, lse))) * -1;
+}
+
+function build13() {
+  const ws = new Workspace();
+  const yv = oneHot(CE.label, 3);
+  const zf = Array.from(Float32Array.from(CE.z));
+  const z = ws.variable('z', qdVector(3), 0, 0, CE.z);
+  const y = ws.variable('y', qdVector(3), 0, 1, yv);
+  const p = ws.custom(CNN_BLOCKS.softmax15, [z], 1, 0);
+  const pv = simSoftmax(zf);
+  ws.display(p, 2, 0, { approx: pv, tol: 1e-7 });
+  const loss = ws.custom(CNN_BLOCKS.softmax_ce15, [z, y], 1, 1.2);
+  ws.display(loss, 2, 1.2, { approx: simCrossEntropy(zf, yv), tol: 1e-6 });
+  // 확인: −Σ y · log p
+  const manual = ws.op('multiply', [ws.op('sum', [ws.op('multiply', [y, ws.op('log', [p], 2, 2.2)], 3, 2.2)], 4, 2.2), ws.number(-1, 4, 3)], 5, 2.2);
+  ws.display(manual, 6, 2.2, { approx: -Math.log(pv[CE.label]), tol: 1e-5 });
+
+  // 역전파: g = 1 → ∂z = p − y
+  ws.variable('g', { value: 1 }, 0, 4);
+  ws.custom(CNN_BLOCKS.softmax_ce15, [z, y], 1, 4, backwardParams2('g', ['dz', '']));
+  const gradient = sim.sub(pv, yv);
+  ws.display(ws.variable('dz', qdVector(3), 2, 4), 3, 4, { approx: gradient, tol: 1e-6 });
+
+  // 수치 미분: z 의 k번째 칸만 ±h
+  const h = ws.number(CE.h, 0, 6.5), twoH = ws.number(2 * CE.h, 0, 7.5);
+  [0, 1, 2].forEach(k => {
+    const R = 6.5 + k * 1.4;
+    const ek = ws.variable(`e${k + 1}`, qdVector(3), 1, R, oneHot(k, 3));
+    const step = ws.op('multiply', [ek, h], 2, R + 0.7);
+    const up = ws.custom(CNN_BLOCKS.softmax_ce15, [ws.op('add', [z, step], 3, R), y], 4, R);
+    const down = ws.custom(CNN_BLOCKS.softmax_ce15, [ws.op('subtract', [z, step], 3, R + 0.7), y], 4, R + 0.7);
+    ws.display(ws.op('divide', [ws.op('subtract', [up, down], 5, R), twoH], 6, R), 7, R, { approx: gradient[k], tol: 1e-3 });
+  });
+  return { ws, viewport: { x: 0, y: 0, zoom: 0.55 } };
+}
+
+// ---------- 14·15단계: 소프트맥스 회귀 학습 ----------
+
+// 역전파 변수와 순전파·역전파 블록. 반복 구조는 단계마다 다릅니다.
+function softmaxRegression(ws, front, R, imageAt) {
+  const Wparams = qdMatrix('W', QD.classes, QD.pixels, { trainable: 'yes' }), bparams = qdVector(QD.classes, { trainable: 'yes' });
+  const W = ws.variable('W', Wparams, 4, R);
+  const b = ws.variable('b', bparams, 4, R + 1);
+  const z = ws.custom(CNN_BLOCKS.dense_linear15, [W, front.x, b], 5, R);
+  const loss = ws.custom(CNN_BLOCKS.softmax_ce15, [z, front.y], 6, R);
+  const probability = ws.custom(CNN_BLOCKS.softmax15, [z], 6, R + 1);
+  ws.display(loss, 7, R);
+  ws.display(probability, 7, R + 1);
+  ws.display(front.image, ...imageAt, null, { view: 'image' });
+  ws.variable('gL', { value: 1 }, 8.2, R);
+  ws.variable('dz', qdVector(QD.classes), 8.2, R + 0.8);
+  ws.variable('dW', qdMatrix('dW', QD.classes, QD.pixels), 9.2, R);
+  ws.variable('db', qdVector(QD.classes), 9.2, R + 0.8);
+  const backward = [
+    ws.custom(CNN_BLOCKS.softmax_ce15, [z, front.y], 6, R + 2.5, backwardParams2('gL', ['dz', ''])),
+    ws.custom(CNN_BLOCKS.dense_linear15, [W, front.x, b], 5, R + 2.5, backwardParams2('dz', ['dW', '', 'db']))
+  ];
+  return { W, b, Wparams, bparams, probability, backward };
+}
+
+// 학습한 W 의 k번째 줄을 28×28 로: 종류 k 의 점수를 올리는 픽셀(빨강)과 내리는 픽셀(파랑).
+function weightTemplates(ws, W, col, row) {
+  [0, 2, 5, 6, 7].forEach((k, n) => {
+    const ek = ws.variable(`e_${QD_CLASSES[k]}`, qdVector(QD.classes), col, row + n * 1.2, oneHot(k));
+    const line = ws.op('transposeMatvec', [W, ek], col + 1, row + n * 1.2);
+    ws.display(ws.op('reshape', [line], col + 2, row + n * 1.2, { shape: '28,28' }), col + 3, row + n * 1.2, null, { view: 'image' });
+  });
+}
+
+function build14() {
+  const ws = new Workspace();
+  const i = ws.variable('i', { value: 0 }, 0, 0);
+  const front = sampleFront(ws, i, 0, 1);
+  const model = softmaxRegression(ws, front, 0, [2, 2.3]);
+  const eta = ws.number(SR_ONLINE.lr, 0, 4);
+  const updates = [['W', 'dW'], ['b', 'db']].map(([name, grad], n) => {
+    const g = ws.variable(grad, name === 'W' ? qdMatrix(grad, QD.classes, QD.pixels) : qdVector(QD.classes), 1 + n * 2, 5.5);
+    return ws.op('setVariable', [ws.custom(SGD_STEP, [model[name], eta, g], 2 + n * 2, 5.5)], 2 + n * 2, 6.5, { variable: name });
+  });
+  const body = ws.op('sequence', [ws.chain(model.backward, 7, 3.5), ws.chain(updates, 7, 4.5)], 9, 4);
+  ws.op('repeat', [body], 10, 4, { count: QD.train, start: 0, indexVariable: 'i' });
+  const after = ws.variable('W', qdMatrix('W', QD.classes, QD.pixels, { trainable: 'yes' }), 0, 8);
+  weightTemplates(ws, after, 1, 8);
+  const expected = srResults().online;
+  return {
+    ws, datasetSelection: QD_CLASSES, viewport: { x: 0, y: 0, zoom: 0.5 },
+    verify: { probabilityId: model.probability, ...QD.test, before: 1 / QD.classes, tol: 1e-9, train: true, after: expected.accuracy, afterTol: 0.002 }
+  };
+}
+
+// 미니배치: 그림 15장(k)의 기울기를 g 에 모으고, 평균 g/15 로 한 번 갱신한 뒤 g ← 0.
+// params: [{ name, shape, variable }] — variable 은 파라미터 변수 블록의 설정. 같은 이름의 변수 블록은
+// 설정(서명)이 같아야 값을 공유하므로 갱신 줄의 파라미터 블록도 같은 설정으로 만듭니다.
+function minibatchLoop(ws, params, backward, eta, col, row, epochs = 1) {
+  const fifteen = ws.number(QD.classes, col, row + 3);
+  const accumulate = [], update = [], reset = [];
+  params.forEach(({ name, shape, variable }, n) => {
+    const params = shape.length === 2 ? qdMatrix(name, shape[0], shape[1]) : qdVector(shape[0]);
+    const local = ws.variable(`d${name}`, params, col + n * 2.2, row);
+    const g = ws.variable(`g${name}`, params, col + n * 2.2, row + 1);
+    accumulate.push(ws.op('setVariable', [ws.op('add', [g, local], col + 1 + n * 2.2, row)], col + 1 + n * 2.2, row + 0.8, { variable: `g${name}` }));
+    const mean = ws.op('divide', [g, fifteen], col + 1 + n * 2.2, row + 1.8);
+    update.push(ws.op('setVariable', [ws.custom(SGD_STEP, [ws.variable(name, variable, col + n * 2.2, row + 2), eta, mean], col + 1 + n * 2.2, row + 2.8)], col + 1 + n * 2.2, row + 3.6, { variable: name }));
+    const zero = shape.length === 2
+      ? ws.add('matrix', { rows: shape[0], cols: shape[1], init: 'constant', value: 0, seed: 1, scale: 0.05 }, col + n * 2.2, row + 4.4)
+      : ws.add('constantVector', { length: shape[0], value: 0 }, col + n * 2.2, row + 4.4);
+    reset.push(ws.op('setVariable', [zero], col + 1 + n * 2.2, row + 4.4, { variable: `g${name}` }));
+  });
+  const X = col + params.length * 2.2 + 0.5;
+  const perSample = ws.op('sequence', [ws.chain(backward, X, row), ws.chain(accumulate, X, row + 0.8)], X + backward.length, row);
+  const samples = ws.op('repeat', [perSample], X + backward.length + 1, row, { count: QD.classes, start: 0, indexVariable: 'k' });
+  const perBatch = ws.op('sequence', [ws.op('sequence', [samples, ws.chain(update, X, row + 2)], X + backward.length + 2, row), ws.chain(reset, X, row + 3)], X + backward.length + 3, row);
+  const batches = ws.op('repeat', [perBatch], X + backward.length + 4, row, { count: QD.train / QD.classes, start: 0, indexVariable: 'batch' });
+  return epochs === 1 ? batches : ws.op('repeat', [batches], X + backward.length + 5, row, { count: epochs, start: 0, indexVariable: 'epoch' });
+}
+
+// 학습 그림 번호 = batch × 15 + k
+function batchIndex(ws, col, row) {
+  const batch = ws.variable('batch', { value: 0 }, col, row);
+  const k = ws.variable('k', { value: 0 }, col, row + 1);
+  return ws.op('add', [ws.op('multiply', [batch, ws.number(QD.classes, col, row + 2)], col + 1, row), k], col + 1, row + 1);
+}
+
+function build15() {
+  const ws = new Workspace();
+  const front = sampleFront(ws, batchIndex(ws, 0, 0), 0, 3);
+  const model = softmaxRegression(ws, front, 0, [2, 4.4]);
+  const eta = ws.number(SR_BATCH.lr, 0, 5.5);
+  minibatchLoop(ws, [
+    { name: 'W', shape: [QD.classes, QD.pixels], variable: model.Wparams }, { name: 'b', shape: [QD.classes], variable: model.bparams }
+  ], model.backward, eta, 1, 7);
+  const expected = srResults().batched;
+  return {
+    ws, datasetSelection: QD_CLASSES, viewport: { x: 0, y: 0, zoom: 0.45 },
+    verify: { probabilityId: model.probability, ...QD.test, before: 1 / QD.classes, tol: 1e-9, train: true, after: expected.accuracy, afterTol: 0.002 }
+  };
+}
+
+// ---------- 16단계: 평가를 블록으로 ----------
+
+function build16() {
+  const ws = new Workspace();
+  const result = srResults().batched;
+  const testI = ws.variable('test_i', { value: QD.test.start }, 0, 0);
+  const front = sampleFront(ws, testI, 0, 1);
+  const Wp = qdMatrix('W', QD.classes, QD.pixels, { trainable: 'yes' }), bp = qdVector(QD.classes, { trainable: 'yes' });
+  const W = ws.variable('W', Wp, 4, 0), b = ws.variable('b', bp, 4, 1);
+  ws.runtimeVariables.push(
+    { name: 'W', signature: variableSignature(variableParams('W', Wp)), value: float32Value(result.weights.W, [QD.classes, QD.pixels]) },
+    { name: 'b', signature: variableSignature(variableParams('b', bp)), value: float32Value(result.weights.b, [QD.classes]) }
+  );
+  const p = ws.custom(CNN_BLOCKS.softmax15, [ws.custom(CNN_BLOCKS.dense_linear15, [W, front.x, b], 5, 0)], 6, 0);
+  ws.display(p, 7, 0);
+  ws.display(front.image, 3, 3.2, null, { view: 'image' });
+
+  // 예측 = 최고 확률 칸이 1 (동률이면 나눠 가짐). 정답 칸과 겹치는 만큼 맞음.
+  const pred = ws.op('equal', [p, ws.op('arrayMax', [p], 6, 1.5)], 7, 1.5);
+  const share = ws.op('divide', [pred, ws.op('sum', [pred], 7, 2.3)], 8, 1.5);
+  const correct = ws.variable('맞은수', { value: 0 }, 9, 0);
+  const confusion = ws.variable('혼동행렬', qdMatrix('혼동행렬', QD.classes, QD.classes), 9, 1);
+  // 계산할 때마다 0부터 다시 셉니다. '계산'은 만든 순서대로 계산하므로 평가 반복보다 먼저 만듭니다.
+  const resetCorrect = ws.op('setVariable', [ws.number(0, 11, 2.3)], 12, 2.3, { variable: '맞은수' });
+  const resetConfusion = ws.op('setVariable', [ws.add('matrix', { rows: QD.classes, cols: QD.classes, init: 'constant', value: 0, seed: 1, scale: 0.05 }, 11, 3.1)], 12, 3.1, { variable: '혼동행렬' });
+  const addCorrect = ws.op('setVariable', [ws.op('add', [correct, ws.op('dot', [front.y, share], 9, 2.3)], 10, 0)], 11, 0, { variable: '맞은수' });
+  const addConfusion = ws.op('setVariable', [ws.op('add', [confusion, ws.op('outerProduct', [front.y, share], 9, 3.1)], 10, 1)], 11, 1, { variable: '혼동행렬' });
+  const loop = ws.op('repeat', [ws.op('sequence', [addCorrect, addConfusion], 12, 0.5)], 13, 0.5, { count: QD.test.count, start: QD.test.start, indexVariable: 'test_i' });
+  ws.op('sequence', [ws.op('sequence', [resetCorrect, resetConfusion], 13, 2.3), loop], 14, 1.5);
+
+  // 결과: 반복 뒤에 만든 블록이라 평가가 끝난 값을 읽습니다.
+  const Y = 5;
+  const correctAfter = ws.variable('맞은수', { value: 0 }, 9, Y);
+  ws.display(correctAfter, 10, Y, { approx: result.correct, tol: 1e-6 });
+  ws.display(ws.op('divide', [correctAfter, ws.number(QD.test.count, 9, Y + 1)], 10, Y + 1), 11, Y + 1, { approx: result.accuracy, tol: 1e-9 });
+  const confusionAfter = ws.variable('혼동행렬', qdMatrix('혼동행렬', QD.classes, QD.classes), 9, Y + 2);
+  ws.display(confusionAfter, 10, Y + 2, { approx: Array.from(result.confusion), tol: 1e-6, shape: [QD.classes, QD.classes] }, { view: 'image' });
+  // 종류별 정확도 = 혼동 행렬의 대각선 / 종류별 1,000장
+  const eye = ws.variable('단위행렬', qdMatrix('단위행렬', QD.classes, QD.classes), 9, Y + 3.2, Array.from({ length: QD.classes * QD.classes }, (_, q) => (q % (QD.classes + 1) === 0 ? 1 : 0)));
+  const ones = ws.add('constantVector', { length: QD.classes, value: 1 }, 10, Y + 4);
+  const diagonal = ws.op('matvec', [ws.op('multiply', [confusionAfter, eye], 10, Y + 3.2), ones], 11, Y + 3.2);
+  ws.display(ws.op('divide', [diagonal, ws.number(QD.test.count / QD.classes, 11, Y + 4)], 12, Y + 3.2), 13, Y + 3.2, { approx: result.perClass, tol: 1e-6 });
+  return { ws, datasetSelection: QD_CLASSES, viewport: { x: 0, y: 0, zoom: 0.5 }, eval: result };
+}
+
+// ---------- 17단계: 은닉층을 더한 MLP ----------
+
+function build17() {
+  const ws = new Workspace();
+  const front = sampleFront(ws, batchIndex(ws, 0, 0), 0, 3);
+  const settings = {
+    W1: qdMatrix('W1', MLP.hidden, QD.pixels, { init: 'random', seed: MLP.seed1, scale: MLP.scale1, trainable: 'yes' }),
+    b1: qdVector(MLP.hidden, { trainable: 'yes' }),
+    W2: qdMatrix('W2', QD.classes, MLP.hidden, { init: 'random', seed: MLP.seed2, scale: MLP.scale2, trainable: 'yes' }),
+    b2: qdVector(QD.classes, { trainable: 'yes' })
+  };
+  const P = {
+    W1: ws.variable('W1', settings.W1, 4, 0), b1: ws.variable('b1', settings.b1, 4, 1),
+    W2: ws.variable('W2', settings.W2, 6, 0), b2: ws.variable('b2', settings.b2, 6, 1)
+  };
+  const h = ws.custom(CNN_BLOCKS.dense_relu64, [P.W1, front.x, P.b1], 5, 0.5);
+  const z = ws.custom(CNN_BLOCKS.dense_linear15, [P.W2, h, P.b2], 7, 0.5);
+  const loss = ws.custom(CNN_BLOCKS.softmax_ce15, [z, front.y], 8, 0);
+  const probability = ws.custom(CNN_BLOCKS.softmax15, [z], 8, 1);
+  ws.display(loss, 9, 0);
+  ws.display(probability, 9, 1);
+  ws.display(front.image, 3, 5.2, null, { view: 'image' });
+  ws.variable('gL', { value: 1 }, 10, 0);
+  ws.variable('dz', qdVector(QD.classes), 10, 0.8);
+  ws.variable('dh', qdVector(MLP.hidden), 10, 1.6);
+  const backward = [
+    ws.custom(CNN_BLOCKS.softmax_ce15, [z, front.y], 8, 2.5, backwardParams2('gL', ['dz', ''])),
+    ws.custom(CNN_BLOCKS.dense_linear15, [P.W2, h, P.b2], 7, 2.5, backwardParams2('dz', ['dW2', 'dh', 'db2'])),
+    ws.custom(CNN_BLOCKS.dense_relu64, [P.W1, front.x, P.b1], 5, 2.5, backwardParams2('dh', ['dW1', '', 'db1']))
+  ];
+  const eta = ws.number(MLP.lr, 0, 6.5);
+  minibatchLoop(ws, [
+    { name: 'W1', shape: [MLP.hidden, QD.pixels], variable: settings.W1 }, { name: 'b1', shape: [MLP.hidden], variable: settings.b1 },
+    { name: 'W2', shape: [QD.classes, MLP.hidden], variable: settings.W2 }, { name: 'b2', shape: [QD.classes], variable: settings.b2 }
+  ], backward, eta, 1, 8, MLP.epochs);
+  return {
+    ws, datasetSelection: QD_CLASSES, viewport: { x: 0, y: 0, zoom: 0.45 },
+    verify: { probabilityId: probability, ...QD.test, before: null, tol: 1, train: true, after: MLP_MEASURED.after, afterTol: 0.01 }
+  };
+}
+
 // ---------- 단계 목록과 설명 ----------
 
 function buildAll() {
   const s03 = build03();
   const s04 = build04();
   const s05 = build05(), s07 = build07(), s08 = build08(), s09 = build09(), s10 = build10();
+  const s16 = build16();
   const steps = [
     { id: '00a', title: '0-1. 입력 블록과 값 보기', file: '00a-input-blocks.mmlab', build: build00a() },
     { id: '00b', title: '0-2. 수학 연산 블록', file: '00b-math-blocks.mmlab', build: build00b() },
@@ -1373,6 +1753,13 @@ function buildAll() {
     { id: '08', title: '8. 뉴런 하나를 경사하강으로 학습: AND', file: '08-neuron-and.mmlab', build: s08 },
     { id: '09', title: '9. 2-2-1 신경망으로 XOR 학습 성공', file: '09-xor-backprop.mmlab', build: s09 },
     { id: '10', title: '10. 층 블록 Wx + b 와 그 역전파', file: '10-dense-layer.mmlab', build: s10 },
+    { id: '11', title: '11. 데이터 블록: Quick Draw 그림과 정답', file: '11-data-blocks.mmlab', build: build11() },
+    { id: '12', title: '12. Softmax: 점수를 확률로', file: '12-softmax.mmlab', build: build12() },
+    { id: '13', title: '13. 교차 엔트로피와 기울기 p − y', file: '13-cross-entropy.mmlab', build: build13() },
+    { id: '14', title: '14. 소프트맥스 회귀: 그림 한 장씩 학습', file: '14-softmax-regression.mmlab', build: build14() },
+    { id: '15', title: '15. 미니배치: 15장의 기울기를 모아 한 번에', file: '15-minibatch.mmlab', build: build15() },
+    { id: '16', title: '16. 평가: 정확도와 혼동 행렬', file: '16-evaluation.mmlab', build: s16 },
+    { id: '17', title: '17. 은닉층을 더한 MLP', file: '17-mlp.mmlab', build: build17() },
     { id: 'cnn-train', title: 'CNN 학습: 무작위 가중치에서 1 epoch', file: 'cnn-1-train.mmlab', build: buildCnn({ trained: false }) },
     { id: 'cnn-trained', title: 'CNN 완성: 60 epoch 학습 결과 평가와 손그림 분류', file: 'cnn-2-trained.mmlab', build: buildCnn({ trained: true }) }
   ];
@@ -1548,6 +1935,85 @@ function buildAll() {
       '위: 진리표 k번째 줄 x = X·[번호 = k] 를 하나씩 꺼내 순전파.',
       `가운데: 역전파 5개 → W, b 갱신. 줄 4개(k) × ${LAYER_NET.epochs.toLocaleString()}번(epoch). 09단계는 네 줄을 한꺼번에, 여기서는 한 줄씩 갱신합니다.`,
       `아래: 학습 후 네 줄의 예측 ${s10.sim.after.map(v => v.toFixed(2)).join(', ')}.`
+    ],
+    '11': [
+      `이제 실제 데이터입니다. Quick Draw 손그림 ${QD.classes}종, 종류마다 28×28 흑백 그림.`,
+      `  ${QD_CLASSES.join(', ')}`,
+      '',
+      '‘데이터 샘플’ 블록은 번호 i 하나로 그림을 고릅니다:  종류 = i mod 15,  그 종류의 ⌊i / 15⌋번째 그림.',
+      '  i = 0 → 고양이 0번,  i = 1 → 물고기 0번,  i = 15 → 고양이 1번,  i = 15,000 → 고양이 1,000번',
+      '‘그림값’은 픽셀을 0~1로 바꾼 28×28 배열(그림 보기), ‘펼치기’는 784칸 벡터, ‘종류 번호’와 ‘종류 벡터’(정답 칸만 1)는 정답입니다.',
+      '',
+      `학습용: 0 ~ ${(QD.train - 1).toLocaleString()} (종류마다 1,000장)`,
+      `평가용: ${QD.test.start.toLocaleString()} ~ ${(QD.test.start + QD.test.count - 1).toLocaleString()} (학습에 한 번도 쓰지 않은 그림)`,
+      '평가용을 따로 두는 이유: 외운 그림이 아니라 처음 보는 그림을 맞히는지 재야 하기 때문입니다.'
+    ],
+    '12': [
+      `신경망의 마지막 출력은 종류마다 점수 하나(${QD.classes}개)입니다. 이 점수를 확률로 바꾸는 것이 Softmax:`,
+      '  pₖ = e^(zₖ) / Σ e^(z)     (모두 양수, 합 1, 점수가 클수록 확률도 큼)',
+      '',
+      `위: z = [${SOFTMAX_Z.join(', ')}]. 식 그대로 계산해도, 블록으로 계산해도 같은 확률.`,
+      `아래: z에 1,000을 더한 [${SOFTMAX_Z.map(v => v + 1000).join(', ')}]. 식 그대로 하면 e¹⁰⁰⁰이 컴퓨터가 담을 수 있는 수를 넘어 ∞ / ∞ = NaN.`,
+      '',
+      '해결: 가장 큰 점수를 먼저 빼고 계산합니다.  e^(zₖ − m) / Σ e^(z − m)',
+      '분자와 분모에 똑같이 e⁻ᵐ이 곱해져 값은 그대로이고, 지수는 0 이하라 넘치지 않습니다. 그래서 아래 결과가 위와 같습니다.',
+      '‘예측 · Softmax 확률’ 블록 안이 바로 이 계산이고, 마지막 CNN에서도 같은 블록을 씁니다.'
+    ],
+    '13': [
+      '확률 p가 정답을 얼마나 잘 맞히는지 재는 손실이 교차 엔트로피:',
+      '  L = −Σ yₖ · log pₖ = −log(정답 칸의 확률)',
+      '정답 확률이 1이면 0, 0에 가까울수록 커집니다.',
+      '',
+      `위: z = [${SOFTMAX_Z.join(', ')}], 정답은 두 번째 칸. ‘손실 · Softmax Cross Entropy’ 블록과 −Σ y·log p 를 직접 계산한 값이 같습니다.`,
+      '',
+      '이 블록의 역전파는 아주 간단합니다:  ∂L/∂z = p − y',
+      '  정답 칸: p − 1 < 0 → 그 점수를 올리고,  나머지 칸: p > 0 → 그 점수를 내립니다.',
+      '가운데: 역전파 실행으로 구한 dz,  아래: z의 칸 하나씩 ±0.01 움직인 수치 미분. 세 칸 모두 같습니다.'
+    ],
+    '14': [
+      `가장 단순한 분류기: 그림 784칸 → 점수 ${QD.classes}개.  z = Wx + b,  p = softmax(z).   (W: 15 × 784, 파라미터 ${(QD.classes * QD.pixels + QD.classes).toLocaleString()}개)`,
+      '블록: 10단계의 층 블록과 같은 ‘출력층’, 13단계의 ‘손실’, 12단계의 ‘예측 확률’.',
+      '',
+      `한 회차 = 그림 i 하나 → 순전파 → 역전파(손실 → 출력층) → W, b 갱신 (η = ${SR_ONLINE.lr}).`,
+      `반복: 학습용 그림 ${QD.train.toLocaleString()}장을 한 번씩 (1 epoch).`,
+      '',
+      '시연',
+      `  1. ‘예측 확률’ 선택 → ‘그림별 예측 평가’(시작 15,000, 15,000장) → ${percent(1 / QD.classes)}. W가 모두 0이라 모든 점수가 같습니다.`,
+      `  2. ‘계산’ (몇 초) → 다시 평가 → ${percent(srResults().online.accuracy)}.`,
+      '  3. 아래 그림: 학습한 W의 줄 하나를 28×28로 펼친 것. 그 종류 점수를 올리는 픽셀이 빨강, 내리는 픽셀이 파랑입니다.',
+      `     (${[0, 2, 5, 6, 7].map(k => QD_CLASSES[k]).join(', ')})`
+    ],
+    '15': [
+      '그림 한 장마다 갱신하면 기울기가 그림마다 들쭉날쭉합니다. 여러 장의 기울기를 평균 내어 한 번에 갱신하는 것이 미니배치.',
+      '',
+      `학습 그림 번호 = batch × 15 + k.  k = 0~14 동안 기울기를 g에 더하고(누적), 15장이 끝나면  W ← W − η · g/15,  g ← 0.`,
+      '번호를 이렇게 매기면 한 배치에 15종이 한 장씩 들어갑니다.',
+      `반복: 15장(k) × 배치 ${(QD.train / QD.classes).toLocaleString()}개(batch) = 1 epoch,  η = ${SR_BATCH.lr}`,
+      '',
+      `결과: 테스트 정확도 ${percent(srResults().batched.accuracy)}. 14단계(${percent(srResults().online.accuracy)})와 거의 같은데 갱신 횟수는 1/15입니다.`,
+      '마지막 CNN의 학습 반복도 정확히 이 구조(누적 → 갱신 → 초기화)입니다.'
+    ],
+    '16': [
+      '평가도 블록으로 직접 셉니다. 15단계에서 학습한 W, b를 넣어 두었습니다.',
+      '',
+      `반복: 평가용 그림 ${QD.test.count.toLocaleString()}장(test_i = 15,000 ~ 29,999)마다`,
+      '  예측 = [p = max(p)] (최고 확률 칸만 1, 동률이면 나눠 가짐)',
+      '  맞은수 ← 맞은수 + 정답 · 예측',
+      '  혼동행렬 ← 혼동행렬 + 정답 ⊗ 예측    (행: 정답 종류, 열: 예측 종류)',
+      '',
+      `결과: 맞은 수 ${Math.round(s16.eval.correct).toLocaleString()} / ${QD.test.count.toLocaleString()} = ${percent(s16.eval.accuracy)}.`,
+      '혼동 행렬(그림 보기): 대각선이 진할수록 잘 맞힌 것, 대각선 밖의 칸은 어떤 종류를 무엇으로 헷갈렸는지입니다.',
+      `종류별 정확도 = 대각선 / 1,000:  가장 높은 ${QD_CLASSES[s16.eval.perClass.indexOf(Math.max(...s16.eval.perClass))]} ${percent(Math.max(...s16.eval.perClass))},  가장 낮은 ${QD_CLASSES[s16.eval.perClass.indexOf(Math.min(...s16.eval.perClass))]} ${percent(Math.min(...s16.eval.perClass))}.`
+    ],
+    '17': [
+      `출력층 앞에 은닉층(ReLU, ${MLP.hidden}개)을 하나 더합니다:  h = ReLU(W₁x + b₁),  z = W₂h + b₂.   (파라미터 ${(MLP.hidden * QD.pixels + MLP.hidden + QD.classes * MLP.hidden + QD.classes).toLocaleString()}개)`,
+      '은닉층의 역전파: ∂h는 출력층 역전파가 Wᵀg로 넘겨 주고, ReLU는 z > 0인 칸만 기울기를 통과시킵니다.',
+      `학습은 15단계와 같은 미니배치(η = ${MLP.lr}), ${MLP.epochs} epoch.`,
+      '',
+      '시연: ‘계산’ (수십 초) → ‘예측 확률’ 선택 → ‘그림별 예측 평가’',
+      `결과: ${percent(MLP_MEASURED.after)}.  소프트맥스 회귀는 ${percent(srResults().batched.accuracy)}에서 더 학습해도 거의 오르지 않습니다(10 epoch 72.0%).`,
+      '은닉층이 픽셀들의 조합(획, 모양)을 먼저 만들고 그 위에서 분류하기 때문입니다.',
+      '그렇다면 그림의 ‘모양’을 처음부터 잘 찾는 층은 없을까? → 합성곱.'
     ],
     'cnn-train': [
       `Quick Draw 그림 15종을 분류하는 합성곱 신경망(CNN)입니다. 파라미터 ${CNN_PARAM_COUNT.toLocaleString()}개.`,

@@ -56,7 +56,7 @@ function loadChromium() {
 // ---------- page side ----------
 
 async function evaluateStepInPage({ project }) {
-  await restoreProject(project, { loadDataset: false });
+  await restoreProject(project); // 데이터를 쓰는 단계만 불러옵니다
   await evaluateGraph();
   const serialize = value => {
     if (typeof value === 'number') return value;
@@ -157,8 +157,11 @@ async function main() {
         const accuracyProblem = (label, got, want, tol) => {
           if (!(Math.abs(got - want) <= tol)) problems.push(`${label} 정확도 ${got} ≠ ${want} (허용 ${tol})`);
         };
-        accuracyProblem('평가', result.before, step.verify.before, step.verify.tol);
-        if (step.verify.train) accuracyProblem('학습 후', result.after, step.verify.after, step.verify.afterTol);
+        if (step.verify.before != null) accuracyProblem('평가', result.before, step.verify.before, step.verify.tol);
+        if (step.verify.train) {
+          if (step.verify.after == null) problems.push(`학습 후 정확도 기대값이 없습니다 (측정값 ${result.after})`);
+          else accuracyProblem('학습 후', result.after, step.verify.after, step.verify.afterTol);
+        }
         const accuracies = [result.before, result.after].filter(v => v !== undefined).map(v => `${(v * 100).toFixed(2)}%`).join(' → ');
         const label = `${step.file.padEnd(28)} 노드 ${String(result.nodeCount).padStart(3)} · 정확도 ${accuracies} · ${String(elapsed).padStart(5)} ms · ${result.status}`;
         if (problems.length) {
