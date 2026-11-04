@@ -131,14 +131,24 @@
       "file": "22-cnn-structure.mmlab"
     },
     {
-      "id": "cnn-train",
-      "title": "CNN 학습: 무작위 가중치에서 1 epoch",
-      "file": "cnn-1-train.mmlab"
+      "id": "23",
+      "title": "23. 모멘텀과 학습률 감쇠",
+      "file": "23-momentum.mmlab"
     },
     {
-      "id": "cnn-trained",
-      "title": "CNN 완성: 60 epoch 학습 결과 평가와 손그림 분류",
-      "file": "cnn-2-trained.mmlab"
+      "id": "24",
+      "title": "24. 최종 학습 루프: 처음부터 1 epoch",
+      "file": "24-cnn-train.mmlab"
+    },
+    {
+      "id": "25",
+      "title": "25. 학습된 CNN 평가: 정확도, 혼동 행렬, 틀린 그림",
+      "file": "25-cnn-evaluation.mmlab"
+    },
+    {
+      "id": "26",
+      "title": "26. 손그림 분류와 마무리",
+      "file": "26-drawing-demo.mmlab"
     }
   ]
 }
