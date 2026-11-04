@@ -2510,7 +2510,8 @@ function buildAll() {
       '  혼동 행렬(그림 보기)과 종류별 정확도: 16단계 소프트맥스 회귀와 비교하면 대각선 밖이 훨씬 옅어졌습니다.',
       '',
       '틀린 그림 보기: ‘예측 확률’ 블록 선택 → ‘그림별 예측 평가’ → ‘틀린 그림 랜덤 보기’.',
-      '  사람이 봐도 헷갈리는 그림이 많습니다 (고양이 ↔ 얼굴, 비행기 ↔ 새 모양 등).',
+      // 25단계에서 계산한 혼동 행렬로 센 값입니다.
+      '  가장 많이 헷갈린 짝: 별 ↔ 비행기 (57장, 43장), 얼굴 ↔ 시계 (52장, 39장), 나무 → 꽃 (47장). 사람이 봐도 헷갈리는 그림이 많습니다.',
       '',
       `정확도 정리: 소프트맥스 회귀 ${percent(srResults().batched.accuracy)} → MLP ${percent(MLP_MEASURED.after)} → CNN 1 epoch ${percent(CNN_MEASURED.oneEpoch)} → CNN 60 epoch ${percent(CNN_MEASURED.trained)}`
     ],
